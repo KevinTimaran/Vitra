@@ -1,0 +1,17 @@
+# Node & Expo
+node_modules/
+.expo/
+npm-debug.*
+*.log
+
+# Build artifacts
+dist/
+web-build/
+
+# Environment and temporary files
+.DS_Store
+*.swp
+*.swo
+
+# Old example directory
+ejemplo/
