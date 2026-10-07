@@ -75,16 +75,16 @@ function MainApp() {
     setCurrentTab(tab);
     if (tab === 'HOME') setCurrentScreen('HOME');
     if (tab === 'WARDROBE') setCurrentScreen('WARDROBE');
-    if (tab === 'FITTING_ROOM') setCurrentScreen('FITTING_ROOM');
     if (tab === 'COLOR_STUDIO') setCurrentScreen('COLOR_STUDIO');
+    if (tab === 'PROFILE') setCurrentScreen('PROFILE');
   };
 
   // Determine if Bottom Tab Bar should be visible
   const isTabBarVisible =
     currentScreen === 'HOME' ||
     currentScreen === 'WARDROBE' ||
-    currentScreen === 'FITTING_ROOM' ||
-    currentScreen === 'COLOR_STUDIO';
+    currentScreen === 'COLOR_STUDIO' ||
+    currentScreen === 'PROFILE';
 
   // Navigation Actions
   const handleSelectGarment = (garment: Garment) => {
@@ -94,7 +94,6 @@ function MainApp() {
 
   const handleTryOnGarment = (garment: Garment) => {
     setActiveGarment(garment);
-    setCurrentTab('FITTING_ROOM');
     setCurrentScreen('FITTING_ROOM');
   };
 
@@ -173,7 +172,6 @@ function MainApp() {
             savedLooks={savedLooks}
             paletteSwatches={COLOR_PALETTE_DATA.complementary}
             onOpenFittingRoom={() => {
-              setCurrentTab('FITTING_ROOM');
               setCurrentScreen('FITTING_ROOM');
             }}
             onAddGarment={() => setCurrentScreen('ADD_GARMENT')}
@@ -242,7 +240,7 @@ function MainApp() {
               setCurrentScreen('FIT_RESULT');
             }}
             onBuildOutfit={() => setCurrentScreen('OUTFIT_BUILDER')}
-            onBack={currentTab !== 'FITTING_ROOM' ? () => setCurrentScreen(currentTab) : undefined}
+            onBack={() => setCurrentScreen(currentTab)}
           />
         )}
 
@@ -288,7 +286,6 @@ function MainApp() {
               if (activeSavedLook.garments[0]) {
                 setActiveGarment(activeSavedLook.garments[0]);
               }
-              setCurrentTab('FITTING_ROOM');
               setCurrentScreen('FITTING_ROOM');
             }}
             onEditLook={() => setCurrentScreen('OUTFIT_BUILDER')}
@@ -380,7 +377,7 @@ function MainApp() {
                       if (
                         item.id === 'HOME' ||
                         item.id === 'WARDROBE' ||
-                        item.id === 'FITTING_ROOM' ||
+                        item.id === 'PROFILE' ||
                         item.id === 'COLOR_STUDIO'
                       ) {
                         setCurrentTab(item.id);

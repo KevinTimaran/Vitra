@@ -58,16 +58,16 @@ export const TabBar: React.FC<TabBarProps> = ({
       activeIcon: 'grid',
     },
     {
-      key: 'FITTING_ROOM',
-      label: isSpanish ? 'Probador' : 'Fitting',
-      icon: 'cube-outline',
-      activeIcon: 'cube',
-    },
-    {
       key: 'COLOR_STUDIO',
       label: isSpanish ? 'Color' : 'Studio',
       icon: 'color-palette-outline',
       activeIcon: 'color-palette',
+    },
+    {
+      key: 'PROFILE',
+      label: isSpanish ? 'Perfil' : 'Profile',
+      icon: 'person-outline',
+      activeIcon: 'person',
     },
   ];
 

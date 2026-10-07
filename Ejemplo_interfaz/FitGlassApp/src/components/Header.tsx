@@ -61,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Text style={[Typography.title2, { color: colors.primaryText }]} numberOfLines={1}>
               {title}
             </Text>
-            {subtitle && (
+            {!!subtitle && (
               <Text style={[Typography.caption, { color: colors.secondaryText, marginTop: 1 }]} numberOfLines={1}>
                 {subtitle}
               </Text>

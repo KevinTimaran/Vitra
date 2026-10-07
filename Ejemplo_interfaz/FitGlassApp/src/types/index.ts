@@ -15,7 +15,7 @@ export type ScreenName =
   | 'SAVED_LOOK'
   | 'PROFILE';
 
-export type TabName = 'HOME' | 'WARDROBE' | 'FITTING_ROOM' | 'COLOR_STUDIO';
+export type TabName = 'HOME' | 'WARDROBE' | 'COLOR_STUDIO' | 'PROFILE';
 
 export interface Garment {
   id: string;
