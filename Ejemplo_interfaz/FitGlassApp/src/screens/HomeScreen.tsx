@@ -74,38 +74,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* 3D Viewport Card */}
         <View style={[styles.viewportCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
-          <View style={styles.viewportTopBar}>
-            <View style={[styles.tagOutline, { borderColor: colors.border }]}>
-              <Text style={[styles.tagText, { color: colors.secondaryText }]}>VISTA 360° ACTIVA</Text>
-            </View>
-            <View style={[styles.tagSuccess, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-              <Text style={[styles.tagTextSuccess, { color: '#10B981' }]}> Ajuste 99% Calibrado</Text>
-            </View>
-            <TouchableOpacity style={[styles.tagOutline, { borderColor: colors.border, flexDirection: 'row', alignItems: 'center' }]}>
-              <Ionicons name="refresh" size={14} color={colors.secondaryText} />
-              <Text style={[styles.tagText, { color: colors.secondaryText }]}> Restablecer</Text>
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.viewportWrapper}>
-            <Viewport3DPlaceholder heightRatio={0.4} />
-          </View>
-
-          <View style={styles.viewportBottomBar}>
-            <Text style={[styles.layersLabel, { color: colors.tertiaryText }]}>CAPAS ACTIVAS:</Text>
-            <View style={styles.layerPills}>
-              <View style={[styles.layerPill, { backgroundColor: colors.surfaceSubtle }]}>
-                <View style={[styles.layerDot, { backgroundColor: '#D4B895' }]} />
-                <Text style={[styles.layerPillText, { color: colors.primaryText }]}>Abrigo Lana</Text>
-                <Ionicons name="close" size={14} color={colors.secondaryText} style={{ marginLeft: 4 }} />
-              </View>
-              <View style={[styles.layerPill, { backgroundColor: colors.surfaceSubtle }]}>
-                <View style={[styles.layerDot, { backgroundColor: '#1E293B' }]} />
-                <Text style={[styles.layerPillText, { color: colors.primaryText }]}>Jersey Merino</Text>
-                <Ionicons name="close" size={14} color={colors.secondaryText} style={{ marginLeft: 4 }} />
-              </View>
-            </View>
+            <Viewport3DPlaceholder heightRatio={0.4} onPressModel={onOpenFittingRoom} />
           </View>
         </View>
 
@@ -226,77 +196,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadows.subtle,
   },
-  viewportTopBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    zIndex: 10,
-  },
-  tagOutline: {
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-    justifyContent: 'center',
-  },
-  tagSuccess: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-  },
-  tagText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  tagTextSuccess: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
   viewportWrapper: {
-    marginTop: -20, // Let the 3D studio overlap slightly with the header
-    marginBottom: -10,
-  },
-  viewportBottomBar: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  layersLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginRight: Spacing.sm,
-    width: 45,
-  },
-  layerPills: {
-    flexDirection: 'row',
-    flex: 1,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  layerPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-  },
-  layerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
-  },
-  layerPillText: {
-    fontSize: 11,
-    fontWeight: '600',
+    // Fill the card neatly
   },
   wardrobeHeader: {
     flexDirection: 'row',

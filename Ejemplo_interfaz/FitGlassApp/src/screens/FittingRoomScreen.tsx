@@ -162,42 +162,30 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = ({
         {/* Action Buttons Row */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={[
-              styles.secondaryAction,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-            ]}
-            onPress={() => setSwitchSheetVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="swap-horizontal" size={18} color={colors.primaryText} />
-            <Text style={[styles.secondaryActionText, { color: colors.primaryText }]}>
-              {t('fittingRoom.switchGarment')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.primaryAction, { backgroundColor: colors.cta }]}
+            style={[styles.primaryAction, { backgroundColor: colors.cta, flex: 1 }]}
             onPress={() => setFitSheetVisible(true)}
             activeOpacity={0.85}
           >
-            <Ionicons name="options" size={18} color={colors.ctaText} />
+            <Ionicons name="options" size={20} color={colors.ctaText} />
             <Text style={[styles.primaryActionText, { color: colors.ctaText }]}>
               {t('fittingRoom.adjustFit')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.secondaryAction,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-            ]}
+            style={[styles.iconAction, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+            onPress={() => setSwitchSheetVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="swap-horizontal" size={22} color={colors.primaryText} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.iconAction, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
             onPress={onBuildOutfit}
             activeOpacity={0.7}
           >
-            <Ionicons name="layers-outline" size={18} color={colors.primaryText} />
-            <Text style={[styles.secondaryActionText, { color: colors.primaryText }]}>
-              {t('fittingRoom.buildOutfit')}
-            </Text>
+            <Ionicons name="layers-outline" size={22} color={colors.primaryText} />
           </TouchableOpacity>
         </View>
       </View>
@@ -464,31 +452,24 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   primaryAction: {
-    flex: 1.4,
-    height: 48,
-    borderRadius: Radius.md,
+    height: 52,
+    borderRadius: Radius.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   primaryActionText: {
     ...Typography.subhead,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  secondaryAction: {
-    flex: 1,
-    height: 48,
-    borderRadius: Radius.md,
-    flexDirection: 'row',
+  iconAction: {
+    width: 52,
+    height: 52,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-  },
-  secondaryActionText: {
-    ...Typography.subhead,
-    fontWeight: '500',
   },
   fitSheetBody: {
     paddingVertical: Spacing.sm,

@@ -67,8 +67,6 @@ function MainApp() {
     shoulders: INITIAL_BODY_PROFILE.shoulderWidth,
   });
 
-  // Flow & Quick Screen Switcher Modal for presentation/review
-  const [navSwitcherVisible, setNavSwitcherVisible] = useState(false);
 
   // Tab Navigation Handler
   const handleTabChange = (tab: TabName) => {
@@ -317,97 +315,6 @@ function MainApp() {
         />
       )}
 
-      {/* Floating Quick Screen Navigator Button for direct review of all 16 screens */}
-      <TouchableOpacity
-        style={[
-          styles.quickScreenFloatingBtn,
-          { bottom: isTabBarVisible ? insets.bottom + 68 : insets.bottom + 18 },
-        ]}
-        onPress={() => setNavSwitcherVisible(true)}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="apps-outline" size={18} color={Colors.ctaText} />
-        <Text style={styles.quickScreenBtnText}>{t('app.allScreens')}</Text>
-      </TouchableOpacity>
-
-      {/* Screen Navigator Modal */}
-      <Modal
-        visible={navSwitcherVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setNavSwitcherVisible(false)}
-      >
-        <View style={styles.switcherModalBackdrop}>
-          <TouchableOpacity
-            style={styles.switcherDismissArea}
-            onPress={() => setNavSwitcherVisible(false)}
-            activeOpacity={1}
-          />
-          <View style={[styles.switcherModalCard, { backgroundColor: colors.surface, paddingBottom: insets.bottom + 20 }]}>
-            <View style={[styles.switcherHeader, { borderBottomColor: colors.borderLight }]}>
-              <View>
-                <Text style={[Typography.title2, { color: colors.primaryText }]}>
-                  {t('app.navTitle')}
-                </Text>
-                <Text style={[Typography.caption, { color: colors.secondaryText, marginTop: 2 }]}>
-                  {t('app.navSubtitle')}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.switcherCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
-                onPress={() => setNavSwitcherVisible(false)}
-              >
-                <Ionicons name="close" size={20} color={colors.primaryText} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.screensList} showsVerticalScrollIndicator={false}>
-              {ALL_SCREENS.map((item) => {
-                const isCurrent = currentScreen === item.id;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.screenOptionItem,
-                      { borderBottomColor: colors.borderLight },
-                      isCurrent && [styles.screenOptionItemActive, { backgroundColor: colors.surfaceSubtle }],
-                    ]}
-                    onPress={() => {
-                      setCurrentScreen(item.id);
-                      if (
-                        item.id === 'HOME' ||
-                        item.id === 'WARDROBE' ||
-                        item.id === 'PROFILE' ||
-                        item.id === 'COLOR_STUDIO'
-                      ) {
-                        setCurrentTab(item.id);
-                      }
-                      setNavSwitcherVisible(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.screenItemLeft}>
-                      <Text
-                        style={[
-                          styles.screenItemName,
-                          { color: colors.primaryText },
-                          isCurrent && styles.screenItemNameActive,
-                        ]}
-                      >
-                        {item.name}
-                      </Text>
-                      <Text style={[styles.screenItemCategory, { color: colors.tertiaryText }]}>{item.category}</Text>
-                    </View>
-                    {isCurrent && (
-                      <Ionicons name="checkmark-circle" size={18} color={colors.primaryText} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

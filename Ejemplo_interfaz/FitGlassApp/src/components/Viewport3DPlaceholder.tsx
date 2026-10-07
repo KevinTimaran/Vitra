@@ -11,6 +11,7 @@ interface Viewport3DPlaceholderProps {
   highlightFit?: boolean;
   selectedLayer?: string;
   customOverlay?: React.ReactNode;
+  onPressModel?: () => void;
 }
 
 export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
@@ -21,6 +22,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
   highlightFit = false,
   selectedLayer,
   customOverlay,
+  onPressModel,
 }) => {
   const [activeAngle, setActiveAngle] = useState<'front' | 'side' | 'angle'>('front');
   const [rotationDeg, setRotationDeg] = useState(0);
@@ -58,7 +60,11 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
       </View>
 
       {/* Central Neutral Silhouette Placeholder */}
-      <View style={styles.avatarContainer}>
+      <TouchableOpacity 
+        style={styles.avatarContainer} 
+        activeOpacity={0.8} 
+        onPress={onPressModel}
+      >
         {/* Silhouette Head */}
         <View style={styles.silhouetteHead} />
         {/* Silhouette Neck */}
@@ -86,7 +92,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
           <View style={styles.silhouetteLegLeft} />
           <View style={styles.silhouetteLegRight} />
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Studio Viewport Metadata Stamp */}
       <View style={styles.metaStamp}>
@@ -106,15 +112,14 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
         </View>
       )}
 
-      {/* Floating Camera & Pose Controls (Glassmorphic) */}
+      {/* Floating Camera & Pose Controls (Discreet) */}
       <View style={styles.floatingControls}>
         <TouchableOpacity
           style={styles.floatingButton}
           onPress={handleRotate}
           activeOpacity={0.7}
         >
-          <Ionicons name="refresh-outline" size={18} color={Colors.primaryText} />
-          <Text style={styles.floatingLabel}>Rotate</Text>
+          <Ionicons name="refresh-outline" size={20} color={Colors.primaryText} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -127,17 +132,9 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
         >
           <Ionicons
             name="body-outline"
-            size={18}
+            size={20}
             color={activeAngle === 'front' ? Colors.ctaText : Colors.primaryText}
           />
-          <Text
-            style={[
-              styles.floatingLabel,
-              activeAngle === 'front' && { color: Colors.ctaText },
-            ]}
-          >
-            Front
-          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -150,17 +147,9 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
         >
           <Ionicons
             name="walk-outline"
-            size={18}
+            size={20}
             color={activeAngle === 'side' ? Colors.ctaText : Colors.primaryText}
           />
-          <Text
-            style={[
-              styles.floatingLabel,
-              activeAngle === 'side' && { color: Colors.ctaText },
-            ]}
-          >
-            Side
-          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -168,8 +157,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
           onPress={handleReset}
           activeOpacity={0.7}
         >
-          <Ionicons name="scan-outline" size={17} color={Colors.primaryText} />
-          <Text style={styles.floatingLabel}>Reset</Text>
+          <Ionicons name="scan-outline" size={20} color={Colors.primaryText} />
         </TouchableOpacity>
       </View>
 
@@ -354,29 +342,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.md,
     bottom: Spacing.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderRadius: Radius.lg,
-    padding: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: Radius.full,
+    padding: 4,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
-    ...Shadows.floating,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   floatingButton: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 2,
+    marginVertical: 4,
   },
   floatingButtonActive: {
     backgroundColor: Colors.cta,
-  },
-  floatingLabel: {
-    fontSize: 8,
-    fontWeight: '600',
-    color: Colors.secondaryText,
-    marginTop: 2,
-    textTransform: 'uppercase',
   },
 });
