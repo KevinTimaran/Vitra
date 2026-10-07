@@ -44,7 +44,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { colors } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState('Todo');
 
-  const categories = ['Todo', 'Chaquetas', 'Superiores', 'Pantalones'];
+  const categories = [t('common.all'), t('common.outerwear'), t('common.tops'), t('common.pants')];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -138,7 +138,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   ]}
                 />
                 <View style={styles.thumbCategoryTag}>
-                  <Text style={styles.thumbCategoryText}>{garment.category.toUpperCase()}</Text>
+                  <Text style={styles.thumbCategoryText}>
+                    {t(`common.${garment.category.toLowerCase()}`)?.toUpperCase() || garment.category.toUpperCase()}
+                  </Text>
                 </View>
                 <Ionicons
                   name={

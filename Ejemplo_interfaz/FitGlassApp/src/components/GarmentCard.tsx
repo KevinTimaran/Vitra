@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Garment } from '../types';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface GarmentCardProps {
   garment: Garment;
@@ -17,6 +18,12 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
   onFavoriteToggle,
   isFavorite = false,
 }) => {
+  const { t } = useTranslation();
+  
+  const translatedCategory = t(`common.${garment.category.toLowerCase()}`) || garment.category;
+  const translatedColor = t(`color.${garment.colorName}`) || garment.colorName;
+  const translatedFit = t(`fit.${garment.fit}`) || garment.fit;
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -86,11 +93,11 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
             ]}
           />
           <Text style={[Typography.caption, styles.metaText]} numberOfLines={1}>
-            {garment.category} · {garment.colorName}
+            {translatedCategory} · {translatedColor}
           </Text>
         </View>
         <Text style={[Typography.caption, styles.brandText]}>
-          {garment.brand} · {garment.fit}
+          {garment.brand} · {translatedFit}
         </Text>
       </View>
     </TouchableOpacity>

@@ -232,5 +232,18 @@
   "settings.english": "English",
   "settings.spanish": "Español",
   "settings.privacy_body_data": "Privacidad y Datos Corporales",
-  "settings.stored_locally": "Almacenado localmente en el dispositivo"
+  "settings.stored_locally": "Almacenado localmente en el dispositivo",
+  "color.Camel": "Camel",
+  "color.Midnight Blue": "Azul Noche",
+  "color.Washed Blue": "Azul Lavado",
+  "color.Ivory": "Marfil",
+  "color.Olive": "Oliva",
+  "color.Black": "Negro",
+  "color.Navy": "Marino",
+  "color.White": "Blanco",
+  "color.Burgundy": "Granate",
+  "fit.Slim": "Ajustado",
+  "fit.Regular": "Regular",
+  "fit.Relaxed": "Relajado",
+  "fit.Oversized": "Holgado"
 }
