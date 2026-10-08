@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { PrimaryButton } from '../components/Buttons';
@@ -36,6 +36,13 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
         }
       } catch (e) {
         console.error("Analysis failed", e);
+        if (isMounted) {
+          Alert.alert(
+            "Error de Análisis",
+            e instanceof Error ? e.message : "Ocurrió un error al analizar la prenda.",
+            [{ text: "OK", style: "cancel" }]
+          );
+        }
       }
     };
     runAnalysis();
