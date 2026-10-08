@@ -1,0 +1,20 @@
+[project]
+name = "fitglassai"
+version = "0.1.0"
+description = "FitGlass AI Backend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "python-dotenv",
+    "python-multipart",
+    "google-genai",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx"
+]
