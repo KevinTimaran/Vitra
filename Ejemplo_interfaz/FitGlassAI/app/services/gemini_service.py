@@ -46,24 +46,30 @@ def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis
     }
     """
 
-    response = client.models.generate_content(
-        model=model_name,
-        contents=[
-            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            prompt
-        ]
-    )
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                prompt
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=GarmentAnalysis,
+            )
+        )
+    except Exception as e:
+        raise ValueError(f"Error de comunicación con Gemini: {str(e)}")
 
     try:
         text_response = response.text
-        # Limpiar posible formato markdown del JSON devuelto
+        # En caso de que haya bloques de código
         if text_response.startswith("```json"):
             text_response = text_response[7:-3]
         elif text_response.startswith("```"):
             text_response = text_response[3:-3]
             
         data = json.loads(text_response.strip())
-        # Validar con Pydantic
         analysis = GarmentAnalysis(**data)
         return analysis
     except Exception as e:
