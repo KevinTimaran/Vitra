@@ -12,34 +12,46 @@ import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { PrimaryButton } from '../components/Buttons';
 import { Garment } from '../types';
+import { GarmentAnalysis } from '../services/ai/types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface GarmentDetailsScreenProps {
+  initialAnalysis: GarmentAnalysis | null;
   onSaveToWardrobe: (newGarment: Garment) => void;
   onCancel: () => void;
 }
 
 export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
+  initialAnalysis,
   onSaveToWardrobe,
   onCancel,
 }) => {
   const { t } = useTranslation();
   const { colors } = useTheme();
 
-  const [name, setName] = useState('Double-Faced Wool Overshirt');
-  const [category, setCategory] = useState<'Tops' | 'Outerwear' | 'Pants' | 'Shoes' | 'Accessories'>('Outerwear');
-  const [brand, setBrand] = useState('Atelier Studio');
-  const [material, setMaterial] = useState('100% Recycled Virgin Wool');
+  const [name, setName] = useState('Analyzed Garment');
+  const [category, setCategory] = useState<'Tops' | 'Outerwear' | 'Pants' | 'Shoes' | 'Accessories'>(
+    (initialAnalysis?.category as any) || 'Outerwear'
+  );
+  const [brand, setBrand] = useState('Unknown Brand');
+  const [material, setMaterial] = useState('Unknown Material');
+
+  const defaultColorHex = initialAnalysis?.dominantColor || '#27272A';
+  const defaultColorName = initialAnalysis?.dominantColor ? 'Extracted Color' : 'Anthracite Fog';
+
   const [selectedColor, setSelectedColor] = useState<{ name: string; hex: string }>({
-    name: 'Anthracite Fog',
-    hex: '#27272A',
+    name: defaultColorName,
+    hex: defaultColorHex,
   });
   const [size, setSize] = useState<'XS' | 'S' | 'M' | 'L' | 'XL'>('M');
-  const [fit, setFit] = useState<'Slim' | 'Regular' | 'Relaxed' | 'Oversized'>('Relaxed');
-  const [notes, setNotes] = useState('Relaxed drape with horn buttons and structured dropped shoulders.');
+  const [fit, setFit] = useState<'Slim' | 'Regular' | 'Relaxed' | 'Oversized'>(
+    (initialAnalysis?.fit as any) || 'Relaxed'
+  );
+  const [notes, setNotes] = useState('AI analyzed attributes applied.');
 
   const colorCandidates = [
+    { name: defaultColorName, hex: defaultColorHex },
     { name: 'Anthracite Fog', hex: '#27272A' },
     { name: 'Slate Umber', hex: '#3F3F46' },
     { name: 'Cool Greige', hex: '#71717A' },

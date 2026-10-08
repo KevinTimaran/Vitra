@@ -6,11 +6,16 @@ import { PrimaryButton } from '../components/Buttons';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
+import { analyzeGarment } from '../services/ai/garmentAnalyzer';
+import { GarmentAnalysis } from '../services/ai/types';
+
 interface GarmentProcessingScreenProps {
-  onComplete: () => void;
+  imageUri: string | null;
+  onComplete: (analysis: GarmentAnalysis) => void;
 }
 
 export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = ({
+  imageUri,
   onComplete,
 }) => {
   const { t } = useTranslation();
@@ -18,21 +23,39 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
 
   const [currentStepIndex, setCurrentStepIndex] = useState(1);
   const [isFinished, setIsFinished] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<GarmentAnalysis | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const runAnalysis = async () => {
+      try {
+        const result = await analyzeGarment(imageUri || '');
+        if (isMounted) {
+          setAnalysisResult(result);
+        }
+      } catch (e) {
+        console.error("Analysis failed", e);
+      }
+    };
+    runAnalysis();
+
     const timer1 = setTimeout(() => setCurrentStepIndex(2), 1100);
     const timer2 = setTimeout(() => setCurrentStepIndex(3), 2200);
     const timer3 = setTimeout(() => {
-      setCurrentStepIndex(4);
-      setIsFinished(true);
+      if (isMounted) {
+        setCurrentStepIndex(4);
+        setIsFinished(true);
+      }
     }, 3400);
 
     return () => {
+      isMounted = false;
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
     };
-  }, []);
+  }, [imageUri]);
 
   const STEPS = [
     { id: 1, label: t('garmentProcessing.step1'), detail: t('garmentProcessing.step1Desc') },
@@ -133,8 +156,8 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
       <View style={styles.footer}>
         <PrimaryButton
           label={isFinished ? t('garmentProcessing.viewExtracted') : '...'}
-          onPress={onComplete}
-          disabled={!isFinished}
+          onPress={() => analysisResult && onComplete(analysisResult)}
+          disabled={!isFinished || !analysisResult}
           icon={isFinished ? 'arrow-forward' : undefined}
         />
       </View>

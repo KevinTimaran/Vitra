@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Typography, Spacing, Radius } from './src/theme';
 import { ScreenName, TabName, Garment, BodyProfile, FitSettings, SavedLookItem } from './src/types';
+import { GarmentAnalysis } from './src/services/ai/types';
 import {
   INITIAL_BODY_PROFILE,
   MOCK_GARMENTS,
@@ -54,6 +55,9 @@ function MainApp() {
   const [garments, setGarments] = useState<Garment[]>(MOCK_GARMENTS);
   const [savedLooks, setSavedLooks] = useState<SavedLookItem[]>(MOCK_SAVED_LOOKS);
   const [bodyProfile, setBodyProfile] = useState<BodyProfile>(INITIAL_BODY_PROFILE);
+
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [garmentAnalysis, setGarmentAnalysis] = useState<GarmentAnalysis | null>(null);
 
   // Active Selections for Detail / Fitting / Flow
   const [activeGarment, setActiveGarment] = useState<Garment>(MOCK_GARMENTS[0]);
@@ -201,19 +205,27 @@ function MainApp() {
 
         {currentScreen === 'ADD_GARMENT' && (
           <AddGarmentScreen
-            onPhotoConfirmed={() => setCurrentScreen('GARMENT_PROCESSING')}
+            onPhotoConfirmed={(uri) => {
+              setCapturedImageUri(uri);
+              setCurrentScreen('GARMENT_PROCESSING');
+            }}
             onClose={() => setCurrentScreen('WARDROBE')}
           />
         )}
 
         {currentScreen === 'GARMENT_PROCESSING' && (
           <GarmentProcessingScreen
-            onComplete={() => setCurrentScreen('GARMENT_DETAILS')}
+            imageUri={capturedImageUri}
+            onComplete={(analysis) => {
+              setGarmentAnalysis(analysis);
+              setCurrentScreen('GARMENT_DETAILS');
+            }}
           />
         )}
 
         {currentScreen === 'GARMENT_DETAILS' && (
           <GarmentDetailsScreen
+            initialAnalysis={garmentAnalysis}
             onSaveToWardrobe={handleAddGarmentSaved}
             onCancel={() => setCurrentScreen('WARDROBE')}
           />

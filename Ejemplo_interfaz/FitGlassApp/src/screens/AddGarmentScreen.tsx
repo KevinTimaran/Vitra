@@ -1,19 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface AddGarmentScreenProps {
-  onPhotoConfirmed: (capturedType: string) => void;
+  onPhotoConfirmed: (uri: string) => void;
   onClose: () => void;
 }
 
@@ -24,16 +28,48 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
 
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
+
   const [hasCaptured, setHasCaptured] = useState(false);
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [flashOn, setFlashOn] = useState(false);
   const [capturedCategory, setCapturedCategory] = useState<'Tops' | 'Outerwear' | 'Pants'>('Tops');
 
-  const handleCapture = () => {
-    setHasCaptured(true);
+  const handleCapture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync();
+        if (photo) {
+          setCapturedImageUri(photo.uri);
+          setHasCaptured(true);
+        }
+      } catch (err) {
+        console.error('Error capturing photo:', err);
+      }
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setCapturedImageUri(result.assets[0].uri);
+        setHasCaptured(true);
+      }
+    } catch (err) {
+      console.error('Error picking image:', err);
+    }
   };
 
   const handleRetake = () => {
     setHasCaptured(false);
+    setCapturedImageUri(null);
   };
 
   return (
@@ -76,6 +112,24 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
 
       {/* Camera Viewport Canvas */}
       <View style={[styles.cameraViewport, { backgroundColor: isDark ? '#121214' : '#0F0F12' }]}>
+        {!permission?.granted && !hasCaptured ? (
+          <View style={styles.permissionContainer}>
+            <Text style={[styles.permissionText, { color: '#F4F4F5' }]}>
+              {t('addGarment.cameraPermission') || 'We need camera permission to take pictures of your garments.'}
+            </Text>
+            <PrimaryButton label="Grant Permission" onPress={requestPermission} />
+          </View>
+        ) : hasCaptured && capturedImageUri ? (
+          <Image source={{ uri: capturedImageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : (
+          <CameraView 
+            style={StyleSheet.absoluteFill} 
+            facing="back"
+            enableTorch={flashOn}
+            ref={cameraRef}
+          />
+        )}
+
         {/* Optical corner guides */}
         <View style={[styles.cornerGuide, styles.cornerTopLeft]} />
         <View style={[styles.cornerGuide, styles.cornerTopRight]} />
@@ -152,7 +206,9 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
 
           {/* Shutter Button */}
           <View style={styles.shutterRow}>
-            <View style={{ width: 44 }} />
+            <TouchableOpacity onPress={handlePickFromGallery} style={styles.galleryButton}>
+              <Ionicons name="images-outline" size={26} color={colors.primaryText} />
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.shutterOuter, { borderColor: colors.border }]}
@@ -185,7 +241,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
             <View style={{ flex: 1 }}>
               <PrimaryButton
                 label={t('addGarment.analyze')}
-                onPress={() => onPhotoConfirmed(capturedCategory)}
+                onPress={() => onPhotoConfirmed(capturedImageUri || '')}
                 icon="checkmark"
               />
             </View>
@@ -239,11 +295,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+    zIndex: 10,
+  },
+  permissionText: {
+    ...Typography.body,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
   cornerGuide: {
     position: 'absolute',
     width: 22,
     height: 22,
     borderColor: 'rgba(255, 255, 255, 0.5)',
+    zIndex: 2,
   },
   cornerTopLeft: {
     top: 20,
@@ -275,6 +344,7 @@ const styles = StyleSheet.create({
     right: 30,
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 2,
   },
   verticalAxis: {
     position: 'absolute',
@@ -282,10 +352,12 @@ const styles = StyleSheet.create({
     bottom: 30,
     width: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 2,
   },
   objectPreviewArea: {
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   simulatedGarmentShape: {
     width: 170,
@@ -327,6 +399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: Radius.full,
+    zIndex: 2,
   },
   hintText: {
     ...Typography.caption,
@@ -364,6 +437,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     paddingHorizontal: Spacing.xl,
+  },
+  galleryButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   shutterOuter: {
     width: 68,
