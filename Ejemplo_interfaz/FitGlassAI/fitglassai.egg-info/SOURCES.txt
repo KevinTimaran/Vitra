@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+app/__init__.py
+app/main.py
+app/api/__init__.py
+app/api/garments.py
+app/schemas/__init__.py
+app/schemas/garment.py
+app/services/__init__.py
+app/services/gemini_service.py
+fitglassai.egg-info/PKG-INFO
+fitglassai.egg-info/SOURCES.txt
+fitglassai.egg-info/dependency_links.txt
+fitglassai.egg-info/requires.txt
+fitglassai.egg-info/top_level.txt
+tests/test_api.py
