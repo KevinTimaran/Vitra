@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, Image } from 'react-native';
 import { GLView, ExpoWebGLRenderingContext } from 'expo-gl';
 import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
@@ -8,6 +8,10 @@ import { useTheme } from '../contexts/ThemeContext';
 
 // Importar Three.js
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+// Modelo local generado con scripts/generate-tshirt-glb.mjs (ver metro.config.js para el soporte .glb)
+const TSHIRT_MODEL = require('../../assets/models/tshirt.glb');
 
 interface Garment3DPreviewScreenProps {
   garment: Garment;
@@ -88,31 +92,50 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
 
       console.log(TAG, '2) Renderer, Escena y Cámara creados');
 
-      // 3) Crear un cubo
-      const geometry = new THREE.BoxGeometry(1, 1, 1);
-      
-      // Creamos materiales de diferentes colores para las caras
-      const materials = [
-        new THREE.MeshBasicMaterial({ color: 0xff0000 }), // Derecha: Rojo
-        new THREE.MeshBasicMaterial({ color: 0x00ff00 }), // Izquierda: Verde
-        new THREE.MeshBasicMaterial({ color: 0x0000ff }), // Arriba: Azul
-        new THREE.MeshBasicMaterial({ color: 0xffff00 }), // Abajo: Amarillo
-        new THREE.MeshBasicMaterial({ color: 0xff00ff }), // Frente: Magenta
-        new THREE.MeshBasicMaterial({ color: 0x00ffff }), // Atrás: Cian
-      ];
-      
-      const cube = new THREE.Mesh(geometry, materials);
-      scene.add(cube);
+      // Iluminación (la camiseta usa MeshStandardMaterial)
+      scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+      const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+      keyLight.position.set(2, 3, 4);
+      scene.add(keyLight);
+      const backLight = new THREE.DirectionalLight(0xffffff, 1.4);
+      backLight.position.set(-2, 1, -4);
+      scene.add(backLight);
 
-      console.log(TAG, '3) Cubo agregado a la escena');
+      // 3) Cargar la camiseta .glb local
+      setDetail('Cargando camiseta .glb…');
+      const assetUri = Image.resolveAssetSource(TSHIRT_MODEL)?.uri;
+      if (!assetUri) throw new Error('No se pudo resolver la URI del asset tshirt.glb');
+      console.log(TAG, '3a) Descargando modelo:', assetUri);
+      const response = await fetch(assetUri);
+      if (!response.ok) throw new Error(`fetch del modelo falló: HTTP ${response.status}`);
+      const buffer = await response.arrayBuffer();
+      console.log(TAG, '3b) Bytes del modelo:', buffer.byteLength);
+
+      const gltf = await new GLTFLoader().parseAsync(buffer, '');
+      if (!mountedRef.current) return;
+
+      // Normalizar tamaño (ancho ~2 unidades) y centrar; el pivote rota sobre el eje Y
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const scale = 2 / Math.max(size.x, size.y);
+      model.position.sub(center);
+      const pivot = new THREE.Group();
+      pivot.scale.setScalar(scale);
+      pivot.add(model);
+      scene.add(pivot);
+
+      let meshCount = 0;
+      model.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshCount++; });
+      console.log(TAG, `3c) Camiseta cargada: ${meshCount} mallas, tamaño original ${size.x.toFixed(2)}x${size.y.toFixed(2)}x${size.z.toFixed(2)}`);
 
       let frame = 0;
       const render = () => {
         if (!mountedRef.current) return;
         try {
-          // Rotar el cubo
-          cube.rotation.x += 0.02;
-          cube.rotation.y += 0.03;
+          // Rotar la camiseta (demostración del visor)
+          pivot.rotation.y += 0.02;
 
           // Renderizar escena con Three.js
           renderer.render(scene, camera);
@@ -123,7 +146,7 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
           if (frame === 0) {
             console.log(TAG, '4) Primer frame renderizado por Three.js con éxito');
             setStatus('drawing');
-            setDetail('Cubo dibujado mediante Three.js');
+            setDetail('Camiseta 3D dibujada mediante Three.js');
           }
           frame++;
           if (frame % 60 === 0) {
@@ -173,7 +196,7 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
           Frames presentados: {frames}
         </Text>
         <Text style={[Typography.caption, { color: colors.secondaryText, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 18 }]}>
-          Éxito = fondo azul oscuro con un cubo 3D de colores girando.
+          Éxito = fondo azul oscuro con una camiseta 3D girando.
         </Text>
       </View>
     </View>
