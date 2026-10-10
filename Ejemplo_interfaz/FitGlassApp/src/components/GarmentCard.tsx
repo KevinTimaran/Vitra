@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Garment } from '../types';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme';
@@ -32,32 +32,36 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
     >
       {/* Visual Product Object Area */}
       <View style={styles.imageCanvas}>
-        {/* Abstract Architectural Garment Silhouette */}
-        <View style={styles.silhouetteCanvas}>
-          <View
-            style={[
-              styles.colorSwatchBlock,
-              { backgroundColor: garment.colorHex },
-            ]}
-          />
-          <View style={styles.productShapeWrapper}>
-            <Ionicons
-              name={
-                garment.category === 'Tops'
-                  ? 'shirt-outline'
-                  : garment.category === 'Outerwear'
-                  ? 'layers-outline'
-                  : garment.category === 'Pants'
-                  ? 'reorder-two-outline'
-                  : garment.category === 'Shoes'
-                  ? 'footsteps-outline'
-                  : 'sparkles-outline'
-              }
-              size={36}
-              color={garment.colorHex === '#FFFFFF' ? '#A1A1AA' : '#3F3F46'}
+        {garment.imageUrl ? (
+          <Image source={{ uri: garment.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        ) : (
+          {/* Abstract Architectural Garment Silhouette */}
+          <View style={styles.silhouetteCanvas}>
+            <View
+              style={[
+                styles.colorSwatchBlock,
+                { backgroundColor: garment.colorHex },
+              ]}
             />
+            <View style={styles.productShapeWrapper}>
+              <Ionicons
+                name={
+                  garment.category === 'Tops'
+                    ? 'shirt-outline'
+                    : garment.category === 'Outerwear'
+                    ? 'layers-outline'
+                    : garment.category === 'Pants'
+                    ? 'reorder-two-outline'
+                    : garment.category === 'Shoes'
+                    ? 'footsteps-outline'
+                    : 'sparkles-outline'
+                }
+                size={36}
+                color={garment.colorHex === '#FFFFFF' ? '#A1A1AA' : '#3F3F46'}
+              />
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Favorite Action */}
         {onFavoriteToggle && (

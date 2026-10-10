@@ -225,6 +225,7 @@ function MainApp() {
 
         {currentScreen === 'GARMENT_DETAILS' && (
           <GarmentDetailsScreen
+            imageUri={capturedImageUri}
             initialAnalysis={garmentAnalysis}
             onSaveToWardrobe={handleAddGarmentSaved}
             onCancel={() => setCurrentScreen('WARDROBE')}

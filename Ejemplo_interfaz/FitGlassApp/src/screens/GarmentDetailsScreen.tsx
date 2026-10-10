@@ -6,7 +6,9 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Image,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
@@ -17,12 +19,14 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface GarmentDetailsScreenProps {
+  imageUri?: string | null;
   initialAnalysis: GarmentAnalysis | null;
   onSaveToWardrobe: (newGarment: Garment) => void;
   onCancel: () => void;
 }
 
 export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
+  imageUri,
   initialAnalysis,
   onSaveToWardrobe,
   onCancel,
@@ -58,7 +62,20 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
     { name: 'Mineral White', hex: '#F4F4F5' },
   ];
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    let finalImageUrl = undefined;
+    if (imageUri) {
+      try {
+        const filename = imageUri.split('/').pop() || `garment_${Date.now()}.jpg`;
+        const destPath = `${FileSystem.documentDirectory}${filename}`;
+        await FileSystem.copyAsync({ from: imageUri, to: destPath });
+        finalImageUrl = destPath;
+      } catch (err) {
+        console.warn('Failed to save image permanently:', err);
+        finalImageUrl = imageUri; // Fallback to temp URI
+      }
+    }
+
     const garment: Garment = {
       id: `g-${Date.now()}`,
       name,
@@ -71,6 +88,7 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
       material,
       addedDate: t('common.today'),
       notes,
+      imageUrl: finalImageUrl,
       silhouetteType: category === 'Tops' ? 'tshirt' : category === 'Outerwear' ? 'jacket' : 'trousers',
       paletteHarmony: true,
     };
@@ -101,19 +119,25 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
             { backgroundColor: colors.surface, borderColor: colors.borderLight },
           ]}
         >
-          <View
-            style={[
-              styles.colorHalo,
-              { backgroundColor: selectedColor.hex },
-            ]}
-          />
-          <View style={styles.silhouetteSymbolBox}>
-            <Ionicons
-              name={category === 'Outerwear' ? 'layers-outline' : 'shirt-outline'}
-              size={54}
-              color={selectedColor.hex === '#FFFFFF' ? '#A1A1AA' : colors.primaryText}
-            />
-          </View>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          ) : (
+            <>
+              <View
+                style={[
+                  styles.colorHalo,
+                  { backgroundColor: selectedColor.hex },
+                ]}
+              />
+              <View style={styles.silhouetteSymbolBox}>
+                <Ionicons
+                  name={category === 'Outerwear' ? 'layers-outline' : 'shirt-outline'}
+                  size={54}
+                  color={selectedColor.hex === '#FFFFFF' ? '#A1A1AA' : colors.primaryText}
+                />
+              </View>
+            </>
+          )}
 
           <View style={[styles.matteTag, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
             <Ionicons name="checkmark-circle" size={13} color="#10B981" />
