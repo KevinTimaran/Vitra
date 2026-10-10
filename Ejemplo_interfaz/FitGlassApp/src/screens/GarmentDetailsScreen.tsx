@@ -67,7 +67,7 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
     if (imageUri) {
       try {
         const filename = imageUri.split('/').pop() || `garment_${Date.now()}.jpg`;
-        const destPath = `${FileSystem.documentDirectory}${filename}`;
+        const destPath = `${(FileSystem as any).documentDirectory}${filename}`;
         await FileSystem.copyAsync({ from: imageUri, to: destPath });
         finalImageUrl = destPath;
       } catch (err) {

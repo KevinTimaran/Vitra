@@ -35,8 +35,8 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
         {garment.imageUrl ? (
           <Image source={{ uri: garment.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
         ) : (
-          {/* Abstract Architectural Garment Silhouette */}
           <View style={styles.silhouetteCanvas}>
+            {/* Abstract Architectural Garment Silhouette */}
             <View
               style={[
                 styles.colorSwatchBlock,
