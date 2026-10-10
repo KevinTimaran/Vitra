@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
@@ -67,7 +67,8 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
     if (imageUri) {
       try {
         const filename = imageUri.split('/').pop() || `garment_${Date.now()}.jpg`;
-        const destPath = `${(FileSystem as any).documentDirectory}${filename}`;
+        if (!FileSystem.documentDirectory) throw new Error('documentDirectory no disponible');
+        const destPath = `${FileSystem.documentDirectory}${filename}`;
         await FileSystem.copyAsync({ from: imageUri, to: destPath });
         finalImageUrl = destPath;
       } catch (err) {
