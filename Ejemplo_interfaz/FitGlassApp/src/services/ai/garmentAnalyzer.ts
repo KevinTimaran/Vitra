@@ -21,12 +21,12 @@ export const analyzeGarment = async (imageUri: string): Promise<GarmentAnalysis>
     filename = 'garment.webp';
   }
 
+  // Fetch the local file as a Blob to append to FormData
+  const imageFetchResponse = await fetch(imageUri);
+  const blob = await imageFetchResponse.blob();
+
   const formData = new FormData();
-  formData.append('image', {
-    uri: imageUri,
-    name: filename,
-    type: mimeType,
-  } as any);
+  formData.append('file', blob, filename);
 
   try {
     const response = await fetch(`${baseUrl}/api/garments/analyze`, {
