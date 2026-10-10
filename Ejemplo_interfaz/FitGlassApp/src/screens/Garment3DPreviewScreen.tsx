@@ -1,7 +1,7 @@
 import React, { Suspense, useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
-import { Canvas } from '@react-three/fiber';
-import { useGLTF, Stage, OrbitControls } from '@react-three/drei';
+import { Canvas } from '@react-three/fiber/native';
+import { useGLTF, Stage, OrbitControls } from '@react-three/drei/native';
 import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { Garment } from '../types';
