@@ -1,4 +1,5 @@
 import { GarmentAnalysis } from './types';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 /**
  * Analyzes a garment image using the FitGlassAI backend.
@@ -9,20 +10,25 @@ export const analyzeGarment = async (imageUri: string): Promise<GarmentAnalysis>
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not defined in .env');
   }
 
-  let mimeType = 'image/jpeg';
-  let filename = 'garment.jpg';
-  
-  const lowerUri = imageUri.toLowerCase();
-  if (lowerUri.endsWith('.png')) {
-    mimeType = 'image/png';
-    filename = 'garment.png';
-  } else if (lowerUri.endsWith('.webp')) {
-    mimeType = 'image/webp';
-    filename = 'garment.webp';
+  let finalUri = imageUri;
+
+  try {
+    // Convert the image to JPEG to ensure format compatibility (e.g. HEIC from iOS)
+    const manipResult = await ImageManipulator.manipulateAsync(
+      imageUri,
+      [],
+      { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    finalUri = manipResult.uri;
+  } catch (error) {
+    console.warn('Image manipulation failed, falling back to original URI:', error);
   }
 
+  const mimeType = 'image/jpeg';
+  const filename = 'garment.jpg';
+
   // Fetch the local file as a Blob to append to FormData
-  const imageFetchResponse = await fetch(imageUri);
+  const imageFetchResponse = await fetch(finalUri);
   const blob = await imageFetchResponse.blob();
 
   const formData = new FormData();
