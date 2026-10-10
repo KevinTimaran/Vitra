@@ -19,6 +19,7 @@ interface GarmentViewScreenProps {
   onBack: () => void;
   onTryOn: (garment: Garment) => void;
   onEdit: (garment: Garment) => void;
+  onView3D?: (garment: Garment) => void;
 }
 
 export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
@@ -26,6 +27,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
   onBack,
   onTryOn,
   onEdit,
+  onView3D,
 }) => {
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
@@ -105,6 +107,22 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
                 {t('garmentView.paletteHarmony')}
               </Text>
             </View>
+          )}
+
+          {/* 3D Preview Floating Action */}
+          {onView3D && (
+            <TouchableOpacity
+              style={[
+                styles.view3DBadge,
+                { backgroundColor: colors.cta, borderColor: colors.cta },
+              ]}
+              onPress={() => onView3D(garment)}
+            >
+              <Ionicons name="cube" size={14} color={colors.ctaText} />
+              <Text style={[styles.view3DBadgeText, { color: colors.ctaText }]}>
+                Ver 3D
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -271,6 +289,23 @@ const styles = StyleSheet.create({
   harmonyStampText: {
     ...Typography.micro,
     fontSize: 9,
+    fontWeight: '700',
+  },
+  view3DBadge: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    right: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    gap: 4,
+  },
+  view3DBadgeText: {
+    ...Typography.micro,
+    fontSize: 10,
     fontWeight: '700',
   },
   infoSection: {

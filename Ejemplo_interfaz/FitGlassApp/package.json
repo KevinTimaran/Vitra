@@ -4,9 +4,13 @@
   "main": "index.ts",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.1",
+    "@types/three": "^0.186.0",
     "expo": "~57.0.26",
     "expo-camera": "~57.0.6",
     "expo-file-system": "~57.0.7",
+    "expo-gl": "~57.0.2",
     "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-status-bar": "~57.0.1",
@@ -14,7 +18,8 @@
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",

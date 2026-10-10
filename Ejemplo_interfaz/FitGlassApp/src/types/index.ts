@@ -13,7 +13,8 @@ export type ScreenName =
   | 'COLOR_RECOMMENDATIONS'
   | 'OUTFIT_BUILDER'
   | 'SAVED_LOOK'
-  | 'PROFILE';
+  | 'PROFILE'
+  | 'GARMENT_3D_PREVIEW';
 
 export type TabName = 'HOME' | 'WARDROBE' | 'COLOR_STUDIO' | 'PROFILE';
 

@@ -38,6 +38,7 @@ import { ColorRecommendationsScreen } from './src/screens/ColorRecommendationsSc
 import { OutfitBuilderScreen } from './src/screens/OutfitBuilderScreen';
 import { SavedLookScreen } from './src/screens/SavedLookScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { Garment3DPreviewScreen } from './src/screens/Garment3DPreviewScreen';
 
 // Components
 import { TabBar } from './src/components/TabBar';
@@ -135,6 +136,7 @@ function MainApp() {
     { id: 'OUTFIT_BUILDER', name: '14 · Outfit Builder', category: 'Outfits' },
     { id: 'SAVED_LOOK', name: '15 · Saved Look Detail', category: 'Outfits' },
     { id: 'PROFILE', name: '16 · Profile & Settings', category: 'Settings' },
+    { id: 'GARMENT_3D_PREVIEW', name: '17 · 3D Garment Preview', category: 'Wardrobe' },
   ];
 
   return (
@@ -238,6 +240,17 @@ function MainApp() {
             onBack={() => setCurrentScreen(currentTab)}
             onTryOn={handleTryOnGarment}
             onEdit={() => setCurrentScreen('GARMENT_DETAILS')}
+            onView3D={(garment) => {
+              setActiveGarment(garment);
+              setCurrentScreen('GARMENT_3D_PREVIEW');
+            }}
+          />
+        )}
+
+        {currentScreen === 'GARMENT_3D_PREVIEW' && (
+          <Garment3DPreviewScreen
+            garment={activeGarment}
+            onBack={() => setCurrentScreen('GARMENT_VIEW')}
           />
         )}
 
