@@ -1,5 +1,7 @@
 import { GarmentAnalysis } from './types';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 /**
  * Analyzes a garment image using the FitGlassAI backend.
@@ -27,47 +29,70 @@ export const analyzeGarment = async (imageUri: string): Promise<GarmentAnalysis>
   const mimeType = 'image/jpeg';
   const filename = 'garment.jpg';
 
-  // Fetch the local file as a Blob to append to FormData
-  const imageFetchResponse = await fetch(finalUri);
-  const blob = await imageFetchResponse.blob();
-
-  const formData = new FormData();
-  formData.append('file', blob, filename);
-
   try {
-    const response = await fetch(`${baseUrl}/api/garments/analyze`, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    let resultJson: any;
 
-    if (!response.ok) {
-      let errorMessage = `HTTP Error: ${response.status} ${response.statusText}`;
-      try {
-        const errorText = await response.text();
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.detail) {
-          errorMessage += ` - Detail: ${JSON.stringify(errorJson.detail)}`;
-        } else if (errorJson.error) {
-          errorMessage += ` - Error: ${JSON.stringify(errorJson.error)}`;
-        } else {
-          errorMessage += ` - Body: ${errorText}`;
-        }
-      } catch (e) {
-        // Fallback to basic message if not valid JSON
+    if (Platform.OS === 'web') {
+      // Fetch the local file as a Blob to append to FormData
+      const imageFetchResponse = await fetch(finalUri);
+      const rawBlob = await imageFetchResponse.blob();
+      const blob = new Blob([rawBlob], { type: mimeType });
+
+      const formData = new FormData();
+      formData.append('file', blob, filename);
+
+      const response = await fetch(`${baseUrl}/api/garments/analyze`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP Error: ${response.status} ${response.statusText}`;
+        try {
+          const errorText = await response.text();
+          const errorJson = JSON.parse(errorText);
+          errorMessage += ` - Error: ${JSON.stringify(errorJson)}`;
+        } catch (e) {}
+        throw new Error(errorMessage);
       }
-      throw new Error(errorMessage);
+      resultJson = await response.json();
+    } else {
+      // Use expo-file-system for native platforms to ensure correct multipart formatting
+      const uploadResult = await FileSystem.uploadAsync(
+        `${baseUrl}/api/garments/analyze`,
+        finalUri,
+        {
+          httpMethod: 'POST',
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: 'file',
+          mimeType: mimeType,
+          headers: {
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        let errorMessage = `HTTP Error: ${uploadResult.status}`;
+        try {
+          const errorJson = JSON.parse(uploadResult.body);
+          errorMessage += ` - Error: ${JSON.stringify(errorJson)}`;
+        } catch (e) {
+          errorMessage += ` - Body: ${uploadResult.body}`;
+        }
+        throw new Error(errorMessage);
+      }
+      resultJson = JSON.parse(uploadResult.body);
     }
 
-    const result = await response.json();
-
-    if (result.success === false) {
-      throw new Error(result.error || 'Backend analysis failed');
+    if (resultJson.success === false) {
+      throw new Error(resultJson.error || 'Backend analysis failed');
     }
 
-    const data = result.data;
+    const data = resultJson.data;
     if (!data) {
       throw new Error('Invalid response structure: missing data field');
     }
