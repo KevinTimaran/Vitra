@@ -10,14 +10,16 @@ export const analyzeGarment = async (imageUri: string): Promise<GarmentAnalysis>
   }
 
   let mimeType = 'image/jpeg';
+  let filename = 'garment.jpg';
+  
   const lowerUri = imageUri.toLowerCase();
   if (lowerUri.endsWith('.png')) {
     mimeType = 'image/png';
+    filename = 'garment.png';
   } else if (lowerUri.endsWith('.webp')) {
     mimeType = 'image/webp';
+    filename = 'garment.webp';
   }
-
-  const filename = imageUri.split('/').pop() || 'image.jpg';
 
   const formData = new FormData();
   formData.append('image', {
@@ -32,12 +34,25 @@ export const analyzeGarment = async (imageUri: string): Promise<GarmentAnalysis>
       body: formData,
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'multipart/form-data',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+      let errorMessage = `HTTP Error: ${response.status} ${response.statusText}`;
+      try {
+        const errorText = await response.text();
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.detail) {
+          errorMessage += ` - Detail: ${JSON.stringify(errorJson.detail)}`;
+        } else if (errorJson.error) {
+          errorMessage += ` - Error: ${JSON.stringify(errorJson.error)}`;
+        } else {
+          errorMessage += ` - Body: ${errorText}`;
+        }
+      } catch (e) {
+        // Fallback to basic message if not valid JSON
+      }
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
