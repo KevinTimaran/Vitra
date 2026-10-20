@@ -17,6 +17,11 @@ export type RootTabParamList = {
 
 export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<RootTabParamList> | undefined;
+  FittingRoom: {
+    model_3d_url?: string;
+    image_2d_url?: string;
+    metadata?: GarmentMetadata;
+  } | undefined;
   Welcome: undefined;
   BodyProfile: undefined;
   ColorStudio: undefined;

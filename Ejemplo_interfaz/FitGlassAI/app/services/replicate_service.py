@@ -6,8 +6,8 @@ from replicate.exceptions import ReplicateError
 
 from app.config import settings
 
-# Modelo por defecto de Virtual Try-On en Replicate
-REPLICATE_VTON_MODEL = "cuuupid/idm-vton"
+# Modelo oficial y estable de Virtual Try-On en Replicate (IDM-VTON)
+REPLICATE_VTON_MODEL = "cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985"
 REPLICATE_API_BASE_URL = "https://api.replicate.com/v1"
 
 
@@ -19,7 +19,7 @@ async def generate_vton(
 ) -> str:
     """
     Genera una prueba de ropa virtual (Virtual Try-On / VTON) fusionando la foto de una persona
-    con la foto de una prenda de ropa utilizando el modelo cuiaxioming/idm-vton en Replicate.
+    con la foto de una prenda de ropa utilizando el modelo cuuupid/idm-vton en Replicate.
     
     Retorna la URL de la imagen 2D fusionada resultante.
     """
@@ -42,8 +42,8 @@ async def generate_vton(
         )
 
     input_payload = {
-        "human_img": human_image_url.strip(),
         "garm_img": garment_image_url.strip(),
+        "human_img": human_image_url.strip(),
         "garment_des": garment_description,
         "category": category,
         "crop": False,
@@ -54,7 +54,7 @@ async def generate_vton(
         # Usamos el cliente oficial de Replicate en modo asíncrono
         client = replicate.Client(api_token=settings.REPLICATE_API_TOKEN)
         output = await client.async_run(
-            REPLICATE_VTON_MODEL,
+            "cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985",
             input=input_payload,
         )
 
@@ -97,10 +97,17 @@ async def _generate_vton_via_rest(input_payload: dict) -> str:
         "Prefer": "wait",
     }
 
-    url = f"{REPLICATE_API_BASE_URL}/models/{REPLICATE_VTON_MODEL}/predictions"
+    # Si el identificador incluye el hash de versión (:hash), usamos el endpoint /predictions
+    if ":" in REPLICATE_VTON_MODEL:
+        version_hash = REPLICATE_VTON_MODEL.split(":", 1)[1]
+        url = f"{REPLICATE_API_BASE_URL}/predictions"
+        post_body = {"version": version_hash, "input": input_payload}
+    else:
+        url = f"{REPLICATE_API_BASE_URL}/models/{REPLICATE_VTON_MODEL}/predictions"
+        post_body = {"input": input_payload}
 
     async with httpx.AsyncClient(timeout=120.0) as http_client:
-        response = await http_client.post(url, headers=headers, json={"input": input_payload})
+        response = await http_client.post(url, headers=headers, json=post_body)
 
         if response.status_code not in (200, 201, 202):
             raise HTTPException(

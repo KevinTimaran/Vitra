@@ -153,12 +153,23 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
             metadata,
           });
         } else if (props.navigation) {
-          // Si estamos usando navegación, ir al Probador con los parámetros
-          props.navigation.navigate('FittingRoom', {
-            model_3d_url: model3dUrl,
-            image_2d_url: image2dUrl,
-            metadata,
-          });
+          // Navegar a la pantalla del Probador (FittingRoom) pasando los parámetros del resultado
+          try {
+            props.navigation.navigate('MainTabs', {
+              screen: 'FittingRoom',
+              params: {
+                model_3d_url: model3dUrl,
+                image_2d_url: image2dUrl,
+                metadata,
+              },
+            });
+          } catch {
+            props.navigation.navigate('FittingRoom', {
+              model_3d_url: model3dUrl,
+              image_2d_url: image2dUrl,
+              metadata,
+            });
+          }
         }
       }, 1000);
 

@@ -174,6 +174,14 @@ function NavigationRoot() {
           }}
         />
         <Stack.Screen
+          name="FittingRoom"
+          component={FittingRoomScreen as any}
+          options={{
+            presentation: 'card',
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
           name="AddGarment"
           component={AddGarmentScreen as any}
           options={{
