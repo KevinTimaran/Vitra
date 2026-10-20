@@ -8,6 +8,7 @@ from .garment import (
 from .tryon import TryOnRequest, TryOnResponse
 from .colorimetry import ColorimetryRequest, ColorimetryData, ColorimetryResponse
 from .avatar import AvatarGenerateRequest, AvatarGenerateResponse
+from .auth import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse
 
 __all__ = [
     "GarmentRequest",
@@ -22,4 +23,8 @@ __all__ = [
     "ColorimetryResponse",
     "AvatarGenerateRequest",
     "AvatarGenerateResponse",
+    "RegisterRequest",
+    "RegisterResponse",
+    "LoginRequest",
+    "TokenResponse",
 ]

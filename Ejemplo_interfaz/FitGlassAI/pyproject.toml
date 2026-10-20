@@ -11,6 +11,9 @@ dependencies = [
     "python-dotenv",
     "python-multipart",
     "google-genai",
+    "passlib[bcrypt]",
+    "bcrypt<4.1.0",
+    "python-jose[cryptography]",
 ]
 
 [project.optional-dependencies]

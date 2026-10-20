@@ -3,7 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import garments, tryon, colorimetry, avatar
+from .api import garments, tryon, colorimetry, avatar, auth
 
 app = FastAPI(title="FitGlassAI", description="Orquestador de IA Generativa para Vitra")
 
@@ -21,6 +21,7 @@ def health_check():
     return {"status": "ok", "message": "FitGlassAI API running"}
 
 # Rutas de la API bajo el prefijo /api
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(garments.router, prefix="/api/garments", tags=["garments"])
 app.include_router(tryon.router, prefix="/api/tryon", tags=["tryon"])
 app.include_router(colorimetry.router, prefix="/api/colorimetry", tags=["colorimetry"])
