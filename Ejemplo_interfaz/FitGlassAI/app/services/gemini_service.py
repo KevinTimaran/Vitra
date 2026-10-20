@@ -201,3 +201,100 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
             status_code=500,
             detail=f"Error al procesar la respuesta estructurada de Gemini: {str(e)}"
         )
+
+
+async def analyze_colorimetry(image_base64_or_url: str) -> dict:
+    """
+    Analiza la fotografía facial/frontal del usuario utilizando Google Gemini (Vision).
+    Extrae la paleta de colorimetría estacional:
+    - Tono de piel (HEX y descripción)
+    - Color de cabello (HEX)
+    - Color de ojos (HEX)
+    - Estación de color (ej. Invierno Brillante, Otoño Cálido, etc.)
+    - Nombre de la paleta y explicación estética
+    - Lista de códigos HEX de prendas favorecedoras (recommended_colors)
+    - Lista de códigos HEX a evitar (colors_to_avoid)
+    """
+    if not settings.has_gemini:
+        raise HTTPException(
+            status_code=500,
+            detail="GEMINI_API_KEY no está configurada en las variables de entorno."
+        )
+
+    if not image_base64_or_url or not image_base64_or_url.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="La fotografía facial (Base64 o URL) no puede estar vacía."
+        )
+
+    image_bytes, mime_type = await _resolve_image_bytes(image_base64_or_url)
+
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
+
+    prompt = """
+    Eres un estilista profesional y consultor biométrico experto en teoría del color y colorimetría estacional de FitGlassAI / Vitra.
+    Analiza con precisión la fotografía facial y frontal de la persona adjunta.
+    
+    Determina su armonía cromática y devuelve ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
+    {
+      "skin_tone": "#E5B899 (Tono de piel)",
+      "hair_color": "#2C1B18 (Color de cabello)",
+      "eye_color": "#3B261C (Color de ojos)",
+      "season": "Estación de color (ej. Invierno Brillante, Otoño Cálido, Verano Suave, Primavera Cálida)",
+      "palette_name": "Nombre descriptivo de la paleta",
+      "description": "Explicación detallada de por qué esta estación armoniza con su contraste natural de piel, ojos y cabello, y cómo realza su rostro.",
+      "recommended_colors": [
+        "#1E3A8A",
+        "#047857",
+        "#B91C1C",
+        "#7C3AED",
+        "#0F172A",
+        "#FFFFFF"
+      ],
+      "colors_to_avoid": [
+        "#D97706",
+        "#84CC16",
+        "#F59E0B"
+      ]
+    }
+    
+    Reglas:
+    - Todos los códigos de color en recommended_colors y colors_to_avoid deben ser códigos HEX válidos (#RRGGBB).
+    - Proporciona al menos 6 colores recomendados para prendas de vestir.
+    - Proporciona entre 3 y 5 colores a evitar.
+    - Responde únicamente el objeto JSON sin texto introductorio ni formato extra.
+    """
+
+    try:
+        response = await client.aio.models.generate_content(
+            model=model_name,
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                prompt
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error en la comunicación con el servicio Gemini para colorimetría: {str(e)}"
+        )
+
+    try:
+        raw_text = response.text.strip()
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:-3]
+        elif raw_text.startswith("```"):
+            raw_text = raw_text[3:-3]
+            
+        data = json.loads(raw_text.strip())
+        return data
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al procesar la respuesta estructurada de colorimetría: {str(e)}"
+        )
+
