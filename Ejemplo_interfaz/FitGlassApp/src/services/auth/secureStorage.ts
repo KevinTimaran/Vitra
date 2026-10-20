@@ -1,8 +1,19 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const AUTH_TOKEN_KEY = 'vitra_jwt_auth_token';
-const AUTH_USER_EMAIL_KEY = 'vitra_auth_user_email';
+const AUTH_TOKEN_KEY = 'vitra_jwt_auth_token_v2';
+const AUTH_USER_EMAIL_KEY = 'vitra_auth_user_email_v2';
+
+// Limpieza automática de sesiones residuales de prueba anteriores para garantizar que aparezca el Login primero
+if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+  try {
+    localStorage.removeItem('vitra_jwt_auth_token');
+    localStorage.removeItem('vitra_auth_user_email');
+    localStorage.removeItem('vitra_user_onboarding_done');
+  } catch {
+    // Ignorar en entornos sin acceso a storage
+  }
+}
 
 // En Web, expo-secure-store utiliza localStorage automáticamente o fallback en memoria
 const isSecureStoreAvailable = async (): Promise<boolean> => {

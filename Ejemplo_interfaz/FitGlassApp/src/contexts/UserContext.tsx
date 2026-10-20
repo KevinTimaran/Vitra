@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { UserProfile, ColorProfile, BodyProfile } from '../types';
 import { INITIAL_BODY_PROFILE } from '../data/mockData';
 
-const ONBOARDING_KEY = 'vitra_user_onboarding_done';
+const ONBOARDING_KEY = 'vitra_user_onboarding_v2';
 
 const DEFAULT_COLOR_PROFILE: ColorProfile = {
   skin_tone: '#E2D3C4',
