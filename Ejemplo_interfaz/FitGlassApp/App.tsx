@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
@@ -9,7 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider } from './src/contexts/LanguageContext';
 import { UserProvider, useUser } from './src/contexts/UserContext';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 
+import { AuthScreen } from './src/screens/AuthScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WardrobeScreen } from './src/screens/WardrobeScreen';
 import { FittingRoomScreen } from './src/screens/FittingRoomScreen';
