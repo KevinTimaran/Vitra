@@ -6,6 +6,8 @@ from .garment import (
     GarmentAnalysisResponse,
 )
 from .tryon import TryOnRequest, TryOnResponse
+from .colorimetry import ColorimetryRequest, ColorimetryData, ColorimetryResponse
+from .avatar import AvatarGenerateRequest, AvatarGenerateResponse
 
 __all__ = [
     "GarmentRequest",
@@ -15,4 +17,9 @@ __all__ = [
     "GarmentAnalysisResponse",
     "TryOnRequest",
     "TryOnResponse",
+    "ColorimetryRequest",
+    "ColorimetryData",
+    "ColorimetryResponse",
+    "AvatarGenerateRequest",
+    "AvatarGenerateResponse",
 ]
