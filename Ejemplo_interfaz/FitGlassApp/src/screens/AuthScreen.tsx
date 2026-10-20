@@ -11,12 +11,12 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, G, Rect } from 'react-native-svg';
 
-import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { loginUser, registerUser } from '../services/auth/authClient';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Colors as LightColors, Typography, Spacing, Radius } from '../theme';
 
 // ==========================================
 // Componentes SVG Nativos (react-native-svg)
@@ -189,7 +189,9 @@ const AppleIconSvg: React.FC<{ size?: number; color?: string }> = ({ size = 20, 
 // ==========================================
 
 export const AuthScreen: React.FC = () => {
-  const { colors, isDark } = useTheme();
+  // El login debe estar estrictamente en modo claro (Light Mode)
+  const colors = LightColors;
+  const isDark = false;
   const { login } = useAuth();
 
   // Estado de alternancia entre Login y Registro
@@ -259,6 +261,7 @@ export const AuthScreen: React.FC = () => {
       style={[styles.container, { backgroundColor: colors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

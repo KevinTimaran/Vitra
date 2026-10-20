@@ -5,16 +5,19 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { useAuth } from '../contexts/AuthContext';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 
 export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, toggleTheme, setTheme } = useTheme();
   const { userProfile, colorProfile, avatarUrl, resetProfile } = useUser();
+  const { userEmail, logout } = useAuth();
 
   const handleStartScan = () => {
     if (navigation) {
@@ -52,8 +55,13 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           <Text style={[styles.userName, { color: colors.primaryText }]}>
             {userProfile.name}
           </Text>
+          {userEmail ? (
+            <Text style={[styles.userBadge, { color: colors.primaryText, fontWeight: '600', marginBottom: 2 }]}>
+              {userEmail}
+            </Text>
+          ) : null}
           <Text style={[styles.userBadge, { color: colors.secondaryText }]}>
-            Identidad Biométrica · Fase 4
+            Identidad Biométrica · Sesión Activa (JWT)
           </Text>
         </View>
 
@@ -155,6 +163,114 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           </TouchableOpacity>
         </View>
 
+        {/* Ajustes de Apariencia: Modo Claro vs Fondo Negro */}
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.cardHeaderRow}>
+            <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
+            <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
+              Ajustes de Apariencia
+            </Text>
+            <View
+              style={[
+                styles.themeBadgePill,
+                { backgroundColor: isDark ? '#27272A' : '#F4F4F6' },
+              ]}
+            >
+              <Text style={[styles.themeBadgeText, { color: colors.primaryText }]}>
+                {isDark ? 'Fondo Negro' : 'Modo Claro'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
+            Personaliza el tema visual del atelier. Puedes activar el fondo negro de alto contraste OLED o mantener el estilo editorial claro.
+          </Text>
+
+          {/* Selector de Dos Tarjetas */}
+          <View style={styles.themeOptionsRow}>
+            {/* Opción 1: Modo Claro */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionCard,
+                {
+                  backgroundColor: !isDark ? colors.surfaceSubtle : 'transparent',
+                  borderColor: !isDark ? colors.primaryText : colors.borderLight,
+                  borderWidth: !isDark ? 2 : 1,
+                },
+              ]}
+              onPress={() => setTheme('light')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.themeIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="sunny" size={20} color="#D97706" />
+              </View>
+              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
+                Modo Claro
+              </Text>
+              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
+                Blanco Editorial
+              </Text>
+              {!isDark && (
+                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
+                  <Ionicons name="checkmark" size={12} color={colors.bg} />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Opción 2: Fondo Negro */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionCard,
+                {
+                  backgroundColor: isDark ? '#27272A' : 'transparent',
+                  borderColor: isDark ? colors.primaryText : colors.borderLight,
+                  borderWidth: isDark ? 2 : 1,
+                },
+              ]}
+              onPress={() => setTheme('dark')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.themeIconCircle, { backgroundColor: '#312E81' }]}>
+                <Ionicons name="moon" size={20} color="#A5B4FC" />
+              </View>
+              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
+                Fondo Negro
+              </Text>
+              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
+                Negro OLED
+              </Text>
+              {isDark && (
+                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
+                  <Ionicons name="checkmark" size={12} color={colors.bg} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Interruptor Switch */}
+          <View style={[styles.switchRow, { borderTopColor: colors.borderLight }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.switchTitle, { color: colors.primaryText }]}>
+                Fondo Negro (Modo Oscuro)
+              </Text>
+              <Text style={[styles.switchSubtitle, { color: colors.secondaryText }]}>
+                Pantalla negra OLED para reducir fatiga visual
+              </Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#E5E5EA', true: '#111113' }}
+              thumbColor={isDark ? '#F4F4F5' : '#FFFFFF'}
+            />
+          </View>
+        </View>
+
         {/* Acciones de Cuenta */}
         <View style={styles.actionsContainer}>
           <PrimaryButton
@@ -166,6 +282,12 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
             label="Restablecer Valores Iniciales"
             onPress={resetProfile}
             style={{ marginTop: Spacing.sm }}
+          />
+          <SecondaryButton
+            label="Cerrar Sesión (Sign Out)"
+            onPress={logout}
+            icon="log-out-outline"
+            style={{ marginTop: Spacing.sm, borderColor: 'rgba(239, 68, 68, 0.4)' }}
           />
         </View>
       </ScrollView>
@@ -301,5 +423,68 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     marginTop: Spacing.md,
+  },
+  themeBadgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  themeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  themeOptionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  themeOptionCard: {
+    flex: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  themeIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xs,
+  },
+  themeOptionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  themeOptionDesc: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    marginTop: Spacing.xs,
+  },
+  switchTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  switchSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
   },
 });

@@ -104,3 +104,56 @@ export async function fetchCurrentUser(token: string): Promise<UserMeResponse> {
 
   return await response.json();
 }
+
+export interface UserProfileSetupPayload {
+  full_name: string;
+  age: number;
+  face_image?: string;
+  body_image?: string;
+}
+
+export interface UserProfileSetupResponse {
+  status: string;
+  message: string;
+  full_name?: string;
+  age?: number;
+}
+
+/**
+ * Envía la configuración biométrica inicial del usuario (nombre, edad, foto rostro y foto cuerpo)
+ */
+export async function setupUserProfile(
+  payload: UserProfileSetupPayload,
+  token?: string | null
+): Promise<UserProfileSetupResponse> {
+  const baseUrl = getBaseUrl();
+  const url = `${baseUrl}/api/users/profile/setup`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let errorDetail = 'Error al configurar el perfil de usuario.';
+    try {
+      const errJson = await response.json();
+      if (errJson.detail) errorDetail = errJson.detail;
+    } catch {
+      // Ignorar
+    }
+    throw new Error(errorDetail);
+  }
+
+  return await response.json();
+}
+
