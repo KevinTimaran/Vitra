@@ -3,7 +3,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 
-export const WardrobeScreen: React.FC = () => {
+import { TouchableOpacity } from 'react-native';
+
+export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -15,8 +17,17 @@ export const WardrobeScreen: React.FC = () => {
           Armario Digital - Catálogo de Prendas
         </Text>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>Esqueleto Base · Fase 1</Text>
+          <Text style={styles.badgeText}>Fase 2 & 3 · Ingesta & 3D</Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => (navigation ? navigation.navigate('AddGarment') : null)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="camera-outline" size={18} color={Colors.ctaText} />
+          <Text style={styles.addBtnText}>Añadir Prenda al Armario</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -79,5 +90,22 @@ const styles = StyleSheet.create({
     color: Colors.tertiaryText,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.cta,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+    gap: Spacing.xs,
+    marginTop: Spacing.xl,
+    width: '100%',
+  },
+  addBtnText: {
+    ...Typography.callout,
+    color: Colors.ctaText,
+    fontWeight: '600',
   },
 });

@@ -1,112 +1,7 @@
-import { GarmentAnalysis } from './types';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
+import { GarmentAnalysisResponse, TryOnResponse } from './types';
 
-/**
- * Analyzes a garment image using the FitGlassAI backend.
- */
-export const analyzeGarment = async (imageUri: string): Promise<GarmentAnalysis> => {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (!baseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not defined in .env');
-  }
-
-  let finalUri = imageUri;
-
-  try {
-    // Convert the image to JPEG to ensure format compatibility (e.g. HEIC from iOS)
-    const manipResult = await ImageManipulator.manipulateAsync(
-      imageUri,
-      [],
-      { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
-    );
-    finalUri = manipResult.uri;
-  } catch (error) {
-    console.warn('Image manipulation failed, falling back to original URI:', error);
-  }
-
-  const mimeType = 'image/jpeg';
-  const filename = 'garment.jpg';
-
-  try {
-    let resultJson: any;
-
-    if (Platform.OS === 'web') {
-      // Fetch the local file as a Blob to append to FormData
-      const imageFetchResponse = await fetch(finalUri);
-      const rawBlob = await imageFetchResponse.blob();
-      const blob = new Blob([rawBlob], { type: mimeType });
-
-      const formData = new FormData();
-      formData.append('file', blob, filename);
-
-      const response = await fetch(`${baseUrl}/api/garments/analyze`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        let errorMessage = `HTTP Error: ${response.status} ${response.statusText}`;
-        try {
-          const errorText = await response.text();
-          const errorJson = JSON.parse(errorText);
-          errorMessage += ` - Error: ${JSON.stringify(errorJson)}`;
-        } catch (e) {}
-        throw new Error(errorMessage);
-      }
-      resultJson = await response.json();
-    } else {
-      // Use expo-file-system for native platforms to ensure correct multipart formatting
-      const uploadResult = await FileSystem.uploadAsync(
-        `${baseUrl}/api/garments/analyze`,
-        finalUri,
-        {
-          httpMethod: 'POST',
-          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-          fieldName: 'file',
-          mimeType: mimeType,
-          headers: {
-            'Accept': 'application/json',
-          },
-        }
-      );
-
-      if (uploadResult.status < 200 || uploadResult.status >= 300) {
-        let errorMessage = `HTTP Error: ${uploadResult.status}`;
-        try {
-          const errorJson = JSON.parse(uploadResult.body);
-          errorMessage += ` - Error: ${JSON.stringify(errorJson)}`;
-        } catch (e) {
-          errorMessage += ` - Body: ${uploadResult.body}`;
-        }
-        throw new Error(errorMessage);
-      }
-      resultJson = JSON.parse(uploadResult.body);
-    }
-
-    if (resultJson.success === false) {
-      throw new Error(resultJson.error || 'Backend analysis failed');
-    }
-
-    const data = resultJson.data;
-    if (!data) {
-      throw new Error('Invalid response structure: missing data field');
-    }
-
-    // Basic validation
-    if (!data.category) {
-      throw new Error('Invalid response: missing category');
-    }
-
-    return data as GarmentAnalysis;
-  } catch (error) {
-    console.error('Error analyzing garment:', error);
-    throw error;
-  }
+const getBaseUrl = (): string => {
+  return process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 };
 
 export interface HealthStatusResponse {
@@ -115,23 +10,157 @@ export interface HealthStatusResponse {
 }
 
 /**
- * Checks health connectivity with the FitGlassAI backend.
+ * Verifica la conectividad con el backend FitGlassAI.
  */
 export const checkHealth = async (): Promise<HealthStatusResponse> => {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-  
-  const response = await fetch(`${baseUrl}/health`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
+  const baseUrl = getBaseUrl();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-  if (!response.ok) {
-    throw new Error(`Health check failed with HTTP status ${response.status}`);
+    const response = await fetch(`${baseUrl}/health`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`El servidor respondió con código HTTP ${response.status}`);
+    }
+
+    const data: HealthStatusResponse = await response.json();
+    return data;
+  } catch (error: any) {
+    console.warn('[checkHealth] Fallo al consultar el backend:', error?.message);
+    if (error.name === 'AbortError') {
+      throw new Error(`Tiempo de espera agotado al conectar con ${baseUrl}`);
+    }
+    throw new Error(
+      error?.message || `No se pudo conectar con el servidor en ${baseUrl}. Verifica tu red Wi-Fi y el servidor.`
+    );
   }
-
-  const data: HealthStatusResponse = await response.json();
-  return data;
 };
 
+/**
+ * Envía una imagen (Base64 o URL) a Gemini para análisis de metadatos.
+ * Endpoint: POST /api/garments/analyze
+ */
+export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentAnalysisResponse> => {
+  const baseUrl = getBaseUrl();
+
+  if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
+    throw new Error('La imagen de la prenda está vacía.');
+  }
+
+  // Si es Base64 puro sin cabecera de datos, añadir esquema Data URI
+  let formattedImage = imageBase64OrUrl.trim();
+  if (!formattedImage.startsWith('http://') && !formattedImage.startsWith('https://') && !formattedImage.startsWith('data:')) {
+    formattedImage = `data:image/jpeg;base64,${formattedImage}`;
+  }
+
+  try {
+    console.log('[analyzeGarment] Enviando imagen a:', `${baseUrl}/api/garments/analyze`);
+
+    const response = await fetch(`${baseUrl}/api/garments/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        image: formattedImage,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMsg = `Error del servidor (HTTP ${response.status})`;
+      try {
+        const errorJson = await response.json();
+        if (errorJson.error) {
+          errorMsg = errorJson.error;
+        } else if (errorJson.detail) {
+          errorMsg = typeof errorJson.detail === 'string' ? errorJson.detail : JSON.stringify(errorJson.detail);
+        }
+      } catch (e) {
+        // Fallback al statusText
+      }
+      throw new Error(errorMsg);
+    }
+
+    const result: GarmentAnalysisResponse = await response.json();
+    console.log('[analyzeGarment] Respuesta recibida con éxito:', result);
+    return result;
+  } catch (error: any) {
+    console.error('[analyzeGarment] Error al procesar prenda:', error);
+    throw new Error(
+      error?.message || 'Error de red al conectar con FitGlassAI para analizar la prenda.'
+    );
+  }
+};
+
+/**
+ * Ejecuta el pipeline completo de Virtual Try-On (VTON + Conversión 3D):
+ * 1. Fusiona humanImage y garmentImage en 2D (Replicate / IDM-VTON).
+ * 2. Extruye la imagen 2D resultante a un modelo 3D descargable .glb (Tripo3D).
+ * Endpoint: POST /api/tryon/generate
+ */
+export const generateTryOn = async (
+  humanImageUrl: string,
+  garmentImageUrl: string,
+  category: string = 'upper_body',
+  garmentDescription: string = 'clothing'
+): Promise<TryOnResponse> => {
+  const baseUrl = getBaseUrl();
+
+  if (!humanImageUrl || !humanImageUrl.trim()) {
+    throw new Error('La imagen de la persona no puede estar vacía.');
+  }
+  if (!garmentImageUrl || !garmentImageUrl.trim()) {
+    throw new Error('La imagen de la prenda no puede estar vacía.');
+  }
+
+  try {
+    console.log('[generateTryOn] Iniciando pipeline generativo VTON + 3D...');
+
+    const response = await fetch(`${baseUrl}/api/tryon/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        human_image: humanImageUrl.trim(),
+        garment_image: garmentImageUrl.trim(),
+        category,
+        garment_description: garmentDescription,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMsg = `Fallo en el pipeline generativo (HTTP ${response.status})`;
+      try {
+        const errJson = await response.json();
+        if (errJson.detail) {
+          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+        } else if (errJson.error) {
+          errorMsg = errJson.error;
+        }
+      } catch (e) {
+        // Mantener errorMsg
+      }
+      throw new Error(errorMsg);
+    }
+
+    const data: TryOnResponse = await response.json();
+    console.log('[generateTryOn] Modelo 3D y vista 2D generados:', data);
+    return data;
+  } catch (error: any) {
+    console.error('[generateTryOn] Error en tryon:', error);
+    throw new Error(
+      error?.message || 'Error de red durante la generación del probador 3D.'
+    );
+  }
+};

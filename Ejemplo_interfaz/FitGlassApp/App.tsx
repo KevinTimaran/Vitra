@@ -3,19 +3,22 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider } from './src/contexts/LanguageContext';
-import { Colors } from './src/theme';
 
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WardrobeScreen } from './src/screens/WardrobeScreen';
 import { FittingRoomScreen } from './src/screens/FittingRoomScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
-import { RootTabParamList } from './src/navigation/types';
+import { AddGarmentScreen } from './src/screens/AddGarmentScreen';
+import { GarmentProcessingScreen } from './src/screens/GarmentProcessingScreen';
+import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AppTabs() {
   const { colors } = useTheme();
@@ -124,7 +127,30 @@ function NavigationRoot() {
   return (
     <NavigationContainer theme={navigationTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <AppTabs />
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      >
+        <Stack.Screen name="MainTabs" component={AppTabs} />
+        <Stack.Screen
+          name="AddGarment"
+          component={AddGarmentScreen as any}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen
+          name="GarmentProcessing"
+          component={GarmentProcessingScreen as any}
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'fade',
+          }}
+        />
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }

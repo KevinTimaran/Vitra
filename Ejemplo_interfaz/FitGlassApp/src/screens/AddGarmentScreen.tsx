@@ -1,253 +1,227 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
-import { PrimaryButton, SecondaryButton } from '../components/Buttons';
-import { useTranslation } from '../contexts/LanguageContext';
+import { Colors, Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface AddGarmentScreenProps {
-  onPhotoConfirmed: (uri: string) => void;
-  onClose: () => void;
+  onPhotoConfirmed: (base64Data: string, imageUri: string) => void;
+  onClose?: () => void;
+  navigation?: any;
 }
 
 export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
   onPhotoConfirmed,
   onClose,
+  navigation,
 }) => {
-  const { t } = useTranslation();
   const { colors, isDark } = useTheme();
 
-  const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const [hasCaptured, setHasCaptured] = useState(false);
-  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
-  const [flashOn, setFlashOn] = useState(false);
-  const [capturedCategory, setCapturedCategory] = useState<'Tops' | 'Outerwear' | 'Pants'>('Tops');
-
-  const handleCapture = async () => {
-    if (cameraRef.current) {
-      try {
-        const photo = await cameraRef.current.takePictureAsync();
-        if (photo) {
-          setCapturedImageUri(photo.uri);
-          setHasCaptured(true);
-        }
-      } catch (err) {
-        console.error('Error capturing photo:', err);
-      }
-    }
-  };
-
-  const handlePickFromGallery = async () => {
+  const handleLaunchCamera = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          'Permiso de Cámara',
+          'Se requiere acceso a la cámara para fotografiar tus prendas de ropa.'
+        );
+        return;
+      }
+
+      setLoading(true);
+      const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 1,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+        base64: true,
       });
 
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setCapturedImageUri(result.assets[0].uri);
-        setHasCaptured(true);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setSelectedImageUri(asset.uri);
+        const b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setImageBase64(b64);
       }
-    } catch (err) {
-      console.error('Error picking image:', err);
+    } catch (error: any) {
+      console.error('[AddGarmentScreen] Error al abrir cámara:', error);
+      Alert.alert('Error', 'No se pudo inicializar la cámara del dispositivo.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRetake = () => {
-    setHasCaptured(false);
-    setCapturedImageUri(null);
+  const handleLaunchGallery = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          'Permiso de Galería',
+          'Se requiere acceso a tu fototeca para seleccionar prendas.'
+        );
+        return;
+      }
+
+      setLoading(true);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setSelectedImageUri(asset.uri);
+        const b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setImageBase64(b64);
+      }
+    } catch (error: any) {
+      console.error('[AddGarmentScreen] Error al abrir galería:', error);
+      Alert.alert('Error', 'No se pudo acceder a las fotos del dispositivo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (!imageBase64 || !selectedImageUri) {
+      Alert.alert('Atención', 'Por favor toma una foto o selecciona una imagen de la galería.');
+      return;
+    }
+
+    if (onPhotoConfirmed) {
+      onPhotoConfirmed(imageBase64, selectedImageUri);
+    } else if (navigation) {
+      navigation.navigate('GarmentProcessing', {
+        imageBase64,
+        imageUri: selectedImageUri,
+      });
+    }
+  };
+
+  const handleCancelOrClose = () => {
+    if (onClose) {
+      onClose();
+    } else if (navigation?.canGoBack()) {
+      navigation.goBack();
+    }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Bar with Flash & Close */}
-      <View style={[styles.topBar, { backgroundColor: colors.bg }]}>
+      {/* Encabezado */}
+      <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
         <TouchableOpacity
-          style={[styles.circleButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={onClose}
+          onPress={handleCancelOrClose}
+          style={styles.headerBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="close" size={20} color={colors.primaryText} />
+          <Ionicons name="close-outline" size={26} color={colors.primaryText} />
         </TouchableOpacity>
-
-        <View style={styles.headerTitleBox}>
-          <Text style={[styles.screenTitle, { color: colors.primaryText }]}>
-            {t('addGarment.title')}
-          </Text>
-          <Text style={[styles.screenSubtitle, { color: colors.secondaryText }]}>
-            {hasCaptured ? t('addGarment.confirmCapture') : t('addGarment.cameraFrame')}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.circleButton,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            flashOn && [styles.circleButtonActive, { backgroundColor: colors.cta, borderColor: colors.cta }],
-          ]}
-          onPress={() => setFlashOn(!flashOn)}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={flashOn ? 'flash' : 'flash-outline'}
-            size={18}
-            color={flashOn ? colors.ctaText : colors.primaryText}
-          />
-        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.primaryText }]}>Añadir Prenda</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Camera Viewport Canvas */}
-      <View style={[styles.cameraViewport, { backgroundColor: isDark ? '#121214' : '#0F0F12' }]}>
-        {!permission?.granted && !hasCaptured ? (
-          <View style={styles.permissionContainer}>
-            <Text style={[styles.permissionText, { color: '#F4F4F5' }]}>
-              {t('addGarment.cameraPermission') || 'We need camera permission to take pictures of your garments.'}
+      <View style={styles.content}>
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={colors.primaryText} />
+            <Text style={[styles.loadingText, { color: colors.secondaryText }]}>
+              Procesando imagen y extrayendo Base64...
             </Text>
-            <PrimaryButton label="Grant Permission" onPress={requestPermission} />
           </View>
-        ) : hasCaptured && capturedImageUri ? (
-          <Image source={{ uri: capturedImageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        ) : (
-          <CameraView 
-            style={StyleSheet.absoluteFill} 
-            facing="back"
-            enableTorch={flashOn}
-            ref={cameraRef}
-          />
-        )}
+        ) : selectedImageUri ? (
+          /* Vista previa de la foto capturada */
+          <View style={styles.previewContainer}>
+            <View style={[styles.imageWrapper, { borderColor: colors.border }]}>
+              <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
+            </View>
 
-        {/* Optical corner guides */}
-        <View style={[styles.cornerGuide, styles.cornerTopLeft]} />
-        <View style={[styles.cornerGuide, styles.cornerTopRight]} />
-        <View style={[styles.cornerGuide, styles.cornerBottomLeft]} />
-        <View style={[styles.cornerGuide, styles.cornerBottomRight]} />
+            <View style={styles.badgeSuccess}>
+              <Ionicons name="checkmark-circle" size={16} color="#15803D" />
+              <Text style={styles.badgeSuccessText}>Imagen Base64 lista para análisis</Text>
+            </View>
 
-        {/* Optical Level Axis */}
-        <View style={styles.horizontalAxis} />
-        <View style={styles.verticalAxis} />
-
-        {/* Preview Object Area */}
-        <View style={styles.objectPreviewArea}>
-          <View
-            style={[
-              styles.simulatedGarmentShape,
-              hasCaptured && styles.simulatedGarmentCaptured,
-            ]}
-          >
-            <Ionicons
-              name={
-                capturedCategory === 'Tops'
-                  ? 'shirt-outline'
-                  : capturedCategory === 'Outerwear'
-                  ? 'layers-outline'
-                  : 'reorder-two-outline'
-              }
-              size={80}
-              color={hasCaptured ? (isDark ? '#F4F4F5' : '#18181B') : '#71717A'}
-            />
-            {hasCaptured && (
-              <View style={styles.capturedBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                <Text style={styles.capturedBadgeText}>{t('addGarment.detected')}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Framing Instructions Tooltip */}
-        {!hasCaptured && (
-          <View style={styles.framingHint}>
-            <Text style={styles.hintText}>{t('addGarment.hint')}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Control Area */}
-      {!hasCaptured ? (
-        <View style={[styles.captureControlsSection, { backgroundColor: colors.surface }]}>
-          {/* Category selector */}
-          <View style={styles.categoryPills}>
-            {(['Tops', 'Outerwear', 'Pants'] as const).map((cat) => (
+            <View style={styles.actionsRow}>
               <TouchableOpacity
-                key={cat}
-                style={[
-                  styles.catPill,
-                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-                  capturedCategory === cat && [styles.catPillActive, { backgroundColor: colors.cta, borderColor: colors.cta }],
-                ]}
-                onPress={() => setCapturedCategory(cat)}
+                style={[styles.btnSecondary, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                onPress={() => {
+                  setSelectedImageUri(null);
+                  setImageBase64(null);
+                }}
+                activeOpacity={0.7}
               >
-                <Text
-                  style={[
-                    styles.catPillText,
-                    { color: colors.secondaryText },
-                    capturedCategory === cat && [styles.catPillTextActive, { color: colors.ctaText }],
-                  ]}
-                >
-                  {cat === 'Tops' ? t('common.tops') : cat === 'Outerwear' ? t('common.outerwear') : t('common.pants')}
+                <Ionicons name="reload-outline" size={18} color={colors.primaryText} />
+                <Text style={[styles.btnSecondaryText, { color: colors.primaryText }]}>Repetir</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.btnPrimary, { backgroundColor: colors.cta }]}
+                onPress={handleConfirm}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.btnPrimaryText, { color: colors.ctaText }]}>Procesar Prenda</Text>
+                <Ionicons name="arrow-forward" size={18} color={colors.ctaText} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          /* Opciones de captura cuando no hay foto */
+          <View style={styles.selectionContainer}>
+            <View style={[styles.guidanceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="camera-outline" size={32} color={colors.primaryText} />
+              </View>
+              <Text style={[styles.guidanceTitle, { color: colors.primaryText }]}>
+                Captura tu Prenda
+              </Text>
+              <Text style={[styles.guidanceSubtitle, { color: colors.secondaryText }]}>
+                Toma una foto bien iluminada sobre un fondo neutro para obtener los mejores resultados con Gemini y Tripo3D.
+              </Text>
+            </View>
+
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity
+                style={[styles.actionOptionBtn, { backgroundColor: colors.cta }]}
+                onPress={handleLaunchCamera}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="camera" size={22} color={colors.ctaText} />
+                <Text style={[styles.actionOptionText, { color: colors.ctaText }]}>
+                  Usar Cámara
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
 
-          {/* Shutter Button */}
-          <View style={styles.shutterRow}>
-            <TouchableOpacity onPress={handlePickFromGallery} style={styles.galleryButton}>
-              <Ionicons name="images-outline" size={26} color={colors.primaryText} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.shutterOuter, { borderColor: colors.border }]}
-              onPress={handleCapture}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.shutterInner, { backgroundColor: colors.cta }]} />
-            </TouchableOpacity>
-
-            <View style={{ width: 44 }} />
-          </View>
-
-          <Text style={[styles.captureNote, { color: colors.tertiaryText }]}>
-            {t('addGarment.tapShutter')}
-          </Text>
-        </View>
-      ) : (
-        <View style={[styles.confirmationSection, { backgroundColor: colors.surface }]}>
-          <Text style={[Typography.title2, styles.confirmPrompt, { color: colors.primaryText }]}>
-            {t('addGarment.confirmCapture')}
-          </Text>
-          <Text style={[Typography.caption, styles.confirmSubtitle, { color: colors.secondaryText }]}>
-            {t('addGarment.hint')}
-          </Text>
-
-          <View style={styles.confirmButtonsRow}>
-            <View style={{ flex: 1, marginRight: Spacing.sm }}>
-              <SecondaryButton label={t('addGarment.retake')} onPress={handleRetake} icon="refresh" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <PrimaryButton
-                label={t('addGarment.analyze')}
-                onPress={() => onPhotoConfirmed(capturedImageUri || '')}
-                icon="checkmark"
-              />
+              <TouchableOpacity
+                style={[styles.actionOptionSecondaryBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={handleLaunchGallery}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="images-outline" size={22} color={colors.primaryText} />
+                <Text style={[styles.actionOptionSecondaryText, { color: colors.primaryText }]}>
+                  Abrir Galería
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
 };
@@ -255,230 +229,166 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
   },
-  topBar: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
   },
-  circleButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
+  headerBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleButtonActive: {},
-  headerTitleBox: {
-    alignItems: 'center',
-  },
-  screenTitle: {
+  headerTitle: {
     ...Typography.headline,
-  },
-  screenSubtitle: {
-    ...Typography.micro,
-    fontSize: 10,
-    marginTop: 1,
-  },
-  cameraViewport: {
-    flex: 1,
-    marginHorizontal: Spacing.md,
-    marginVertical: Spacing.xs,
-    borderRadius: Radius.xl,
-    position: 'relative',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xl,
-    zIndex: 10,
-  },
-  permissionText: {
-    ...Typography.body,
-    textAlign: 'center',
-    marginBottom: Spacing.lg,
-  },
-  cornerGuide: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    zIndex: 2,
-  },
-  cornerTopLeft: {
-    top: 20,
-    left: 20,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-  },
-  cornerTopRight: {
-    top: 20,
-    right: 20,
-    borderTopWidth: 2,
-    borderRightWidth: 2,
-  },
-  cornerBottomLeft: {
-    bottom: 20,
-    left: 20,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
-  },
-  cornerBottomRight: {
-    bottom: 20,
-    right: 20,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-  },
-  horizontalAxis: {
-    position: 'absolute',
-    left: 30,
-    right: 30,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    zIndex: 2,
-  },
-  verticalAxis: {
-    position: 'absolute',
-    top: 30,
-    bottom: 30,
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    zIndex: 2,
-  },
-  objectPreviewArea: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  simulatedGarmentShape: {
-    width: 170,
-    height: 210,
-    borderRadius: Radius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  simulatedGarmentCaptured: {
-    borderStyle: 'solid',
-    borderColor: '#10B981',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  },
-  capturedBadge: {
-    position: 'absolute',
-    bottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#18181B',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.xs,
-  },
-  capturedBadgeText: {
-    ...Typography.micro,
-    color: '#FAFAFA',
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  framingHint: {
-    position: 'absolute',
-    bottom: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
-    zIndex: 2,
-  },
-  hintText: {
-    ...Typography.caption,
-    color: '#F4F4F5',
-    fontSize: 11,
-  },
-  captureControlsSection: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
-    alignItems: 'center',
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-  },
-  categoryPills: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  catPill: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
-  catPillActive: {},
-  catPillText: {
-    ...Typography.micro,
     fontWeight: '600',
   },
-  catPillTextActive: {},
-  shutterRow: {
-    flexDirection: 'row',
+  content: {
+    flex: 1,
+    padding: Spacing.xl,
+    justifyContent: 'center',
+  },
+  centerContainer: {
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  loadingText: {
+    ...Typography.subhead,
+  },
+  selectionContainer: {
+    alignItems: 'center',
     width: '100%',
-    paddingHorizontal: Spacing.xl,
+    maxWidth: 400,
+    alignSelf: 'center',
   },
-  galleryButton: {
-    width: 44,
-    height: 44,
+  guidanceCard: {
+    width: '100%',
+    borderRadius: Radius.xl,
+    padding: Spacing.xxl,
+    alignItems: 'center',
+    borderWidth: 1,
+    marginBottom: Spacing.xxl,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0,0,0,0.04)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  shutterOuter: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shutterInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  captureNote: {
-    ...Typography.micro,
-    fontSize: 9,
-    marginTop: Spacing.md,
-    letterSpacing: 0.5,
-  },
-  confirmationSection: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.xxl,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-  },
-  confirmPrompt: {
-    textAlign: 'center',
-  },
-  confirmSubtitle: {
-    textAlign: 'center',
-    marginTop: Spacing.xs,
     marginBottom: Spacing.lg,
   },
-  confirmButtonsRow: {
+  guidanceTitle: {
+    ...Typography.title2,
+    fontWeight: '700',
+    marginBottom: Spacing.xs,
+    textAlign: 'center',
+  },
+  guidanceSubtitle: {
+    ...Typography.body,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  buttonsContainer: {
+    width: '100%',
+    gap: Spacing.md,
+  },
+  actionOptionBtn: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    borderRadius: Radius.lg,
+    gap: Spacing.sm,
+  },
+  actionOptionText: {
+    ...Typography.body,
+    fontWeight: '600',
+  },
+  actionOptionSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    gap: Spacing.sm,
+  },
+  actionOptionSecondaryText: {
+    ...Typography.body,
+    fontWeight: '600',
+  },
+  previewContainer: {
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
+  },
+  imageWrapper: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  badgeSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    gap: 6,
+    marginBottom: Spacing.xl,
+  },
+  badgeSuccessText: {
+    ...Typography.caption,
+    color: '#15803D',
+    fontWeight: '600',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: Spacing.md,
+  },
+  btnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    gap: Spacing.xs,
+  },
+  btnSecondaryText: {
+    ...Typography.callout,
+    fontWeight: '600',
+  },
+  btnPrimary: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+    gap: Spacing.xs,
+  },
+  btnPrimaryText: {
+    ...Typography.callout,
+    fontWeight: '600',
   },
 });

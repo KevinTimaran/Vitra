@@ -1,3 +1,26 @@
+export interface GarmentMetadata {
+  tipo_prenda?: string;
+  color_dominante?: string;
+  colores_secundarios?: string[];
+  estilo_recomendado?: string;
+  corte?: string;
+  ocasion_recomendada?: string;
+  detalles?: string;
+}
+
+export interface GarmentAnalysisResponse {
+  success: boolean;
+  data?: GarmentMetadata | any;
+  error?: string | null;
+}
+
+export interface TryOnResponse {
+  image_2d_url: string;
+  model_3d_url: string;
+  status: string;
+}
+
+// Tipo previo para compatibilidad
 export interface GarmentAnalysis {
   category: 'Tops' | 'Outerwear' | 'Pants' | string;
   sleeve?: string;

@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { checkHealth, HealthStatusResponse } from '../services/ai/garmentAnalyzer';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 
-export const HomeScreen: React.FC = () => {
+export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [healthStatus, setHealthStatus] = useState<HealthStatusResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +99,27 @@ export const HomeScreen: React.FC = () => {
             <Text style={styles.retryButtonText}>
               {loading ? 'Consultando...' : 'Reintentar Conexión'}
             </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Acciones Generativas Fase 2 & 3 */}
+        <View style={styles.quickActionsContainer}>
+          <TouchableOpacity
+            style={styles.primaryActionBtn}
+            onPress={() => (navigation ? navigation.navigate('AddGarment') : null)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="camera" size={18} color={Colors.ctaText} />
+            <Text style={styles.primaryActionBtnText}>Capturar Prenda (Cámara / Galería)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryActionBtn}
+            onPress={() => (navigation ? navigation.navigate('FittingRoom') : null)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="sparkles-outline" size={18} color={Colors.primaryText} />
+            <Text style={styles.secondaryActionBtnText}>Abrir Probador Virtual 3D</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -252,5 +273,40 @@ const styles = StyleSheet.create({
     color: Colors.ctaText,
     fontWeight: '600',
     fontSize: 13,
+  },
+  quickActionsContainer: {
+    width: '100%',
+    marginTop: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  primaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.cta,
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+    gap: Spacing.xs,
+  },
+  primaryActionBtnText: {
+    ...Typography.callout,
+    color: Colors.ctaText,
+    fontWeight: '600',
+  },
+  secondaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+    gap: Spacing.xs,
+  },
+  secondaryActionBtnText: {
+    ...Typography.callout,
+    color: Colors.primaryText,
+    fontWeight: '600',
   },
 });

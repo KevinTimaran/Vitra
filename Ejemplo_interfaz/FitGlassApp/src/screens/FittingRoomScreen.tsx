@@ -1,22 +1,238 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { Suspense, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Dimensions,
+  Image,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useGLTF, OrbitControls } from '@react-three/drei';
+import * as THREE from 'three';
 
-export const FittingRoomScreen: React.FC = () => {
+import { Colors, Typography, Spacing, Radius } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
+
+interface FittingRoomScreenProps {
+  route?: {
+    params?: {
+      model_3d_url?: string;
+      image_2d_url?: string;
+      metadata?: any;
+    };
+  };
+  model_3d_url?: string;
+  image_2d_url?: string;
+  navigation?: any;
+  onOpenAddGarment?: () => void;
+}
+
+// Modelo de respaldo para demostración
+const DEFAULT_SAMPLE_MODEL_URL =
+  'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf';
+
+/**
+ * Componente que carga y renderiza el archivo GLTF/GLB dinámico
+ */
+function DynamicGLTFModel({ url }: { url: string }) {
+  const gltf = useGLTF(url);
+  const modelRef = useRef<THREE.Group>(null);
+
+  // Rotación sutil automática continua
+  useFrame((_, delta) => {
+    if (modelRef.current) {
+      modelRef.current.rotation.y += delta * 0.35;
+    }
+  });
+
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="sparkles-outline" size={38} color={Colors.primaryText} />
+    <primitive
+      ref={modelRef}
+      object={gltf.scene}
+      scale={1.2}
+      position={[0, -0.4, 0]}
+    />
+  );
+}
+
+/**
+ * Geometría estilizada de respaldo mientras carga o si no hay modelo GLB
+ */
+function Fallback3DMesh() {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame((_, delta) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += delta * 0.5;
+      meshRef.current.rotation.x += delta * 0.2;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} position={[0, 0, 0]}>
+      <octahedronGeometry args={[0.9, 2]} />
+      <meshStandardMaterial
+        color="#111113"
+        metalness={0.7}
+        roughness={0.2}
+        wireframe={false}
+      />
+    </mesh>
+  );
+}
+
+export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
+  const { colors, isDark } = useTheme();
+
+  const modelUrl =
+    props.model_3d_url ||
+    props.route?.params?.model_3d_url ||
+    DEFAULT_SAMPLE_MODEL_URL;
+
+  const image2dUrl = props.image_2d_url || props.route?.params?.image_2d_url;
+  const metadata = props.route?.params?.metadata;
+
+  const [show2DView, setShow2DView] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<boolean>(false);
+
+  const handleLaunchAddGarment = () => {
+    if (props.onOpenAddGarment) {
+      props.onOpenAddGarment();
+    } else if (props.navigation) {
+      props.navigation.navigate('AddGarment');
+    }
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      {/* Barra superior con metadatos y alternador 2D/3D */}
+      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.borderLight }]}>
+        <View style={styles.titleColumn}>
+          <Text style={[styles.screenTitle, { color: colors.primaryText }]}>Probador Virtual</Text>
+          <Text style={[styles.screenSubtitle, { color: colors.secondaryText }]}>
+            {metadata?.tipo_prenda
+              ? `${metadata.tipo_prenda} · ${metadata.estilo_recomendado || 'Generativo'}`
+              : 'Visor 3D Interactivo'}
+          </Text>
         </View>
-        <Text style={styles.title}>FittingRoomScreen</Text>
-        <Text style={styles.subtitle}>
-          Probador Virtual · Núcleo Generativo
-        </Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Esqueleto Base · Fase 1</Text>
+
+        {image2dUrl ? (
+          <TouchableOpacity
+            style={[styles.toggleBtn, { backgroundColor: colors.surfaceSubtle }]}
+            onPress={() => setShow2DView(!show2DView)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={show2DView ? 'cube-outline' : 'image-outline'}
+              size={18}
+              color={colors.primaryText}
+            />
+            <Text style={[styles.toggleBtnText, { color: colors.primaryText }]}>
+              {show2DView ? 'Ver 3D' : 'Ver Fusión 2D'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: colors.cta }]}
+            onPress={handleLaunchAddGarment}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="camera-outline" size={16} color={colors.ctaText} />
+            <Text style={[styles.addBtnText, { color: colors.ctaText }]}>Probar Prenda</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Área Principal de Renderizado */}
+      <View style={styles.viewport}>
+        {show2DView && image2dUrl ? (
+          /* Vista de la imagen 2D fusionada (VTON) */
+          <View style={styles.image2DWrapper}>
+            <Image source={{ uri: image2dUrl }} style={styles.image2DFull} />
+            <View style={styles.badge2D}>
+              <Text style={styles.badge2DText}>Resultado VTON 2D (IDM-VTON)</Text>
+            </View>
+          </View>
+        ) : (
+          /* Visor 3D interactivo con Three.js / Canvas */
+          <View style={styles.canvasContainer}>
+            <Canvas
+              style={styles.canvas}
+              camera={{ position: [0, 0, 3.2], fov: 45 }}
+            >
+              <ambientLight intensity={1.4} />
+              <directionalLight position={[10, 15, 10]} intensity={1.8} />
+              <directionalLight position={[-10, -10, -10]} intensity={0.6} />
+
+              <Suspense fallback={<Fallback3DMesh />}>
+                {!loadError && modelUrl ? (
+                  <DynamicGLTFModel url={modelUrl} />
+                ) : (
+                  <Fallback3DMesh />
+                )}
+              </Suspense>
+
+              <OrbitControls
+                enableZoom={true}
+                enablePan={false}
+                minDistance={1.2}
+                maxDistance={5.5}
+              />
+            </Canvas>
+
+            {/* Guía táctil superpuesta */}
+            <View style={styles.touchHintBadge}>
+              <Ionicons name="finger-print-outline" size={16} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.touchHintText}>Arrastra para rotar 360° · Pellizca para zoom</Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* Panel inferior de información y acciones */}
+      <View style={[styles.bottomCard, { backgroundColor: colors.surface, borderTopColor: colors.borderLight }]}>
+        <View style={styles.cardHeader}>
+          <View style={styles.statusIndicator}>
+            <View style={styles.dotOnline} />
+            <Text style={[styles.statusText, { color: colors.secondaryText }]}>Modelo 3D activo (.glb)</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.cameraActionBtn, { backgroundColor: colors.cta }]}
+            onPress={handleLaunchAddGarment}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={18} color={colors.ctaText} />
+            <Text style={[styles.cameraActionText, { color: colors.ctaText }]}>Nueva Prenda</Text>
+          </TouchableOpacity>
         </View>
+
+        {metadata ? (
+          <View style={styles.metadataTagsRow}>
+            {metadata.tipo_prenda && (
+              <View style={[styles.tag, { backgroundColor: colors.surfaceSubtle }]}>
+                <Text style={[styles.tagText, { color: colors.primaryText }]}>{metadata.tipo_prenda}</Text>
+              </View>
+            )}
+            {metadata.estilo_recomendado && (
+              <View style={[styles.tag, { backgroundColor: colors.surfaceSubtle }]}>
+                <Text style={[styles.tagText, { color: colors.primaryText }]}>{metadata.estilo_recomendado}</Text>
+              </View>
+            )}
+            {metadata.color_dominante && (
+              <View style={[styles.tag, { backgroundColor: colors.surfaceSubtle }]}>
+                <Text style={[styles.tagText, { color: colors.primaryText }]}>{metadata.color_dominante}</Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <Text style={[styles.hintNote, { color: colors.tertiaryText }]}>
+            Puedes rotar la prenda tridimensional en cualquier ángulo para examinar su caída y proporciones generadas.
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -25,59 +241,164 @@ export const FittingRoomScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
   },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.xxl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
+  titleColumn: {
+    flex: 1,
   },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.lg,
+  screenTitle: {
+    ...Typography.headline,
+    fontWeight: '700',
   },
-  title: {
-    ...Typography.title1,
-    color: Colors.primaryText,
-    marginBottom: Spacing.xs,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...Typography.subhead,
-    color: Colors.secondaryText,
-    textAlign: 'center',
-    marginBottom: Spacing.lg,
-  },
-  badge: {
-    backgroundColor: Colors.surfaceSubtle,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  badgeText: {
+  screenSubtitle: {
     ...Typography.caption,
-    color: Colors.tertiaryText,
+    marginTop: 2,
+  },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    gap: 6,
+  },
+  toggleBtnText: {
+    ...Typography.caption,
     fontWeight: '600',
-    letterSpacing: 0.5,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.full,
+    gap: 6,
+  },
+  addBtnText: {
+    ...Typography.caption,
+    fontWeight: '600',
+  },
+  viewport: {
+    flex: 1,
+    position: 'relative',
+  },
+  canvasContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  canvas: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  touchHintBadge: {
+    position: 'absolute',
+    bottom: Spacing.lg,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(17, 17, 19, 0.75)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  touchHintText: {
+    ...Typography.micro,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  image2DWrapper: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  image2DFull: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  badge2D: {
+    position: 'absolute',
+    top: Spacing.lg,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  badge2DText: {
+    ...Typography.caption,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  bottomCard: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl,
+    borderTopWidth: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dotOnline: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22C55E',
+  },
+  statusText: {
+    ...Typography.caption,
+    fontWeight: '500',
+  },
+  cameraActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    gap: 4,
+  },
+  cameraActionText: {
+    ...Typography.caption,
+    fontWeight: '600',
+  },
+  metadataTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  tag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+  },
+  tagText: {
+    ...Typography.caption,
+    fontWeight: '500',
+  },
+  hintNote: {
+    ...Typography.micro,
+    marginTop: 2,
+    lineHeight: 15,
   },
 });
