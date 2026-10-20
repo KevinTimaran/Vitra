@@ -172,6 +172,7 @@ function NavigationRoot() {
     <NavigationContainer theme={navigationTheme}>
       <StatusBar style={activeIsDark ? 'light' : 'dark'} />
       <Stack.Navigator
+        key={userToken ? (completedOnboarding ? 'user-main' : 'user-onboarding') : 'guest-auth'}
         initialRouteName={
           !userToken
             ? 'Auth'
@@ -188,17 +189,19 @@ function NavigationRoot() {
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : (
           <>
-            {!completedOnboarding && (
+            {!completedOnboarding ? (
               <Stack.Screen
                 name="WelcomeOnboarding"
                 component={WelcomeOnboardingScreen as any}
               />
-            )}
+            ) : null}
             <Stack.Screen name="MainTabs" component={AppTabs} />
-            <Stack.Screen
-              name="WelcomeOnboarding"
-              component={WelcomeOnboardingScreen as any}
-            />
+            {completedOnboarding ? (
+              <Stack.Screen
+                name="WelcomeOnboarding"
+                component={WelcomeOnboardingScreen as any}
+              />
+            ) : null}
             <Stack.Screen
               name="Welcome"
               component={WelcomeScreen as any}
