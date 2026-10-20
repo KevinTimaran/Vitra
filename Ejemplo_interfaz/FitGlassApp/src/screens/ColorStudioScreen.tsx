@@ -5,47 +5,80 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
-import { COLOR_PALETTE_DATA } from '../data/mockData';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
 
 interface ColorStudioScreenProps {
-  onViewRecommendations: () => void;
-  onOpenProfile: () => void;
+  navigation?: any;
+  onViewRecommendations?: () => void;
+  onOpenProfile?: () => void;
+  onRecalibrate?: () => void;
 }
 
 export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
+  navigation,
   onViewRecommendations,
   onOpenProfile,
+  onRecalibrate,
 }) => {
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
+  const { colorProfile, userPhotoUri } = useUser();
 
-  const [analyzing, setAnalyzing] = useState(false);
-  const [activeChip, setActiveChip] = useState<string | null>(null);
+  const [activeHex, setActiveHex] = useState<string | null>(
+    colorProfile.recommended_colors[0] || null
+  );
 
-  const handleReanalyze = () => {
-    setAnalyzing(true);
-    setTimeout(() => {
-      setAnalyzing(false);
-    }, 1200);
+  const handleRecalibrate = () => {
+    if (onRecalibrate) {
+      onRecalibrate();
+    } else if (navigation) {
+      navigation.navigate('BodyProfile');
+    }
+  };
+
+  const handleOpenWardrobe = () => {
+    if (onViewRecommendations) {
+      onViewRecommendations();
+    } else if (navigation) {
+      navigation.navigate('Wardrobe');
+    }
+  };
+
+  const handleOpenFittingRoom = () => {
+    if (navigation) {
+      navigation.navigate('FittingRoom');
+    }
+  };
+
+  const handleCopyHex = (hex: string) => {
+    setActiveHex(hex);
+  };
+
+  // Glassmorphic surface helpers
+  const glassSurface = {
+    backgroundColor: isDark ? 'rgba(30, 30, 36, 0.72)' : 'rgba(255, 255, 255, 0.82)',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <Header
-        title={t('colorStudio.title')}
-        subtitle={t('colorStudio.subtitle')}
+        title="Estudio de Color"
+        subtitle="Armonía Espectral & Colorimetría IA"
         showAvatar
-        onAvatarPress={onOpenProfile}
+        onAvatarPress={onOpenProfile || (() => navigation?.navigate('Profile'))}
         rightAction={{
-          icon: 'refresh-outline',
-          onPress: handleReanalyze,
+          icon: 'camera-outline',
+          onPress: handleRecalibrate,
         }}
       />
 
@@ -54,203 +87,291 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Abstract Face Analysis Placeholder Graphic */}
-        <View
-          style={[
-            styles.abstractAnalysisCanvas,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
-          {/* Chromatic Matrix Grid */}
-          <View style={styles.chromaGrid}>
-            <View style={[styles.chromaRingOuter, { borderColor: colors.border }]} />
-            <View style={[styles.chromaRingInner, { borderColor: colors.borderLight }]} />
-          </View>
-
-          {/* Neutral Abstract Silhouette Head Profile */}
-          <View style={styles.neutralHeadPlaceholder}>
+        {/* Glassmorphic Season Badge Hero Card */}
+        <View style={[styles.glassHeroCard, glassSurface]}>
+          <View style={styles.seasonTagRow}>
             <View
               style={[
-                styles.abstractSilhouetteShape,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.secondaryText },
+                styles.seasonPill,
+                {
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+                },
               ]}
-            />
-            {/* Spectral Crosshairs */}
-            <View style={[styles.targetReticle, { borderColor: colors.primaryText }]} />
-            <View style={styles.spectrumBar}>
-              <View style={[styles.spectrumDot, { backgroundColor: '#E2D3C4', borderColor: colors.border }]} />
-              <View style={[styles.spectrumDot, { backgroundColor: '#71717A', borderColor: colors.border }]} />
-              <View style={[styles.spectrumDot, { backgroundColor: '#18181B', borderColor: colors.border }]} />
+            >
+              <Ionicons name="sparkles" size={13} color={colors.primaryText} />
+              <Text style={[styles.seasonPillText, { color: colors.primaryText }]}>
+                {colorProfile.season.toUpperCase()}
+              </Text>
             </View>
+
+            <TouchableOpacity
+              style={styles.recalibrateBtnMini}
+              onPress={handleRecalibrate}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="scan-outline" size={14} color={colors.secondaryText} />
+              <Text style={[styles.recalibrateBtnMiniText, { color: colors.secondaryText }]}>
+                Recalibrar
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <View
-            style={[
-              styles.calibrationStamp,
-              { backgroundColor: isDark ? 'rgba(39, 39, 42, 0.95)' : 'rgba(255, 255, 255, 0.92)', borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="sparkles" size={12} color={colors.primaryText} />
-            <Text style={[styles.stampText, { color: colors.primaryText }]}>
-              {t('colorStudio.calibration')} · {COLOR_PALETTE_DATA.undertone.toUpperCase()}
-            </Text>
-          </View>
-        </View>
+          <Text style={[styles.paletteName, { color: colors.primaryText }]}>
+            {colorProfile.palette_name || `Paleta ${colorProfile.season}`}
+          </Text>
 
-        {/* User's Skin & Undertone Core Profile */}
-        <View
-          style={[
-            styles.profileSummaryCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
-          <View style={styles.toneRow}>
+          {/* Abstract Spectral Dispersion Ring Graphic */}
+          <View style={styles.chromaRingBox}>
             <View
               style={[
-                styles.skinSwatchBig,
-                { backgroundColor: COLOR_PALETTE_DATA.skinTone.hex, borderColor: colors.border },
+                styles.outerOrb,
+                { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)' },
               ]}
-            />
-            <View style={styles.toneInfo}>
-              <Text style={[styles.tonePreheader, { color: colors.tertiaryText }]}>
-                {t('colorStudio.primarySkin')}
-              </Text>
-              <Text style={[Typography.title2, styles.toneTitle, { color: colors.primaryText }]}>
-                {COLOR_PALETTE_DATA.skinTone.name}
-              </Text>
-              <Text style={[styles.undertoneDesc, { color: colors.secondaryText }]}>
-                {t('colorStudio.undertone')}: {COLOR_PALETTE_DATA.undertone} · {t('colorStudio.contrast')}: {COLOR_PALETTE_DATA.contrastLevel}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Section: Complementary Palette */}
-        <View style={styles.paletteSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
-              {t('colorStudio.complementaryTitle')}
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-              {t('colorStudio.complementarySubtitle')}
-            </Text>
-          </View>
-          <View style={styles.chipsGrid}>
-            {COLOR_PALETTE_DATA.complementary.map((color) => {
-              const isSelected = activeChip === color.hex;
-              return (
-                <TouchableOpacity
-                  key={color.hex}
+            >
+              <View
+                style={[
+                  styles.innerOrb,
+                  { borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)' },
+                ]}
+              >
+                <View
                   style={[
-                    styles.colorChipCard,
-                    { backgroundColor: colors.surface, borderColor: colors.borderLight },
-                    isSelected && [styles.colorChipCardActive, { borderColor: colors.primaryText, backgroundColor: colors.surfaceSubtle }],
+                    styles.centerCore,
+                    {
+                      backgroundColor:
+                        activeHex || colorProfile.recommended_colors[0] || colors.primaryText,
+                    },
                   ]}
-                  onPress={() => setActiveChip(color.hex)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.chipColorBlock, { backgroundColor: color.hex }]} />
-                  <Text style={[styles.chipName, { color: colors.primaryText }]} numberOfLines={1}>
-                    {color.name}
+                />
+              </View>
+            </View>
+
+            {/* Orbiting spectral color dots */}
+            <View style={styles.orbitRow}>
+              {colorProfile.recommended_colors.slice(0, 5).map((hex, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.orbitDot,
+                    {
+                      backgroundColor: hex,
+                      borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)',
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+
+        {/* Biometric Base Tones: Skin Tone, Hair & Eyes */}
+        <View style={styles.sectionWrapper}>
+          <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
+            Fisiología & Subtono Base
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
+            Parámetros extraídos por Gemini Vision a partir de tu fotografía frontal
+          </Text>
+
+          <View style={styles.baseTonesGrid}>
+            {/* Piel */}
+            <View style={[styles.baseToneCard, glassSurface]}>
+              <View
+                style={[
+                  styles.toneCircularSwatch,
+                  {
+                    backgroundColor: colorProfile.skin_tone.split(' ')[0],
+                    borderColor: colors.borderLight,
+                  },
+                ]}
+              />
+              <View style={styles.toneTextCol}>
+                <Text style={[styles.toneTypeLabel, { color: colors.tertiaryText }]}>
+                  TONO DE PIEL
+                </Text>
+                <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
+                  {colorProfile.skin_tone}
+                </Text>
+              </View>
+            </View>
+
+            {/* Cabello */}
+            <View style={[styles.baseToneCard, glassSurface]}>
+              <View
+                style={[
+                  styles.toneCircularSwatch,
+                  {
+                    backgroundColor: colorProfile.hair_color.split(' ')[0],
+                    borderColor: colors.borderLight,
+                  },
+                ]}
+              />
+              <View style={styles.toneTextCol}>
+                <Text style={[styles.toneTypeLabel, { color: colors.tertiaryText }]}>
+                  COLOR DE CABELLO
+                </Text>
+                <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
+                  {colorProfile.hair_color}
+                </Text>
+              </View>
+            </View>
+
+            {/* Ojos si está disponible */}
+            {colorProfile.eye_color ? (
+              <View style={[styles.baseToneCard, glassSurface]}>
+                <View
+                  style={[
+                    styles.toneCircularSwatch,
+                    {
+                      backgroundColor: colorProfile.eye_color.split(' ')[0],
+                      borderColor: colors.borderLight,
+                    },
+                  ]}
+                />
+                <View style={styles.toneTextCol}>
+                  <Text style={[styles.toneTypeLabel, { color: colors.tertiaryText }]}>
+                    COLOR DE OJOS
                   </Text>
-                  <Text style={[styles.chipHex, { color: colors.tertiaryText }]}>{color.hex}</Text>
-                </TouchableOpacity>
-              );
-            })}
+                  <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
+                    {colorProfile.eye_color}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         </View>
 
-        {/* Section: Neutral Palette */}
-        <View style={styles.paletteSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
-              {t('colorStudio.neutralTitle')}
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-              {t('colorStudio.neutralSubtitle')}
+        {/* AI Stylist Explanation Card */}
+        <View style={[styles.explanationCard, glassSurface]}>
+          <View style={styles.explanationHeader}>
+            <Ionicons name="sparkles" size={16} color={colors.primaryText} />
+            <Text style={[styles.explanationLabel, { color: colors.primaryText }]}>
+              Dictamen Estético de Colorimetría
             </Text>
           </View>
-          <View style={styles.chipsGrid}>
-            {COLOR_PALETTE_DATA.neutral.map((color) => {
-              const isSelected = activeChip === color.hex;
+          <Text style={[styles.explanationBody, { color: colors.secondaryText }]}>
+            "{colorProfile.description}"
+          </Text>
+        </View>
+
+        {/* Circular Swatches: Recommended Garment Colors */}
+        <View style={styles.sectionWrapper}>
+          <View style={styles.rowBetween}>
+            <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
+              Colores Óptimos de Ropa
+            </Text>
+            <Text style={[styles.badgeCount, { color: colors.tertiaryText }]}>
+              {colorProfile.recommended_colors.length} TONOS
+            </Text>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
+            Selecciona una muestra circular para ver el código HEX de diseño textil
+          </Text>
+
+          <View style={styles.swatchesContainer}>
+            {colorProfile.recommended_colors.map((hex, index) => {
+              const isSelected = activeHex === hex;
               return (
                 <TouchableOpacity
-                  key={color.hex}
+                  key={`${hex}-${index}`}
                   style={[
-                    styles.colorChipCard,
-                    { backgroundColor: colors.surface, borderColor: colors.borderLight },
-                    isSelected && [styles.colorChipCardActive, { borderColor: colors.primaryText, backgroundColor: colors.surfaceSubtle }],
+                    styles.swatchCard,
+                    glassSurface,
+                    isSelected && {
+                      borderColor: colors.primaryText,
+                      borderWidth: 2,
+                    },
                   ]}
-                  onPress={() => setActiveChip(color.hex)}
-                  activeOpacity={0.8}
+                  onPress={() => handleCopyHex(hex)}
+                  activeOpacity={0.7}
                 >
                   <View
                     style={[
-                      styles.chipColorBlock,
-                      { backgroundColor: color.hex },
-                      (color.hex === '#F4F4F5' || color.hex === '#E4E4E7') && {
-                        borderWidth: 1,
-                        borderColor: colors.border,
+                      styles.circularSwatch,
+                      {
+                        backgroundColor: hex,
+                        borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
                       },
+                      isSelected && styles.circularSwatchSelected,
                     ]}
                   />
-                  <Text style={[styles.chipName, { color: colors.primaryText }]} numberOfLines={1}>
-                    {color.name}
+                  <Text
+                    style={[
+                      styles.swatchHexCode,
+                      { color: isSelected ? colors.primaryText : colors.secondaryText },
+                      isSelected && { fontWeight: '700' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {hex.toUpperCase()}
                   </Text>
-                  <Text style={[styles.chipHex, { color: colors.tertiaryText }]}>{color.hex}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        {/* Section: Accent Palette */}
-        <View style={styles.paletteSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
-              {t('colorStudio.accentTitle')}
+        {/* Selected Swatch Highlight Card */}
+        {activeHex && (
+          <View style={[styles.selectedSwatchCard, glassSurface]}>
+            <View
+              style={[
+                styles.largeSwatchBlock,
+                {
+                  backgroundColor: activeHex,
+                  borderColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
+                },
+              ]}
+            />
+            <View style={styles.selectedSwatchDetails}>
+              <Text style={[styles.selectedSwatchLabel, { color: colors.tertiaryText }]}>
+                CÓDIGO HEX SELECCIONADO
+              </Text>
+              <Text style={[styles.selectedSwatchHex, { color: colors.primaryText }]}>
+                {activeHex.toUpperCase()}
+              </Text>
+              <Text style={[styles.selectedSwatchHint, { color: colors.secondaryText }]}>
+                Filtro cromático activo para el probador y recomendaciones de prendas.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Colores a Evitar */}
+        {colorProfile.colors_to_avoid && colorProfile.colors_to_avoid.length > 0 ? (
+          <View style={styles.sectionWrapper}>
+            <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
+              Colores Desaconsejados
             </Text>
             <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-              {t('colorStudio.accentSubtitle')}
+              Matices que restan luminosidad o generan tono apagado en tu subtono
             </Text>
-          </View>
-          <View style={styles.chipsGrid}>
-            {COLOR_PALETTE_DATA.accent.map((color) => {
-              const isSelected = activeChip === color.hex;
-              return (
-                <TouchableOpacity
-                  key={color.hex}
-                  style={[
-                    styles.colorChipCard,
-                    { backgroundColor: colors.surface, borderColor: colors.borderLight },
-                    isSelected && [styles.colorChipCardActive, { borderColor: colors.primaryText, backgroundColor: colors.surfaceSubtle }],
-                  ]}
-                  onPress={() => setActiveChip(color.hex)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.chipColorBlock, { backgroundColor: color.hex }]} />
-                  <Text style={[styles.chipName, { color: colors.primaryText }]} numberOfLines={1}>
-                    {color.name}
-                  </Text>
-                  <Text style={[styles.chipHex, { color: colors.tertiaryText }]}>{color.hex}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
+            <View style={styles.avoidChipsRow}>
+              {colorProfile.colors_to_avoid.map((hex, i) => (
+                <View key={`avoid-${i}`} style={[styles.avoidChip, glassSurface]}>
+                  <View style={[styles.avoidDot, { backgroundColor: hex }]} />
+                  <Ionicons name="close-circle" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
+                  <Text style={[styles.avoidHexText, { color: colors.secondaryText }]}>
+                    {hex.toUpperCase()}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Acciones principales */}
+        <View style={styles.actionButtonsCol}>
           <PrimaryButton
-            label={t('colorStudio.viewRecommendations')}
-            onPress={onViewRecommendations}
-            icon="arrow-forward"
+            label="Ver Prendas Armonizadas en Armario"
+            onPress={handleOpenWardrobe}
+            icon="shirt-outline"
           />
           <SecondaryButton
-            label={analyzing ? t('colorStudio.recalibrate') : t('colorStudio.analyzeAgain')}
-            onPress={handleReanalyze}
-            loading={analyzing}
-            icon="scan-outline"
+            label="Abrir Probador Virtual 3D"
+            onPress={handleOpenFittingRoom}
+            icon="sparkles-outline"
             style={{ marginTop: Spacing.sm }}
           />
         </View>
@@ -269,160 +390,263 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: Spacing.huge,
   },
-  abstractAnalysisCanvas: {
-    height: 190,
+  glassHeroCard: {
     marginHorizontal: Spacing.xl,
     marginTop: Spacing.md,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  seasonTagRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  seasonPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    gap: 6,
+  },
+  seasonPillText: {
+    ...Typography.micro,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  recalibrateBtnMini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  recalibrateBtnMiniText: {
+    ...Typography.micro,
+    fontSize: 11,
+  },
+  paletteName: {
+    ...Typography.title1,
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: Spacing.xs,
+  },
+  chromaRingBox: {
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: Spacing.md,
     position: 'relative',
-    overflow: 'hidden',
   },
-  chromaGrid: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chromaRingOuter: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  chromaRingInner: {
-    position: 'absolute',
+  outerOrb: {
     width: 110,
     height: 110,
     borderRadius: 55,
     borderWidth: 1,
-  },
-  neutralHeadPlaceholder: {
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-  abstractSilhouetteShape: {
-    width: 64,
-    height: 80,
-    borderRadius: 32,
-    borderWidth: 1.5,
-  },
-  targetReticle: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  innerOrb: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  spectrumBar: {
+  centerCore: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  orbitRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginTop: 8,
+    position: 'absolute',
+    bottom: 0,
+    gap: 10,
   },
-  spectrumDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  orbitDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     borderWidth: 1,
   },
-  calibrationStamp: {
-    position: 'absolute',
-    bottom: Spacing.sm,
+  sectionWrapper: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.xl,
+  },
+  rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: 4,
+    justifyContent: 'space-between',
   },
-  stampText: {
-    ...Typography.micro,
-    fontSize: 9,
-  },
-  profileSummaryCard: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.md,
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
-    borderWidth: 1,
-  },
-  toneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  skinSwatchBig: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: Spacing.lg,
-    borderWidth: 2,
-  },
-  toneInfo: {
-    flex: 1,
-  },
-  tonePreheader: {
-    ...Typography.micro,
-    letterSpacing: 1,
-  },
-  toneTitle: {
-    marginTop: 2,
-  },
-  undertoneDesc: {
-    ...Typography.caption,
-    marginTop: 2,
-    fontSize: 11,
-  },
-  paletteSection: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.lg,
-  },
-  sectionHeaderRow: {
-    marginBottom: Spacing.sm,
-  },
-  sectionTitle: {
+  sectionHeading: {
     ...Typography.title2,
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  badgeCount: {
+    ...Typography.micro,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   sectionSubtitle: {
     ...Typography.caption,
-    fontSize: 11,
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: Spacing.md,
   },
-  chipsGrid: {
+  baseTonesGrid: {
+    gap: Spacing.sm,
+  },
+  baseToneCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  toneCircularSwatch: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    marginRight: Spacing.md,
+  },
+  toneTextCol: {
+    flex: 1,
+  },
+  toneTypeLabel: {
+    ...Typography.micro,
+    fontSize: 9,
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  toneValueText: {
+    ...Typography.callout,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  explanationCard: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+  },
+  explanationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: Spacing.xs,
+  },
+  explanationLabel: {
+    ...Typography.caption,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  explanationBody: {
+    ...Typography.body,
+    fontSize: 13,
+    lineHeight: 19,
+    fontStyle: 'italic',
+  },
+  swatchesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
   },
-  colorChipCard: {
-    flex: 1,
-    minWidth: 70,
-    borderRadius: Radius.sm,
-    padding: Spacing.sm,
+  swatchCard: {
+    width: (Dimensions.get('window').width - Spacing.xl * 2 - Spacing.sm * 3) / 4,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: 4,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  colorChipCardActive: {},
-  chipColorBlock: {
-    width: '100%',
-    height: 28,
-    borderRadius: 4,
+  circularSwatch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
     marginBottom: 6,
   },
-  chipName: {
-    ...Typography.micro,
-    fontSize: 10,
-    textAlign: 'center',
-    textTransform: 'none',
-    fontWeight: '600',
+  circularSwatchSelected: {
+    transform: [{ scale: 1.08 }],
   },
-  chipHex: {
-    ...Typography.caption,
+  swatchHexCode: {
+    ...Typography.micro,
     fontSize: 9,
+    textAlign: 'center',
+  },
+  selectedSwatchCard: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.md,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  largeSwatchBlock: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+  },
+  selectedSwatchDetails: {
+    flex: 1,
+  },
+  selectedSwatchLabel: {
+    ...Typography.micro,
+    fontSize: 9,
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  selectedSwatchHex: {
+    ...Typography.title2,
+    fontSize: 16,
+    fontWeight: '800',
     marginTop: 1,
   },
-  actionButtons: {
+  selectedSwatchHint: {
+    ...Typography.micro,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  avoidChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  avoidChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    gap: 4,
+  },
+  avoidDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  avoidHexText: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  actionButtonsCol: {
     marginHorizontal: Spacing.xl,
     marginTop: Spacing.xl,
   },

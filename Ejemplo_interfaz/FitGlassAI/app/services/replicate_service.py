@@ -7,7 +7,7 @@ from replicate.exceptions import ReplicateError
 from app.config import settings
 
 # Modelo por defecto de Virtual Try-On en Replicate
-REPLICATE_VTON_MODEL = "cuiaxioming/idm-vton"
+REPLICATE_VTON_MODEL = "cuuupid/idm-vton"
 REPLICATE_API_BASE_URL = "https://api.replicate.com/v1"
 
 

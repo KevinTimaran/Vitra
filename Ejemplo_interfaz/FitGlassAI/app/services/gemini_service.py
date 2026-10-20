@@ -133,6 +133,33 @@ async def _resolve_image_bytes(image_input: str) -> tuple[bytes, str]:
         )
 
 
+FALLBACK_GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash"]
+
+
+async def _generate_content_with_fallback(
+    client: genai.Client, contents: list, config: types.GenerateContentConfig
+) -> str:
+    primary = settings.GEMINI_MODEL or "gemini-3.5-flash"
+    candidates = [primary] + [m for m in FALLBACK_GEMINI_MODELS if m != primary]
+
+    last_exc = None
+    for m in candidates:
+        try:
+            res = await client.aio.models.generate_content(
+                model=m,
+                contents=contents,
+                config=config,
+            )
+            return res.text
+        except Exception as e:
+            last_exc = e
+            continue
+
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("No se pudo obtener respuesta de ningún modelo Gemini.")
+
+
 async def analyze_garment(image_base64_or_url: str) -> dict:
     """
     Analiza una prenda de ropa utilizando Google Gemini de forma asíncrona.
@@ -153,7 +180,6 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
     image_bytes, mime_type = await _resolve_image_bytes(image_base64_or_url)
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
 
     prompt = """
     Eres el motor analítico de moda de FitGlassAI / Vitra.
@@ -171,8 +197,8 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
     """
 
     try:
-        response = await client.aio.models.generate_content(
-            model=model_name,
+        raw_text = await _generate_content_with_fallback(
+            client=client,
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                 prompt
@@ -188,7 +214,7 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
         )
 
     try:
-        raw_text = response.text.strip()
+        raw_text = raw_text.strip()
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:-3]
         elif raw_text.startswith("```"):
@@ -230,7 +256,6 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
     image_bytes, mime_type = await _resolve_image_bytes(image_base64_or_url)
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
 
     prompt = """
     Eres un estilista profesional y consultor biométrico experto en teoría del color y colorimetría estacional de FitGlassAI / Vitra.
@@ -267,8 +292,8 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
     """
 
     try:
-        response = await client.aio.models.generate_content(
-            model=model_name,
+        raw_text = await _generate_content_with_fallback(
+            client=client,
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                 prompt
@@ -284,7 +309,7 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
         )
 
     try:
-        raw_text = response.text.strip()
+        raw_text = raw_text.strip()
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:-3]
         elif raw_text.startswith("```"):

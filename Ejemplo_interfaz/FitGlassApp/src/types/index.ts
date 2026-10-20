@@ -47,6 +47,26 @@ export interface BodyProfile {
   unit: 'cm' | 'in';
 }
 
+export interface ColorProfile {
+  skin_tone: string;
+  hair_color: string;
+  eye_color?: string;
+  season: string;
+  palette_name?: string;
+  description: string;
+  recommended_colors: string[];
+  colors_to_avoid?: string[];
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  avatar_url?: string;
+  color_profile?: ColorProfile;
+  body_profile?: BodyProfile;
+  completedOnboarding: boolean;
+}
+
 export interface FitSettings {
   size: 'S' | 'M' | 'L' | 'XL';
   tightness: number; // -50 to 50

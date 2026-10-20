@@ -20,6 +20,28 @@ export interface TryOnResponse {
   status: string;
 }
 
+export interface ColorimetryData {
+  skin_tone: string;
+  hair_color: string;
+  eye_color?: string;
+  season: string;
+  palette_name?: string;
+  description: string;
+  recommended_colors: string[];
+  colors_to_avoid?: string[];
+}
+
+export interface ColorimetryResponse {
+  success: boolean;
+  data?: ColorimetryData;
+  error?: string | null;
+}
+
+export interface AvatarGenerateResponse {
+  avatar_url: string;
+  status: string;
+}
+
 // Tipo previo para compatibilidad
 export interface GarmentAnalysis {
   category: 'Tops' | 'Outerwear' | 'Pants' | string;
@@ -34,3 +56,4 @@ export interface GarmentAnalysis {
   hasZipper?: boolean;
   confidence: number;
 }
+

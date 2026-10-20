@@ -187,3 +187,72 @@ def test_tryon_generate_tripo_failure():
         response = client.post("/api/tryon/generate", json=payload)
         assert response.status_code == 504
         assert "Tripo3D" in response.json()["detail"]
+
+
+# -------------------------------------------------------------
+# Pruebas de integración: POST /api/colorimetry/analyze
+# -------------------------------------------------------------
+def test_colorimetry_analyze_success():
+    mock_result = {
+        "skin_tone": "#E8BEAC (Cálido)",
+        "hair_color": "#2C1B18 (Castaño)",
+        "eye_color": "#3B261C (Marrón)",
+        "season": "Otoño Cálido",
+        "palette_name": "Tierra y Ámbar",
+        "description": "Tu subtono cálido se ve realzado con colores terrosos y dorados.",
+        "recommended_colors": ["#854D0E", "#047857", "#B45309", "#B91C1C", "#1E3A8A", "#D97706"],
+        "colors_to_avoid": ["#9333EA", "#06B6D4", "#EC4899"]
+    }
+
+    with patch("app.api.colorimetry.analyze_colorimetry", new_callable=AsyncMock) as mock_service:
+        mock_service.return_value = mock_result
+        response = client.post(
+            "/api/colorimetry/analyze",
+            json={"image": "https://example.com/face.jpg"}
+        )
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["success"] is True
+        assert json_data["data"]["season"] == "Otoño Cálido"
+        assert len(json_data["data"]["recommended_colors"]) == 6
+        mock_service.assert_called_once_with("https://example.com/face.jpg")
+
+
+def test_colorimetry_analyze_missing_image():
+    response = client.post("/api/colorimetry/analyze", json={})
+    assert response.status_code == 400
+    assert response.json()["success"] is False
+
+
+# -------------------------------------------------------------
+# Pruebas de integración: POST /api/avatar/generate
+# -------------------------------------------------------------
+def test_avatar_generate_success():
+    expected_avatar_url = "https://openapi.cdn.tripo3d.ai/avatar_base.glb"
+
+    with patch("app.api.avatar.generate_3d_model", new_callable=AsyncMock) as mock_tripo:
+        mock_tripo.return_value = expected_avatar_url
+        response = client.post(
+            "/api/avatar/generate",
+            json={"image": "https://example.com/fullbody.jpg"}
+        )
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["avatar_url"] == expected_avatar_url
+        assert json_data["status"] == "completed"
+        mock_tripo.assert_called_once_with("https://example.com/fullbody.jpg")
+
+
+def test_avatar_generate_failure():
+    with patch("app.api.avatar.generate_3d_model", new_callable=AsyncMock) as mock_tripo:
+        mock_tripo.side_effect = HTTPException(status_code=502, detail="Error en Tripo3D")
+        response = client.post(
+            "/api/avatar/generate",
+            json={"image": "https://example.com/fullbody.jpg"}
+        )
+
+        assert response.status_code == 502
+        assert "Tripo3D" in response.json()["detail"]
+

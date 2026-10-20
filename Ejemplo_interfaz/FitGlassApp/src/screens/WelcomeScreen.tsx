@@ -1,130 +1,218 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
-import { PrimaryButton, TextButton } from '../components/Buttons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface WelcomeScreenProps {
-  onGetStarted: () => void;
-  onSignIn: () => void;
+  navigation?: any;
+  onGetStarted?: () => void;
+  onSignIn?: () => void;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  navigation,
   onGetStarted,
   onSignIn,
 }) => {
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
 
+  const handleStartOnboarding = () => {
+    if (onGetStarted) {
+      onGetStarted();
+    } else if (navigation) {
+      navigation.navigate('BodyProfile');
+    }
+  };
+
+  const handleSkipOrGuest = () => {
+    if (onSignIn) {
+      onSignIn();
+    } else if (navigation) {
+      navigation.navigate('MainTabs');
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Header / Brand Stamp */}
-      <View style={styles.topHeader}>
-        <Text style={[styles.brandBadge, { color: colors.tertiaryText }]}>
-          {t('welcome.brandBadge')}
-        </Text>
-      </View>
-
-      {/* Main Brand Area */}
-      <View style={styles.brandSection}>
-        <Text style={[styles.wordmark, { color: colors.primaryText }]}>
-          {t('welcome.wordmark')}
-        </Text>
-        <Text style={[styles.tagline, { color: colors.secondaryText }]}>
-          {t('welcome.tagline')}
-        </Text>
-      </View>
-
-      {/* Abstract Minimal Visual Canvas (Digital Wardrobe + Precision Fit) */}
-      <View
-        style={[
-          styles.visualCanvas,
-          { backgroundColor: colors.surface, borderColor: colors.borderLight },
-        ]}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Subtle grid lines */}
-        <View style={styles.gridBox}>
-          <View style={[styles.gridLineV, { backgroundColor: colors.borderLight }]} />
-          <View style={[styles.gridLineV, { left: '70%', backgroundColor: colors.borderLight }]} />
-          <View style={[styles.gridLineH, { backgroundColor: colors.borderLight }]} />
-          <View style={[styles.gridLineH, { top: '65%', backgroundColor: colors.borderLight }]} />
-        </View>
-
-        {/* Abstract Silhouette & Caliper Measurement Graphic */}
-        <View style={styles.abstractFigureWrapper}>
-          <View style={[styles.abstractHead, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]} />
-          <View style={[styles.abstractTorso, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
-            <View style={[styles.measurementRing, { borderColor: colors.secondaryText }]} />
-            <View style={[styles.measurementRing, { top: 48, width: 78, borderColor: colors.secondaryText }]} />
+        {/* Top Atelier Stamp */}
+        <View style={styles.topHeader}>
+          <View
+            style={[
+              styles.pillBadge,
+              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+            ]}
+          >
+            <Ionicons name="sparkles" size={12} color={colors.primaryText} />
+            <Text style={[styles.brandBadge, { color: colors.secondaryText }]}>
+              VITRA ATELIER · IDENTIDAD BIOMÉTRICA
+            </Text>
           </View>
-          <View style={[styles.verticalAxis, { backgroundColor: colors.border }]} />
-          {/* Caliper ticks */}
-          <View style={[styles.caliperTick, { top: 70, left: 10, backgroundColor: colors.primaryText }]} />
-          <View style={[styles.caliperTick, { top: 70, right: 10, backgroundColor: colors.primaryText }]} />
-          <View style={[styles.caliperTick, { top: 110, left: 18, backgroundColor: colors.primaryText }]} />
-          <View style={[styles.caliperTick, { top: 110, right: 18, backgroundColor: colors.primaryText }]} />
         </View>
 
-        {/* Floating Calibration Stamp */}
+        {/* Brand Headline */}
+        <View style={styles.brandSection}>
+          <Text style={[styles.wordmark, { color: colors.primaryText }]}>FITGLASS</Text>
+          <Text style={[styles.tagline, { color: colors.secondaryText }]}>
+            Crea tu identidad biométrica con Inteligencia Artificial: Avatar 3D y Colorimetría de Precisión.
+          </Text>
+        </View>
+
+        {/* Abstract 3D Optical Hologram Box */}
         <View
           style={[
-            styles.calibrationTag,
-            { backgroundColor: isDark ? 'rgba(39, 39, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)', borderColor: colors.border },
+            styles.visualCanvas,
+            { backgroundColor: colors.surface, borderColor: colors.borderLight },
           ]}
         >
-          <Ionicons name="scan-outline" size={13} color={colors.primaryText} />
-          <Text style={[styles.calibrationText, { color: colors.primaryText }]}>
-            {t('welcome.calibration')}
-          </Text>
-        </View>
-      </View>
+          {/* Subtle Matrix Lines */}
+          <View style={styles.gridBox}>
+            <View style={[styles.gridLineV, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.gridLineV, { left: '70%', backgroundColor: colors.borderLight }]} />
+            <View style={[styles.gridLineH, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.gridLineH, { top: '65%', backgroundColor: colors.borderLight }]} />
+          </View>
 
-      {/* Pillars / Feature Highlights */}
-      <View style={styles.featuresRow}>
-        <View style={styles.featureItem}>
-          <Text style={[styles.featureIndex, { color: colors.tertiaryText }]}>01</Text>
-          <Text style={[styles.featureTitle, { color: colors.primaryText }]}>
-            {t('welcome.feature1Title')}
-          </Text>
-          <Text style={[styles.featureDesc, { color: colors.secondaryText }]}>
-            {t('welcome.feature1Desc')}
-          </Text>
+          {/* Central Biometric Silhouette with Scanning Ring */}
+          <View style={styles.abstractFigureWrapper}>
+            <View
+              style={[
+                styles.abstractHead,
+                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+              ]}
+            >
+              <View style={[styles.faceTarget, { borderColor: colors.primaryText }]} />
+            </View>
+            <View
+              style={[
+                styles.abstractTorso,
+                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+              ]}
+            >
+              <View style={[styles.measurementRing, { borderColor: colors.secondaryText }]} />
+              <View
+                style={[
+                  styles.measurementRing,
+                  { top: 52, width: 80, borderColor: colors.secondaryText },
+                ]}
+              />
+            </View>
+            <View style={[styles.verticalAxis, { backgroundColor: colors.border }]} />
+
+            {/* Caliper ticks */}
+            <View style={[styles.caliperTick, { top: 65, left: 6, backgroundColor: colors.primaryText }]} />
+            <View style={[styles.caliperTick, { top: 65, right: 6, backgroundColor: colors.primaryText }]} />
+            <View style={[styles.caliperTick, { top: 105, left: 14, backgroundColor: colors.primaryText }]} />
+            <View style={[styles.caliperTick, { top: 105, right: 14, backgroundColor: colors.primaryText }]} />
+          </View>
+
+          {/* Calibration Overlay Tag */}
+          <View
+            style={[
+              styles.calibrationTag,
+              {
+                backgroundColor: isDark ? 'rgba(39, 39, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Ionicons name="scan-outline" size={13} color={colors.primaryText} />
+            <Text style={[styles.calibrationText, { color: colors.primaryText }]}>
+              ESCÁNER 1:1 · GEMINI VISION & TRIPO 3D
+            </Text>
+          </View>
         </View>
-        <View style={[styles.featureDivider, { backgroundColor: colors.borderLight }]} />
-        <View style={styles.featureItem}>
-          <Text style={[styles.featureIndex, { color: colors.tertiaryText }]}>02</Text>
-          <Text style={[styles.featureTitle, { color: colors.primaryText }]}>
-            {t('welcome.feature2Title')}
-          </Text>
-          <Text style={[styles.featureDesc, { color: colors.secondaryText }]}>
-            {t('welcome.feature2Desc')}
-          </Text>
+
+        {/* 3 Key Pillars of Phase 4 */}
+        <View style={styles.pillarsContainer}>
+          <View
+            style={[
+              styles.pillarCard,
+              { backgroundColor: colors.surface, borderColor: colors.borderLight },
+            ]}
+          >
+            <View style={[styles.pillarIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+              <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
+            </View>
+            <View style={styles.pillarTextContent}>
+              <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
+                1. Colorimetría Estacional
+              </Text>
+              <Text style={[styles.pillarDesc, { color: colors.secondaryText }]}>
+                Gemini Vision analiza tu subtono de piel y cabello para definir tu paleta HEX de máxima armonía.
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.pillarCard,
+              { backgroundColor: colors.surface, borderColor: colors.borderLight },
+            ]}
+          >
+            <View style={[styles.pillarIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+              <Ionicons name="cube-outline" size={20} color={colors.primaryText} />
+            </View>
+            <View style={styles.pillarTextContent}>
+              <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
+                2. Avatar Base en 3D
+              </Text>
+              <Text style={[styles.pillarDesc, { color: colors.secondaryText }]}>
+                Reconstrucción tridimensional de tu cuerpo con Tripo3D en un archivo interactivo .glb.
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.pillarCard,
+              { backgroundColor: colors.surface, borderColor: colors.borderLight },
+            ]}
+          >
+            <View style={[styles.pillarIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+              <Ionicons name="sparkles-outline" size={20} color={colors.primaryText} />
+            </View>
+            <View style={styles.pillarTextContent}>
+              <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
+                3. Probador Virtual Personalizado
+              </Text>
+              <Text style={[styles.pillarDesc, { color: colors.secondaryText }]}>
+                Pruébate cualquier prenda de tu armario sobre tu gemelo digital con drapeado realista.
+              </Text>
+            </View>
+          </View>
         </View>
-        <View style={[styles.featureDivider, { backgroundColor: colors.borderLight }]} />
-        <View style={styles.featureItem}>
-          <Text style={[styles.featureIndex, { color: colors.tertiaryText }]}>03</Text>
-          <Text style={[styles.featureTitle, { color: colors.primaryText }]}>
-            {t('welcome.feature3Title')}
-          </Text>
-          <Text style={[styles.featureDesc, { color: colors.secondaryText }]}>
-            {t('welcome.feature3Desc')}
-          </Text>
-        </View>
-      </View>
+      </ScrollView>
 
       {/* Action Footer */}
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          { backgroundColor: colors.bg, borderTopColor: colors.borderLight },
+        ]}
+      >
         <PrimaryButton
-          label={t('welcome.getStarted')}
-          onPress={onGetStarted}
-          icon="arrow-forward"
+          label="Iniciar Escaneo Biométrico"
+          onPress={handleStartOnboarding}
+          icon="camera-outline"
         />
-        <TextButton
-          label={t('welcome.haveAccount')}
-          onPress={onSignIn}
-          style={{ marginTop: Spacing.xs }}
+        <SecondaryButton
+          label="Explorar App como Invitado"
+          onPress={handleSkipOrGuest}
+          style={{ marginTop: Spacing.sm }}
         />
       </View>
     </View>
@@ -134,25 +222,35 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
+  },
+  scrollContent: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.xl,
     paddingBottom: Spacing.xl,
   },
   topHeader: {
     alignItems: 'center',
-    paddingTop: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  pillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    gap: 6,
   },
   brandBadge: {
     ...Typography.micro,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+    fontWeight: '700',
   },
   brandSection: {
     alignItems: 'center',
-    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   wordmark: {
-    fontFamily: 'System',
     fontSize: 34,
     fontWeight: '800',
     letterSpacing: 6,
@@ -161,17 +259,18 @@ const styles = StyleSheet.create({
     ...Typography.callout,
     textAlign: 'center',
     marginTop: Spacing.xs,
-    maxWidth: 260,
+    maxWidth: 320,
     lineHeight: 20,
   },
   visualCanvas: {
-    height: 220,
-    borderRadius: Radius.lg,
+    height: 200,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
+    marginBottom: Spacing.xl,
   },
   gridBox: {
     ...StyleSheet.absoluteFill,
@@ -193,20 +292,29 @@ const styles = StyleSheet.create({
   abstractFigureWrapper: {
     alignItems: 'center',
     position: 'relative',
-    height: 140,
+    height: 130,
     width: 100,
     justifyContent: 'center',
   },
   abstractHead: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faceTarget: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderStyle: 'dashed',
   },
   abstractTorso: {
-    width: 66,
-    height: 90,
+    width: 70,
+    height: 80,
     borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
@@ -214,8 +322,8 @@ const styles = StyleSheet.create({
   },
   measurementRing: {
     position: 'absolute',
-    top: 24,
-    width: 72,
+    top: 20,
+    width: 76,
     height: 14,
     borderRadius: 7,
     borderWidth: 1,
@@ -238,50 +346,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: Radius.xs,
     borderWidth: 1,
-    gap: 5,
+    gap: 6,
   },
   calibrationText: {
     ...Typography.micro,
     fontSize: 9,
     letterSpacing: 0.8,
-  },
-  featuresRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: Spacing.md,
-  },
-  featureItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  featureDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 48,
-    marginTop: 6,
-  },
-  featureIndex: {
-    ...Typography.micro,
-    fontWeight: '700',
-  },
-  featureTitle: {
-    ...Typography.caption,
     fontWeight: '600',
-    marginTop: 2,
-    textAlign: 'center',
   },
-  featureDesc: {
+  pillarsContainer: {
+    gap: Spacing.sm,
+  },
+  pillarCard: {
+    flexDirection: 'row',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  pillarIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillarTextContent: {
+    flex: 1,
+  },
+  pillarTitle: {
+    ...Typography.caption,
+    fontWeight: '700',
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  pillarDesc: {
     ...Typography.micro,
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 2,
-    lineHeight: 13,
+    fontSize: 11,
+    lineHeight: 15,
   },
   footer: {
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });

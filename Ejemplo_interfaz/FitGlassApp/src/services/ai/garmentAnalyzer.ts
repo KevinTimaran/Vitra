@@ -1,47 +1,97 @@
-import { GarmentAnalysisResponse, TryOnResponse } from './types';
+import { Platform } from 'react-native';
+import {
+  GarmentAnalysisResponse,
+  TryOnResponse,
+  ColorimetryResponse,
+  AvatarGenerateResponse,
+} from './types';
 
-const getBaseUrl = (): string => {
+let activeWorkingUrl: string | null = null;
+
+export const getBaseUrl = (): string => {
+  if (activeWorkingUrl) {
+    return activeWorkingUrl;
+  }
+
+  // En entorno Web, priorizar el host actual del navegador para evitar IPs desactualizadas en .env
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://127.0.0.1:8000';
+    }
+    if (host) {
+      return `http://${host}:8000`;
+    }
+  }
+
   return process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 };
 
 export interface HealthStatusResponse {
   status: string;
   message?: string;
+  detectedUrl?: string;
 }
 
 /**
- * Verifica la conectividad con el backend FitGlassAI.
+ * Verifica la conectividad con el backend FitGlassAI con detección inteligente de URL.
  */
 export const checkHealth = async (): Promise<HealthStatusResponse> => {
-  const baseUrl = getBaseUrl();
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const candidateUrls: string[] = [];
 
-    const response = await fetch(`${baseUrl}/health`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`El servidor respondió con código HTTP ${response.status}`);
+  // 1. En Web, siempre intentar localhost / 127.0.0.1 primero si se navega localmente
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      candidateUrls.push('http://127.0.0.1:8000', 'http://localhost:8000');
+    } else if (host) {
+      candidateUrls.push(`http://${host}:8000`);
     }
-
-    const data: HealthStatusResponse = await response.json();
-    return data;
-  } catch (error: any) {
-    console.warn('[checkHealth] Fallo al consultar el backend:', error?.message);
-    if (error.name === 'AbortError') {
-      throw new Error(`Tiempo de espera agotado al conectar con ${baseUrl}`);
-    }
-    throw new Error(
-      error?.message || `No se pudo conectar con el servidor en ${baseUrl}. Verifica tu red Wi-Fi y el servidor.`
-    );
   }
+
+  // 2. URL configurada por variable de entorno
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    candidateUrls.push(process.env.EXPO_PUBLIC_API_BASE_URL);
+  }
+
+  // 3. Fallbacks estándares
+  candidateUrls.push('http://127.0.0.1:8000', 'http://localhost:8000');
+
+  // Eliminar duplicados
+  const uniqueUrls = candidateUrls.filter((url, idx, self) => self.indexOf(url) === idx);
+
+  let lastErrorMessage = '';
+
+  for (const url of uniqueUrls) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      const response = await fetch(`${url}/health`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data: HealthStatusResponse = await response.json();
+        activeWorkingUrl = url;
+        console.log(`[checkHealth] Conexión establecida con éxito en: ${url}`);
+        return { ...data, detectedUrl: url };
+      }
+    } catch (error: any) {
+      lastErrorMessage = error?.message || 'Fallo de conexión';
+      // Continuar con el siguiente candidato
+    }
+  }
+
+  console.warn('[checkHealth] No se pudo conectar con ningún endpoint:', uniqueUrls);
+  throw new Error(
+    `No se pudo conectar con FitGlassAI en ${uniqueUrls.join(', ')}. Verifica que el servidor FastAPI esté iniciado (.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000).`
+  );
 };
 
 /**
@@ -164,3 +214,125 @@ export const generateTryOn = async (
     );
   }
 };
+
+/**
+ * Analiza la fotografía facial o frontal del usuario con Gemini Vision
+ * para obtener su perfil de colorimetría estacional y códigos HEX.
+ * Endpoint: POST /api/colorimetry/analyze
+ */
+export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<ColorimetryResponse> => {
+  const baseUrl = getBaseUrl();
+
+  if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
+    throw new Error('La imagen para colorimetría está vacía.');
+  }
+
+  let formattedImage = imageBase64OrUrl.trim();
+  if (
+    !formattedImage.startsWith('http://') &&
+    !formattedImage.startsWith('https://') &&
+    !formattedImage.startsWith('data:')
+  ) {
+    formattedImage = `data:image/jpeg;base64,${formattedImage}`;
+  }
+
+  try {
+    console.log('[analyzeColorimetry] Enviando imagen a:', `${baseUrl}/api/colorimetry/analyze`);
+
+    const response = await fetch(`${baseUrl}/api/colorimetry/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        image: formattedImage,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMsg = `Error del servidor de colorimetría (HTTP ${response.status})`;
+      try {
+        const errJson = await response.json();
+        if (errJson.error) {
+          errorMsg = errJson.error;
+        } else if (errJson.detail) {
+          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+        }
+      } catch (e) {
+        // Fallback
+      }
+      throw new Error(errorMsg);
+    }
+
+    const result: ColorimetryResponse = await response.json();
+    console.log('[analyzeColorimetry] Perfil de colorimetría recibido:', result);
+    return result;
+  } catch (error: any) {
+    console.error('[analyzeColorimetry] Error:', error);
+    throw new Error(
+      error?.message || 'Error de red al conectar con FitGlassAI para analizar colorimetría.'
+    );
+  }
+};
+
+/**
+ * Genera el Avatar 3D Base (.glb) del usuario usando Tripo3D a partir de una foto de cuerpo entero.
+ * Endpoint: POST /api/avatar/generate
+ */
+export const generateAvatar = async (imageBase64OrUrl: string): Promise<AvatarGenerateResponse> => {
+  const baseUrl = getBaseUrl();
+
+  if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
+    throw new Error('La fotografía de cuerpo entero está vacía.');
+  }
+
+  let formattedImage = imageBase64OrUrl.trim();
+  if (
+    !formattedImage.startsWith('http://') &&
+    !formattedImage.startsWith('https://') &&
+    !formattedImage.startsWith('data:')
+  ) {
+    formattedImage = `data:image/jpeg;base64,${formattedImage}`;
+  }
+
+  try {
+    console.log('[generateAvatar] Solicitando generación 3D en:', `${baseUrl}/api/avatar/generate`);
+
+    const response = await fetch(`${baseUrl}/api/avatar/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        image: formattedImage,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMsg = `Error al generar avatar 3D (HTTP ${response.status})`;
+      try {
+        const errJson = await response.json();
+        if (errJson.detail) {
+          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+        } else if (errJson.error) {
+          errorMsg = errJson.error;
+        }
+      } catch (e) {
+        // Fallback
+      }
+      throw new Error(errorMsg);
+    }
+
+    const result: AvatarGenerateResponse = await response.json();
+    console.log('[generateAvatar] Avatar 3D generado con éxito:', result);
+    return result;
+  } catch (error: any) {
+    console.error('[generateAvatar] Error:', error);
+    throw new Error(
+      error?.message || 'Error de red al generar el modelo 3D del avatar.'
+    );
+  }
+};
+

@@ -8,13 +8,17 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider } from './src/contexts/LanguageContext';
+import { UserProvider, useUser } from './src/contexts/UserContext';
 
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WardrobeScreen } from './src/screens/WardrobeScreen';
 import { FittingRoomScreen } from './src/screens/FittingRoomScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ColorStudioScreen } from './src/screens/ColorStudioScreen';
 import { AddGarmentScreen } from './src/screens/AddGarmentScreen';
 import { GarmentProcessingScreen } from './src/screens/GarmentProcessingScreen';
+import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { BodyProfileScreen } from './src/screens/BodyProfileScreen';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -65,6 +69,8 @@ function AppTabs() {
             iconName = focused ? 'shirt' : 'shirt-outline';
           } else if (route.name === 'FittingRoom') {
             iconName = focused ? 'sparkles' : 'sparkles-outline';
+          } else if (route.name === 'ColorStudio') {
+            iconName = focused ? 'color-palette' : 'color-palette-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -98,6 +104,14 @@ function AppTabs() {
         }}
       />
       <Tab.Screen
+        name="ColorStudio"
+        component={ColorStudioScreen}
+        options={{
+          title: 'Color',
+          headerTitle: 'Vitra · Colorimetría',
+        }}
+      />
+      <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
@@ -128,12 +142,37 @@ function NavigationRoot() {
     <NavigationContainer theme={navigationTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack.Navigator
+        initialRouteName="MainTabs"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
         <Stack.Screen name="MainTabs" component={AppTabs} />
+        <Stack.Screen
+          name="Welcome"
+          component={WelcomeScreen as any}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen
+          name="BodyProfile"
+          component={BodyProfileScreen as any}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="ColorStudio"
+          component={ColorStudioScreen as any}
+          options={{
+            presentation: 'card',
+            animation: 'slide_from_right',
+          }}
+        />
         <Stack.Screen
           name="AddGarment"
           component={AddGarmentScreen as any}
@@ -160,7 +199,9 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <LanguageProvider>
-          <NavigationRoot />
+          <UserProvider>
+            <NavigationRoot />
+          </UserProvider>
         </LanguageProvider>
       </ThemeProvider>
     </SafeAreaProvider>

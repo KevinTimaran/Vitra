@@ -102,15 +102,24 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Acciones Generativas Fase 2 & 3 */}
+        {/* Acciones Generativas Fases 2, 3 y 4 */}
         <View style={styles.quickActionsContainer}>
           <TouchableOpacity
             style={styles.primaryActionBtn}
-            onPress={() => (navigation ? navigation.navigate('AddGarment') : null)}
+            onPress={() => (navigation ? navigation.navigate('Welcome') : null)}
             activeOpacity={0.8}
           >
-            <Ionicons name="camera" size={18} color={Colors.ctaText} />
-            <Text style={styles.primaryActionBtnText}>Capturar Prenda (Cámara / Galería)</Text>
+            <Ionicons name="scan-outline" size={18} color={Colors.ctaText} />
+            <Text style={styles.primaryActionBtnText}>Escaneo Biométrico & Colorimetría</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryActionBtn}
+            onPress={() => (navigation ? navigation.navigate('AddGarment') : null)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="camera" size={18} color={Colors.primaryText} />
+            <Text style={styles.secondaryActionBtnText}>Digitalizar Prenda (Gemini AI)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

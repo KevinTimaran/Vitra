@@ -11,11 +11,15 @@ export type RootTabParamList = {
     image_2d_url?: string;
     metadata?: GarmentMetadata;
   } | undefined;
+  ColorStudio: undefined;
   Profile: undefined;
 };
 
 export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<RootTabParamList> | undefined;
+  Welcome: undefined;
+  BodyProfile: undefined;
+  ColorStudio: undefined;
   AddGarment: undefined;
   GarmentProcessing: {
     imageBase64: string;
@@ -42,7 +46,13 @@ export type FittingRoomScreenProps = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+export type ColorStudioScreenProps = CompositeScreenProps<
+  BottomTabScreenProps<RootTabParamList, 'ColorStudio'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
 export type ProfileScreenProps = CompositeScreenProps<
   BottomTabScreenProps<RootTabParamList, 'Profile'>,
   NativeStackScreenProps<RootStackParamList>
 >;
+
