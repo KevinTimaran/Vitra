@@ -18,6 +18,6 @@ app.add_middleware(
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "message": "FitGlassAI API running"}
 
 app.include_router(garments.router, prefix="/api/garments", tags=["garments"])

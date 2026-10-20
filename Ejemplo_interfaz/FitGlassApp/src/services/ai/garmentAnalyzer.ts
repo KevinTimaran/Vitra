@@ -108,3 +108,30 @@ export const analyzeGarment = async (imageUri: string): Promise<GarmentAnalysis>
     throw error;
   }
 };
+
+export interface HealthStatusResponse {
+  status: string;
+  message?: string;
+}
+
+/**
+ * Checks health connectivity with the FitGlassAI backend.
+ */
+export const checkHealth = async (): Promise<HealthStatusResponse> => {
+  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+  
+  const response = await fetch(`${baseUrl}/health`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Health check failed with HTTP status ${response.status}`);
+  }
+
+  const data: HealthStatusResponse = await response.json();
+  return data;
+};
+

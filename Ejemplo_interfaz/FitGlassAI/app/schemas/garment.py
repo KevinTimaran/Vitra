@@ -2,6 +2,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
 
+class GarmentRequest(BaseModel):
+    image_data: str = Field(..., description="Imagen en formato Base64 o URL para procesamiento")
+
 class CategoryEnum(str, Enum):
     Tops = "Tops"
     Outerwear = "Outerwear"

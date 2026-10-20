@@ -7,7 +7,7 @@ client = TestClient(app)
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "message": "FitGlassAI API running"}
 
 def test_analyze_garment_unsupported_mime():
     # Creamos un archivo ficticio de texto
