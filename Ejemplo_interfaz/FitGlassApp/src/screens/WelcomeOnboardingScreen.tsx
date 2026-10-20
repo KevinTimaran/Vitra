@@ -57,8 +57,8 @@ const VitraBrandLogoSvg: React.FC<{ size?: number; color?: string }> = ({ size =
 
 export const WelcomeOnboardingScreen: React.FC<WelcomeOnboardingScreenProps> = ({ navigation, onFinish }) => {
   const { colors, isDark } = useTheme();
-  const { completeOnboarding } = useUser();
-  const { userToken } = useAuth();
+  const { completeOnboarding, resetProfile } = useUser();
+  const { userToken, logout } = useAuth();
 
   // Paso actual: 1 (Datos Básicos), 2 (Foto Facial), 3 (Foto Corporal)
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -396,6 +396,25 @@ export const WelcomeOnboardingScreen: React.FC<WelcomeOnboardingScreenProps> = (
               >
                 <Text style={[styles.primaryButtonText, { color: colors.bg }]}>Siguiente</Text>
                 <Ionicons name="arrow-forward" size={16} color={colors.bg} style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+
+              {/* Enlace para volver a la pantalla de Inicio de Sesión / Cerrar Sesión */}
+              <TouchableOpacity
+                style={styles.backToAuthLink}
+                onPress={async () => {
+                  try {
+                    resetProfile();
+                    await logout();
+                  } catch (err) {
+                    console.warn('[WelcomeOnboarding] Error volviendo al login:', err);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-out-outline" size={15} color={colors.secondaryText} style={{ marginRight: 6 }} />
+                <Text style={[styles.backToAuthLinkText, { color: colors.secondaryText }]}>
+                  ¿Deseas iniciar con otra cuenta? Cerrar sesión e ir al Login
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -859,5 +878,16 @@ const styles = StyleSheet.create({
   backNavText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  backToAuthLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  backToAuthLinkText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
