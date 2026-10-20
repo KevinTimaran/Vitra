@@ -1,7 +1,10 @@
 // src/contexts/ThemeContext.tsx
-import React, { createContext, useContext, useState } from 'react';
-import { Appearance } from 'react-native';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { Colors as LightColors } from '../theme';
+
+const THEME_PREF_KEY = 'vitra_theme_mode_pref';
 
 // Refined dark theme palette designed for OLED screens and premium glassmorphism
 export const darkColors: typeof LightColors = {
@@ -44,11 +47,47 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const initialTheme: ThemeMode = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
-  const [theme, setTheme] = useState<ThemeMode>(initialTheme);
+  // El tema inicial predeterminado es 'light' (modo claro)
+  const [theme, setThemeState] = useState<ThemeMode>('light');
+
+  // Cargar preferencia persistida del usuario desde Ajustes
+  useEffect(() => {
+    const loadSavedTheme = async () => {
+      try {
+        let saved: string | null = null;
+        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+          saved = localStorage.getItem(THEME_PREF_KEY);
+        } else if (await SecureStore.isAvailableAsync()) {
+          saved = await SecureStore.getItemAsync(THEME_PREF_KEY);
+        }
+
+        if (saved === 'dark' || saved === 'light') {
+          setThemeState(saved);
+        }
+      } catch (err) {
+        console.warn('[ThemeContext] Error al cargar preferencia de tema:', err);
+      }
+    };
+
+    loadSavedTheme();
+  }, []);
+
+  const setTheme = (mode: ThemeMode) => {
+    setThemeState(mode);
+    try {
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.setItem(THEME_PREF_KEY, mode);
+      } else {
+        SecureStore.setItemAsync(THEME_PREF_KEY, mode).catch(() => {});
+      }
+    } catch {
+      // Ignorar fallo de almacenamiento
+    }
+  };
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+    const nextMode: ThemeMode = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextMode);
   };
 
   const isDark = theme === 'dark';

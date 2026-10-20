@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { UserProfile, ColorProfile, BodyProfile } from '../types';
 import { INITIAL_BODY_PROFILE } from '../data/mockData';
+
+const ONBOARDING_KEY = 'vitra_user_onboarding_done';
 
 const DEFAULT_COLOR_PROFILE: ColorProfile = {
   skin_tone: '#E2D3C4',
@@ -23,26 +27,40 @@ const DEFAULT_COLOR_PROFILE: ColorProfile = {
   colors_to_avoid: ['#D97706', '#84CC16', '#B45309', '#CA8A04'],
 };
 
+interface CompleteOnboardingData {
+  fullName?: string | null;
+  age?: number | null;
+  facePhotoUri?: string | null;
+  bodyPhotoUri?: string | null;
+  avatarUrl?: string | null;
+  colorProfile?: ColorProfile | null;
+  photoUri?: string | null;
+}
+
 interface UserContextValue {
-  userProfile: UserProfile;
+  userProfile: UserProfile & { age?: number; facePhotoUri?: string; bodyPhotoUri?: string };
   colorProfile: ColorProfile;
   avatarUrl?: string;
   userPhotoUri?: string;
+  facePhotoUri?: string;
+  bodyPhotoUri?: string;
+  completedOnboarding: boolean;
   updateColorProfile: (profile: Partial<ColorProfile> & { season: string; recommended_colors: string[] }) => void;
   updateAvatarUrl: (url: string) => void;
   setUserPhotoUri: (uri: string) => void;
   updateBodyProfile: (body: BodyProfile) => void;
-  completeOnboarding: (data?: {
-    avatarUrl?: string;
-    colorProfile?: ColorProfile;
-    photoUri?: string;
-  }) => void;
+  completeOnboarding: (data?: CompleteOnboardingData) => void;
   resetProfile: () => void;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [userName, setUserName] = useState<string>('Atelier User');
+  const [userAge, setUserAge] = useState<number | undefined>(undefined);
+  const [facePhotoUri, setFacePhotoUri] = useState<string | undefined>(undefined);
+  const [bodyPhotoUri, setBodyPhotoUri] = useState<string | undefined>(undefined);
+
   const [colorProfile, setColorProfile] = useState<ColorProfile>(DEFAULT_COLOR_PROFILE);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
     'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf'
@@ -50,6 +68,26 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userPhotoUri, setUserPhotoUri] = useState<string | undefined>(undefined);
   const [bodyProfile, setBodyProfile] = useState<BodyProfile>(INITIAL_BODY_PROFILE);
   const [completedOnboarding, setCompletedOnboarding] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadSavedOnboarding = async () => {
+      try {
+        let saved: string | null = null;
+        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+          saved = localStorage.getItem(ONBOARDING_KEY);
+        } else if (await SecureStore.isAvailableAsync()) {
+          saved = await SecureStore.getItemAsync(ONBOARDING_KEY);
+        }
+        if (saved === 'true') {
+          setCompletedOnboarding(true);
+        }
+      } catch (err) {
+        console.warn('[UserContext] Error al leer estado de onboarding:', err);
+      }
+    };
+
+    loadSavedOnboarding();
+  }, []);
 
   const updateColorProfile = (
     profileData: Partial<ColorProfile> & { season: string; recommended_colors: string[] }
@@ -74,29 +112,57 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBodyProfile(body);
   };
 
-  const completeOnboarding = (data?: {
-    avatarUrl?: string;
-    colorProfile?: ColorProfile;
-    photoUri?: string;
-  }) => {
-    if (data?.avatarUrl) setAvatarUrl(data.avatarUrl);
+  const completeOnboarding = (data?: CompleteOnboardingData) => {
+    if (data?.fullName) setUserName(data.fullName);
+    if (data?.age !== undefined && data?.age !== null) setUserAge(data.age);
+    if (data?.facePhotoUri !== undefined) setFacePhotoUri(data.facePhotoUri || undefined);
+    if (data?.bodyPhotoUri !== undefined) setBodyPhotoUri(data.bodyPhotoUri || undefined);
+    if (data?.avatarUrl !== undefined) setAvatarUrl(data.avatarUrl || undefined);
     if (data?.colorProfile) setColorProfile(data.colorProfile);
-    if (data?.photoUri) setUserPhotoUri(data.photoUri);
+    if (data?.photoUri !== undefined) setUserPhotoUri(data.photoUri || undefined);
+
     setCompletedOnboarding(true);
+
+    try {
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.setItem(ONBOARDING_KEY, 'true');
+      } else {
+        SecureStore.setItemAsync(ONBOARDING_KEY, 'true').catch(() => {});
+      }
+    } catch {
+      // Ignorar
+    }
   };
 
   const resetProfile = () => {
+    setUserName('Atelier User');
+    setUserAge(undefined);
+    setFacePhotoUri(undefined);
+    setBodyPhotoUri(undefined);
     setColorProfile(DEFAULT_COLOR_PROFILE);
     setAvatarUrl(
       'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf'
     );
     setUserPhotoUri(undefined);
     setCompletedOnboarding(false);
+
+    try {
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.removeItem(ONBOARDING_KEY);
+      } else {
+        SecureStore.deleteItemAsync(ONBOARDING_KEY).catch(() => {});
+      }
+    } catch {
+      // Ignorar
+    }
   };
 
-  const userProfile: UserProfile = {
+  const userProfile: UserProfile & { age?: number; facePhotoUri?: string; bodyPhotoUri?: string } = {
     id: 'user-default',
-    name: 'Atelier User',
+    name: userName,
+    age: userAge,
+    facePhotoUri,
+    bodyPhotoUri,
     avatar_url: avatarUrl,
     color_profile: colorProfile,
     body_profile: bodyProfile,
@@ -110,6 +176,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         colorProfile,
         avatarUrl,
         userPhotoUri,
+        facePhotoUri,
+        bodyPhotoUri,
+        completedOnboarding,
         updateColorProfile,
         updateAvatarUrl,
         setUserPhotoUri,

@@ -21,6 +21,7 @@ import { ColorStudioScreen } from './src/screens/ColorStudioScreen';
 import { AddGarmentScreen } from './src/screens/AddGarmentScreen';
 import { GarmentProcessingScreen } from './src/screens/GarmentProcessingScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { WelcomeOnboardingScreen } from './src/screens/WelcomeOnboardingScreen';
 import { BodyProfileScreen } from './src/screens/BodyProfileScreen';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 
@@ -128,78 +129,126 @@ function AppTabs() {
 
 function NavigationRoot() {
   const { colors, isDark } = useTheme();
+  const { userToken, isLoadingToken } = useAuth();
+  const { completedOnboarding } = useUser();
+
+  // Si el usuario no ha iniciado sesión, forzar tema claro en el contenedor de navegación
+  const activeIsDark = userToken ? isDark : false;
+  const activeColors = userToken ? colors : {
+    bg: '#FAFAFC',
+    surface: '#FFFFFF',
+    primaryText: '#111113',
+    border: '#E5E5EA',
+  };
 
   const navigationTheme = {
-    ...(isDark ? DarkTheme : DefaultTheme),
+    ...(activeIsDark ? DarkTheme : DefaultTheme),
     colors: {
-      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
-      background: colors.bg,
-      card: colors.surface,
-      text: colors.primaryText,
-      border: colors.border,
-      primary: colors.primaryText,
+      ...(activeIsDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: activeColors.bg,
+      card: activeColors.surface,
+      text: activeColors.primaryText,
+      border: activeColors.border,
+      primary: activeColors.primaryText,
     },
   };
 
+  if (isLoadingToken) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#FAFAFC',
+        }}
+      >
+        <ActivityIndicator size="large" color="#111113" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer theme={navigationTheme}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style={activeIsDark ? 'light' : 'dark'} />
       <Stack.Navigator
-        initialRouteName="MainTabs"
+        initialRouteName={
+          !userToken
+            ? 'Auth'
+            : !completedOnboarding
+            ? 'WelcomeOnboarding'
+            : 'MainTabs'
+        }
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
-        <Stack.Screen name="MainTabs" component={AppTabs} />
-        <Stack.Screen
-          name="Welcome"
-          component={WelcomeScreen as any}
-          options={{
-            presentation: 'modal',
-            animation: 'slide_from_bottom',
-          }}
-        />
-        <Stack.Screen
-          name="BodyProfile"
-          component={BodyProfileScreen as any}
-          options={{
-            presentation: 'modal',
-            animation: 'slide_from_right',
-          }}
-        />
-        <Stack.Screen
-          name="ColorStudio"
-          component={ColorStudioScreen as any}
-          options={{
-            presentation: 'card',
-            animation: 'slide_from_right',
-          }}
-        />
-        <Stack.Screen
-          name="FittingRoom"
-          component={FittingRoomScreen as any}
-          options={{
-            presentation: 'card',
-            animation: 'slide_from_right',
-          }}
-        />
-        <Stack.Screen
-          name="AddGarment"
-          component={AddGarmentScreen as any}
-          options={{
-            presentation: 'modal',
-            animation: 'slide_from_bottom',
-          }}
-        />
-        <Stack.Screen
-          name="GarmentProcessing"
-          component={GarmentProcessingScreen as any}
-          options={{
-            presentation: 'fullScreenModal',
-            animation: 'fade',
-          }}
-        />
+        {!userToken ? (
+          <Stack.Screen name="Auth" component={AuthScreen} />
+        ) : (
+          <>
+            {!completedOnboarding && (
+              <Stack.Screen
+                name="WelcomeOnboarding"
+                component={WelcomeOnboardingScreen as any}
+              />
+            )}
+            <Stack.Screen name="MainTabs" component={AppTabs} />
+            <Stack.Screen
+              name="WelcomeOnboarding"
+              component={WelcomeOnboardingScreen as any}
+            />
+            <Stack.Screen
+              name="Welcome"
+              component={WelcomeScreen as any}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="BodyProfile"
+              component={BodyProfileScreen as any}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="ColorStudio"
+              component={ColorStudioScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="FittingRoom"
+              component={FittingRoomScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="AddGarment"
+              component={AddGarmentScreen as any}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="GarmentProcessing"
+              component={GarmentProcessingScreen as any}
+              options={{
+                presentation: 'fullScreenModal',
+                animation: 'fade',
+              }}
+            />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -210,9 +259,11 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <LanguageProvider>
-          <UserProvider>
-            <NavigationRoot />
-          </UserProvider>
+          <AuthProvider>
+            <UserProvider>
+              <NavigationRoot />
+            </UserProvider>
+          </AuthProvider>
         </LanguageProvider>
       </ThemeProvider>
     </SafeAreaProvider>
