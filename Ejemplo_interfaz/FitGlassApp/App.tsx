@@ -21,7 +21,6 @@ import { ColorStudioScreen } from './src/screens/ColorStudioScreen';
 import { AddGarmentScreen } from './src/screens/AddGarmentScreen';
 import { GarmentProcessingScreen } from './src/screens/GarmentProcessingScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
-import { WelcomeOnboardingScreen } from './src/screens/WelcomeOnboardingScreen';
 import { BodyProfileScreen } from './src/screens/BodyProfileScreen';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 
@@ -30,6 +29,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AppTabs() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Tab.Navigator
@@ -87,40 +87,40 @@ function AppTabs() {
         name="Home"
         component={HomeScreen}
         options={{
-          title: 'Inicio',
-          headerTitle: 'Vitra · Inicio',
+          title: t('tabs.home'),
+          headerTitle: `Vitra · ${t('tabs.home')}`,
         }}
       />
       <Tab.Screen
         name="Wardrobe"
         component={WardrobeScreen}
         options={{
-          title: 'Armario',
-          headerTitle: 'Vitra · Armario',
+          title: t('tabs.wardrobe'),
+          headerTitle: `Vitra · ${t('tabs.wardrobe')}`,
         }}
       />
       <Tab.Screen
         name="FittingRoom"
         component={FittingRoomScreen}
         options={{
-          title: 'Probador',
-          headerTitle: 'Vitra · Probador',
+          title: t('tabs.fittingRoom'),
+          headerTitle: `Vitra · ${t('tabs.fittingRoom')}`,
         }}
       />
       <Tab.Screen
         name="ColorStudio"
         component={ColorStudioScreen}
         options={{
-          title: 'Color',
-          headerTitle: 'Vitra · Colorimetría',
+          title: t('tabs.colorStudio'),
+          headerTitle: `Vitra · ${t('tabs.colorStudio')}`,
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: 'Perfil',
-          headerTitle: 'Vitra · Perfil',
+          title: t('tabs.profile'),
+          headerTitle: `Vitra · ${t('tabs.profile')}`,
         }}
       />
     </Tab.Navigator>
@@ -130,26 +130,16 @@ function AppTabs() {
 function NavigationRoot() {
   const { colors, isDark } = useTheme();
   const { userToken, isLoadingToken } = useAuth();
-  const { completedOnboarding } = useUser();
-
-  // Si el usuario no ha iniciado sesión, forzar tema claro en el contenedor de navegación
-  const activeIsDark = userToken ? isDark : false;
-  const activeColors = userToken ? colors : {
-    bg: '#FAFAFC',
-    surface: '#FFFFFF',
-    primaryText: '#111113',
-    border: '#E5E5EA',
-  };
 
   const navigationTheme = {
-    ...(activeIsDark ? DarkTheme : DefaultTheme),
+    ...(isDark ? DarkTheme : DefaultTheme),
     colors: {
-      ...(activeIsDark ? DarkTheme.colors : DefaultTheme.colors),
-      background: activeColors.bg,
-      card: activeColors.surface,
-      text: activeColors.primaryText,
-      border: activeColors.border,
-      primary: activeColors.primaryText,
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.bg,
+      card: colors.surface,
+      text: colors.primaryText,
+      border: colors.border,
+      primary: colors.primaryText,
     },
   };
 
@@ -160,26 +150,20 @@ function NavigationRoot() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: '#FAFAFC',
+          backgroundColor: colors.bg,
         }}
       >
-        <ActivityIndicator size="large" color="#111113" />
+        <ActivityIndicator size="large" color={colors.primaryText} />
       </View>
     );
   }
 
   return (
     <NavigationContainer theme={navigationTheme}>
-      <StatusBar style={activeIsDark ? 'light' : 'dark'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack.Navigator
-        key={userToken ? (completedOnboarding ? 'user-main' : 'user-onboarding') : 'guest-auth'}
-        initialRouteName={
-          !userToken
-            ? 'Auth'
-            : !completedOnboarding
-            ? 'WelcomeOnboarding'
-            : 'MainTabs'
-        }
+        key={userToken ? 'user-main' : 'guest-auth'}
+        initialRouteName={!userToken ? 'Auth' : 'MainTabs'}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },
@@ -189,19 +173,7 @@ function NavigationRoot() {
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : (
           <>
-            {!completedOnboarding ? (
-              <Stack.Screen
-                name="WelcomeOnboarding"
-                component={WelcomeOnboardingScreen as any}
-              />
-            ) : null}
             <Stack.Screen name="MainTabs" component={AppTabs} />
-            {completedOnboarding ? (
-              <Stack.Screen
-                name="WelcomeOnboarding"
-                component={WelcomeOnboardingScreen as any}
-              />
-            ) : null}
             <Stack.Screen
               name="Welcome"
               component={WelcomeScreen as any}

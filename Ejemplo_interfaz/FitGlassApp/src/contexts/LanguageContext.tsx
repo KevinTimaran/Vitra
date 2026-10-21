@@ -536,7 +536,66 @@ export const translations: Record<Language, Record<string, string>> = {
     "settings.english": "English",
     "settings.spanish": "Español",
     "settings.privacy_body_data": "Privacidad y Datos Corporales",
-    "settings.stored_locally": "Almacenado localmente en el dispositivo"
+    "settings.stored_locally": "Almacenado localmente en el dispositivo",
+    "settings.appearance": "Ajustes de Apariencia",
+    "settings.appearance_desc": "Personaliza el tema visual del atelier. Elige entre fondo negro OLED de alto contraste o blanco editorial.",
+    "settings.light_mode": "Modo Claro",
+    "settings.light_mode_desc": "Blanco Editorial",
+    "settings.dark_mode_title": "Fondo Negro",
+    "settings.dark_mode_desc": "Negro OLED",
+    "settings.language_title": "Idioma del Atelier",
+    "settings.language_desc": "Selecciona el idioma para interfaces, medidas y recomendaciones de estilo.",
+    "auth.welcomeTitle": "Bienvenido a Vitra",
+    "auth.welcomeSubtitle": "Tu armario digital y probador 3D inteligente. Inicia sesión o crea una cuenta para comenzar.",
+    "auth.createAccount": "Crear Cuenta",
+    "auth.signIn": "Iniciar Sesión",
+    "auth.welcomeBack": "Bienvenido de nuevo",
+    "auth.welcomeBackSubtitle": "¿Listo para ver tu armario? Tu estilo está aquí.",
+    "auth.createAccountTitle": "Crea tu Cuenta",
+    "auth.step1Subtitle": "Paso 1 de 3 · Credenciales de Acceso",
+    "auth.step2Subtitle": "Paso 2 de 3 · Datos Personales",
+    "auth.step3Subtitle": "Paso 3 de 3 · Identidad Biométrica",
+    "auth.fullName": "Nombre completo",
+    "auth.fullNamePlaceholder": "Ej. Sofia Rossi",
+    "auth.age": "Edad",
+    "auth.agePlaceholder": "Ej. 26",
+    "auth.email": "Correo electrónico",
+    "auth.password": "Contraseña",
+    "auth.rememberMe": "Recordarme",
+    "auth.forgotPassword": "Olvidé mi contraseña",
+    "auth.next": "Siguiente",
+    "auth.finishRegister": "Crear mi Gemelo Digital",
+    "auth.orContinueWith": "O inicia sesión con",
+    "auth.noAccount": "¿No tienes cuenta?",
+    "auth.registerLink": "Regístrate",
+    "auth.haveAccount": "¿Ya tienes cuenta?",
+    "auth.loginLink": "Inicia sesión",
+    "auth.facialPhoto": "Fotografía Facial",
+    "auth.facialDesc": "Para descubrir tu paleta de colorimetría y tono de piel.",
+    "auth.bodyPhoto": "Fotografía Corporal",
+    "auth.bodyDesc": "Cuerpo entero en postura en 'A' para calibrar tu maniquí 3D.",
+    "auth.openCamera": "Cámara",
+    "auth.openGallery": "Galería",
+    "auth.demoFill": "Rellenar credenciales demo",
+    "auth.back": "Atrás",
+    "home.serverStatus": "ESTADO DEL SERVIDOR BACKEND",
+    "home.checkingServer": "Comprobando conexión con FitGlassAI...",
+    "home.connected": "FitGlassAI Conectado",
+    "home.disconnected": "Desconectado",
+    "home.retry": "Reintentar Conexión",
+    "home.biometricScan": "Escaneo Biométrico & Colorimetría",
+    "home.digitalizeGarment": "Digitalizar Prenda (Gemini AI)",
+    "home.openFittingRoom": "Abrir Probador Virtual 3D",
+    "wardrobe.addGarmentBtn": "Añadir Prenda al Armario",
+    "profile.avatarTitle": "Avatar Base 3D (.glb)",
+    "profile.avatarDesc": "Generado con Tripo3D a partir de tu fotografía de cuerpo entero. Listo para simulación en el Probador Virtual.",
+    "profile.viewInFittingRoom": "Visualizar en Probador 3D",
+    "profile.colorimetryTitle": "Colorimetría Estacional",
+    "profile.skinLabel": "Piel",
+    "profile.openColorStudio": "Abrir Estudio de Color Completo",
+    "profile.scanAgain": "Escanear de Nuevo (Cámara / Galería)",
+    "profile.resetDefaults": "Restablecer Valores Iniciales",
+    "profile.signOut": "Cerrar Sesión (Sign Out)"
   }
 };
 
@@ -555,10 +614,44 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('es');
+  const [language, setLanguageState] = useState<Language>('es');
+
+  useEffect(() => {
+    const loadSavedLanguage = async () => {
+      try {
+        let saved: string | null = null;
+        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+          saved = localStorage.getItem(LANGUAGE_PREF_KEY);
+        } else if (await SecureStore.isAvailableAsync()) {
+          saved = await SecureStore.getItemAsync(LANGUAGE_PREF_KEY);
+        }
+        if (saved === 'en' || saved === 'es') {
+          setLanguageState(saved);
+        }
+      } catch (err) {
+        console.warn('[LanguageContext] Error cargando idioma guardado:', err);
+      }
+    };
+
+    loadSavedLanguage();
+  }, []);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    try {
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.setItem(LANGUAGE_PREF_KEY, lang);
+      } else {
+        SecureStore.setItemAsync(LANGUAGE_PREF_KEY, lang).catch(() => {});
+      }
+    } catch {
+      // Ignorar fallo de almacenamiento
+    }
+  };
 
   const toggleLanguage = () => {
-    setLanguage((prev) => (prev === 'en' ? 'es' : 'en'));
+    const nextLang: Language = language === 'en' ? 'es' : 'en';
+    setLanguage(nextLang);
   };
 
   const t = (key: string): string => {

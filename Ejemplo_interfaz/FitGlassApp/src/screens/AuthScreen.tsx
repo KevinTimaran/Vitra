@@ -10,54 +10,229 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  Image,
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
-import { loginUser, registerUser } from '../services/auth/authClient';
-import { Colors as LightColors, Typography, Spacing, Radius } from '../theme';
+import { useUser } from '../contexts/UserContext';
+import { loginUser, registerUser, setupUserProfile } from '../services/auth/authClient';
+import { Spacing, Radius } from '../theme';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Paleta de gradiente suave (púrpura, rosa, durazno)
 const BACKGROUND_GRADIENT = ['#E0C3FC', '#F8B4D9', '#FFC3A0'] as const;
 const BUTTON_GRADIENT = ['#8B5CF6', '#EC4899', '#FB923C'] as const;
 
 export const AuthScreen: React.FC = () => {
-  // Preparación para temas y traducciones futuras (activo en modo claro por ahora)
-  const { colors: currentThemeColors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const { login } = useAuth();
+  const { completeOnboarding } = useUser();
 
   // Vista activa: 'welcome' | 'login' | 'register'
   const [viewState, setViewState] = useState<'welcome' | 'login' | 'register'>('welcome');
+
+  // Wizard de Registro: Paso 1 (Credenciales), Paso 2 (Datos Personales), Paso 3 (Biometría)
+  const [registerStep, setRegisterStep] = useState<1 | 2 | 3>(1);
 
   // Campos de formulario
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [fullName, setFullName] = useState<string>('');
+  const [age, setAge] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
+
+  // Fotografías biométricas
+  const [faceImageUri, setFaceImageUri] = useState<string | null>(null);
+  const [faceImageBase64, setFaceImageBase64] = useState<string | null>(null);
+  const [bodyImageUri, setBodyImageUri] = useState<string | null>(null);
+  const [bodyImageBase64, setBodyImageBase64] = useState<string | null>(null);
 
   // Estados de proceso y feedback
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Limpiar mensajes al cambiar de vista
+  // Limpiar mensajes y resetear pasos al cambiar de vista
   const handleSwitchView = (newView: 'welcome' | 'login' | 'register') => {
     setErrorMessage(null);
     setSuccessMessage(null);
+    if (newView === 'register') {
+      setRegisterStep(1);
+    }
     setViewState(newView);
   };
 
-  // Manejo de envío de formulario (Login o Registro)
-  const handleSubmit = async () => {
+  // Captura de imagen (Cámara o Galería)
+  const handlePickImage = async (target: 'face' | 'body', source: 'camera' | 'gallery') => {
+    try {
+      setErrorMessage(null);
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permiso Requerido',
+            'Se requiere acceso a la cámara para capturar la fotografía.'
+          );
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permiso Requerido',
+            'Se requiere acceso a la galería para seleccionar la fotografía.'
+          );
+          return;
+        }
+      }
+
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: target === 'face' ? [1, 1] : [3, 4],
+        quality: 0.8,
+        base64: true,
+      };
+
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync(options)
+          : await ImagePicker.launchImageLibraryAsync(options);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const base64Formatted = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        if (target === 'face') {
+          setFaceImageUri(asset.uri);
+          setFaceImageBase64(base64Formatted);
+        } else {
+          setBodyImageUri(asset.uri);
+          setBodyImageBase64(base64Formatted);
+        }
+      }
+    } catch (err: any) {
+      console.error('[AuthScreen] Error al seleccionar imagen:', err);
+      setErrorMessage(err?.message || 'Error al capturar la imagen.');
+    }
+  };
+
+  // Cargar fotos de muestra para desarrollo rápido
+  const handleUseSampleBiometrics = () => {
+    const sampleFace =
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80';
+    const sampleBody =
+      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80';
+
+    setFaceImageUri(sampleFace);
+    setFaceImageBase64(sampleFace);
+    setBodyImageUri(sampleBody);
+    setBodyImageBase64(sampleBody);
+  };
+
+  // Validar y avanzar en el Wizard de Registro
+  const handleNextRegisterStep = () => {
+    setErrorMessage(null);
+
+    if (registerStep === 1) {
+      // Validar Credenciales
+      const cleanEmail = email.trim();
+      if (!cleanEmail) {
+        setErrorMessage(t('auth.email') + ' es requerido.');
+        return;
+      }
+      if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+        setErrorMessage('Por favor ingresa un correo electrónico válido.');
+        return;
+      }
+      if (!password || password.length < 6) {
+        setErrorMessage('La contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
+      setRegisterStep(2);
+    } else if (registerStep === 2) {
+      // Validar Datos Personales
+      const cleanName = fullName.trim();
+      if (!cleanName) {
+        setErrorMessage('Por favor ingresa tu nombre completo.');
+        return;
+      }
+      const parsedAge = parseInt(age.trim(), 10);
+      if (isNaN(parsedAge) || parsedAge < 10 || parsedAge > 99) {
+        setErrorMessage('Por favor ingresa una edad válida (entre 10 y 99 años).');
+        return;
+      }
+      setRegisterStep(3);
+    }
+  };
+
+  // Finalizar Registro Unificado (Crea cuenta + Biometría + Login sin pantallas intermedias)
+  const handleFinishRegister = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setLoading(true);
+
+    const cleanEmail = email.trim();
+    const cleanName = fullName.trim();
+    const parsedAge = parseInt(age.trim(), 10) || 24;
+
+    try {
+      // 1. Registrar usuario en backend
+      await registerUser(cleanEmail, password, cleanName);
+      setSuccessMessage('¡Cuenta creada exitosamente! Configurando gemelo digital...');
+
+      // 2. Iniciar sesión para obtener token JWT
+      const loginResult = await loginUser(cleanEmail, password);
+      const token = loginResult.access_token;
+
+      // 3. Enviar datos de perfil y biometría al backend (si está disponible)
+      try {
+        await setupUserProfile(
+          {
+            full_name: cleanName,
+            age: parsedAge,
+            face_image: faceImageBase64 || undefined,
+            body_image: bodyImageBase64 || undefined,
+          },
+          token
+        );
+      } catch (setupErr) {
+        console.warn('[AuthScreen] Advertencia en setup de perfil en backend:', setupErr);
+      }
+
+      // 4. Guardar datos en el estado global (Context)
+      completeOnboarding({
+        fullName: cleanName,
+        age: parsedAge,
+        facePhotoUri: faceImageUri || undefined,
+        bodyPhotoUri: bodyImageUri || undefined,
+        photoUri: bodyImageUri || undefined,
+      });
+
+      // 5. Establecer sesión activa (navega inmediatamente a Home sin intermediarios)
+      await login(token, cleanEmail);
+    } catch (err: any) {
+      console.error('[AuthScreen] Error en registro unificado:', err);
+      setErrorMessage(err?.message || 'Error al completar el registro.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Enviar formulario de Login
+  const handleLoginSubmit = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -70,35 +245,15 @@ export const AuthScreen: React.FC = () => {
       setErrorMessage('Por favor ingresa tu contraseña.');
       return;
     }
-    if (password.length < 6) {
-      setErrorMessage('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    if (viewState === 'register' && !fullName.trim()) {
-      setErrorMessage('Por favor ingresa tu nombre completo.');
-      return;
-    }
 
     setLoading(true);
 
     try {
-      if (viewState === 'login') {
-        // Iniciar Sesión
-        const result = await loginUser(cleanEmail, password);
-        await login(result.access_token, cleanEmail);
-      } else if (viewState === 'register') {
-        // Registrar usuario
-        await registerUser(cleanEmail, password, fullName.trim());
-        setSuccessMessage('¡Cuenta creada exitosamente! Iniciando sesión...');
-
-        // Autologin posterior al registro
-        const loginResult = await loginUser(cleanEmail, password);
-        await login(loginResult.access_token, cleanEmail);
-      }
+      const result = await loginUser(cleanEmail, password);
+      await login(result.access_token, cleanEmail);
     } catch (err: any) {
-      console.error('[AuthScreen] Error:', err);
-      setErrorMessage(err?.message || 'Error al procesar la solicitud.');
+      console.error('[AuthScreen] Error de inicio de sesión:', err);
+      setErrorMessage(err?.message || 'Error al iniciar sesión. Verifica tus credenciales.');
     } finally {
       setLoading(false);
     }
@@ -109,6 +264,7 @@ export const AuthScreen: React.FC = () => {
     setEmail('demo@vitra.ai');
     setPassword('password123');
     setFullName('Usuario Vitra');
+    setAge('26');
     setErrorMessage(null);
   };
 
@@ -142,7 +298,7 @@ export const AuthScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* Ilustración / Ícono Central de Moda & Gemelo Digital 3D */}
+            {/* Ilustración Central de Moda & Gemelo Digital 3D */}
             <View style={styles.heroIllustrationContainer}>
               <View style={styles.outerGlowCircle}>
                 <View style={styles.innerGlowCircle}>
@@ -156,34 +312,32 @@ export const AuthScreen: React.FC = () => {
 
             {/* Textos Centrales */}
             <View style={styles.welcomeTextContainer}>
-              <Text style={styles.welcomeTitle}>Bienvenido a Vitra</Text>
-              <Text style={styles.welcomeSubtitle}>
-                Tu armario digital y probador 3D inteligente. Inicia sesión o crea una cuenta para comenzar.
-              </Text>
+              <Text style={styles.welcomeTitle}>{t('auth.welcomeTitle')}</Text>
+              <Text style={styles.welcomeSubtitle}>{t('auth.welcomeSubtitle')}</Text>
             </View>
 
             {/* Botones de Acción Inferiores */}
             <View style={styles.welcomeActionsContainer}>
-              {/* Botón Crear Cuenta (Fondo blanco, texto oscuro) */}
+              {/* Botón Crear Cuenta */}
               <TouchableOpacity
                 style={styles.btnCreateAccount}
                 onPress={() => handleSwitchView('register')}
                 activeOpacity={0.88}
               >
-                <Text style={styles.btnCreateAccountText}>Crear Cuenta</Text>
+                <Text style={styles.btnCreateAccountText}>{t('auth.createAccount')}</Text>
                 <Ionicons name="arrow-forward" size={18} color="#1E1B4B" style={{ marginLeft: 6 }} />
               </TouchableOpacity>
 
-              {/* Botón Iniciar Sesión (Transparente con borde blanco delgado) */}
+              {/* Botón Iniciar Sesión */}
               <TouchableOpacity
                 style={styles.btnSignInOutline}
                 onPress={() => handleSwitchView('login')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.btnSignInOutlineText}>Iniciar Sesión</Text>
+                <Text style={styles.btnSignInOutlineText}>{t('auth.signIn')}</Text>
               </TouchableOpacity>
 
-              {/* Botón sutil de credenciales demo para pruebas */}
+              {/* Botón de credenciales demo */}
               <TouchableOpacity
                 style={styles.demoLinkButton}
                 onPress={() => {
@@ -192,7 +346,7 @@ export const AuthScreen: React.FC = () => {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.demoLinkText}>Usar credenciales demo</Text>
+                <Text style={styles.demoLinkText}>{t('auth.demoFill')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -207,9 +361,15 @@ export const AuthScreen: React.FC = () => {
             <View style={styles.sheetTopBar}>
               <TouchableOpacity
                 style={styles.backIconButton}
-                onPress={() => handleSwitchView('welcome')}
+                onPress={() => {
+                  if (viewState === 'register' && registerStep > 1) {
+                    setRegisterStep((prev) => (prev - 1) as 1 | 2);
+                  } else {
+                    handleSwitchView('welcome');
+                  }
+                }}
                 activeOpacity={0.7}
-                accessibilityLabel="Volver"
+                accessibilityLabel={t('auth.back')}
               >
                 <Ionicons name="arrow-back" size={22} color="#1E1B4B" />
               </TouchableOpacity>
@@ -219,7 +379,7 @@ export const AuthScreen: React.FC = () => {
               <View style={{ width: 40 }} />
             </View>
 
-            {/* Contenedor Blanco estilo Bottom Sheet (65% del alto) */}
+            {/* Contenedor Blanco estilo Bottom Sheet */}
             <View style={styles.whiteBottomSheetCard}>
               <ScrollView
                 showsVerticalScrollIndicator={false}
@@ -229,19 +389,66 @@ export const AuthScreen: React.FC = () => {
                 {/* Tirador indicador superior del modal */}
                 <View style={styles.sheetHandleIndicator} />
 
-                {/* Encabezado según la vista */}
-                {viewState === 'login' ? (
+                {/* ---------------- LOGIN HEADER ---------------- */}
+                {viewState === 'login' && (
                   <View style={styles.sheetHeader}>
-                    <Text style={styles.sheetTitle}>Bienvenido de nuevo</Text>
-                    <Text style={styles.sheetSubtitle}>
-                      ¿Listo para ver tu armario? Tu estilo está aquí.
-                    </Text>
+                    <Text style={styles.sheetTitle}>{t('auth.welcomeBack')}</Text>
+                    <Text style={styles.sheetSubtitle}>{t('auth.welcomeBackSubtitle')}</Text>
                   </View>
-                ) : (
-                  <View style={styles.sheetHeader}>
-                    <Text style={styles.sheetTitle}>Crea tu Cuenta</Text>
+                )}
+
+                {/* ---------------- REGISTER WIZARD STEP HEADER ---------------- */}
+                {viewState === 'register' && (
+                  <View style={styles.wizardHeaderContainer}>
+                    {/* Stepper Pills */}
+                    <View style={styles.wizardPillsRow}>
+                      {[1, 2, 3].map((step) => {
+                        const isActive = step === registerStep;
+                        const isPassed = step < registerStep;
+                        return (
+                          <View
+                            key={step}
+                            style={[
+                              styles.wizardPill,
+                              {
+                                backgroundColor: isActive
+                                  ? '#7C3AED'
+                                  : isPassed
+                                  ? '#10B981'
+                                  : '#F1F5F9',
+                              },
+                            ]}
+                          >
+                            {isPassed ? (
+                              <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                            ) : (
+                              <Text
+                                style={[
+                                  styles.wizardPillText,
+                                  { color: isActive ? '#FFFFFF' : '#64748B' },
+                                ]}
+                              >
+                                {step}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={styles.sheetTitle}>
+                      {registerStep === 1
+                        ? t('auth.createAccountTitle')
+                        : registerStep === 2
+                        ? 'Datos Personales'
+                        : 'Identidad Biométrica'}
+                    </Text>
                     <Text style={styles.sheetSubtitle}>
-                      Estamos aquí para crear tu gemelo digital. ¿Listo?
+                      {registerStep === 1
+                        ? t('auth.step1Subtitle')
+                        : registerStep === 2
+                        ? t('auth.step2Subtitle')
+                        : t('auth.step3Subtitle')}
                     </Text>
                   </View>
                 )}
@@ -260,75 +467,57 @@ export const AuthScreen: React.FC = () => {
                   </View>
                 )}
 
-                {/* Formulario */}
-                <View style={styles.formContainer}>
-                  {/* Campo Nombre Completo (Solo en Registro) */}
-                  {viewState === 'register' && (
+                {/* ====================================================== */}
+                {/* FORMULARIO DE LOGIN                                   */}
+                {/* ====================================================== */}
+                {viewState === 'login' && (
+                  <View style={styles.formContainer}>
+                    {/* Email */}
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Nombre completo</Text>
+                      <Text style={styles.inputLabel}>{t('auth.email')}</Text>
                       <View style={styles.inputWrapper}>
-                        <Ionicons name="person-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <Ionicons name="mail-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
                         <TextInput
                           style={styles.textInput}
-                          placeholder="Ej. Sofia Rossi"
+                          placeholder="tu@email.com"
                           placeholderTextColor="#94A3B8"
-                          value={fullName}
-                          onChangeText={setFullName}
-                          autoCapitalize="words"
-                          maxLength={50}
+                          value={email}
+                          onChangeText={setEmail}
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                          autoCorrect={false}
                         />
                       </View>
                     </View>
-                  )}
 
-                  {/* Campo Email */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Correo electrónico</Text>
-                    <View style={styles.inputWrapper}>
-                      <Ionicons name="mail-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.textInput}
-                        placeholder="tu@email.com"
-                        placeholderTextColor="#94A3B8"
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        autoCorrect={false}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Campo Password */}
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Contraseña</Text>
-                    <View style={styles.inputWrapper}>
-                      <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.textInput}
-                        placeholder="••••••••"
-                        placeholderTextColor="#94A3B8"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                        autoCapitalize="none"
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowPassword(!showPassword)}
-                        style={styles.passwordToggle}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Ionicons
-                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                          size={18}
-                          color="#64748B"
+                    {/* Password */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>{t('auth.password')}</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="••••••••"
+                          placeholderTextColor="#94A3B8"
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry={!showPassword}
+                          autoCapitalize="none"
                         />
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setShowPassword(!showPassword)}
+                          style={styles.passwordToggle}
+                        >
+                          <Ionicons
+                            name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                            size={18}
+                            color="#64748B"
+                          />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
 
-                  {/* Fila Recordarme / Olvidé mi contraseña (Solo en Login) */}
-                  {viewState === 'login' && (
+                    {/* Recordarme / Olvidé contraseña */}
                     <View style={styles.optionsRow}>
                       <TouchableOpacity
                         style={styles.checkboxRow}
@@ -343,120 +532,369 @@ export const AuthScreen: React.FC = () => {
                         >
                           {rememberMe && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
                         </View>
-                        <Text style={styles.checkboxLabel}>Recordarme</Text>
+                        <Text style={styles.checkboxLabel}>{t('auth.rememberMe')}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         onPress={() => {
-                          Alert.alert('Recuperar Contraseña', 'Ingresa tu correo para enviarte instrucciones de restablecimiento.');
+                          Alert.alert('Recuperar Contraseña', 'Ingresa tu correo para recibir las instrucciones.');
                         }}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.forgotPasswordText}>Olvidé mi contraseña</Text>
+                        <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
                       </TouchableOpacity>
                     </View>
-                  )}
 
-                  {/* Botón Submit con LinearGradient en forma de píldora */}
-                  <TouchableOpacity
-                    onPress={handleSubmit}
-                    disabled={loading}
-                    activeOpacity={0.88}
-                    style={styles.submitButtonTouchable}
-                  >
-                    <LinearGradient
-                      colors={BUTTON_GRADIENT}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.submitGradientPill}
+                    {/* Submit Login */}
+                    <TouchableOpacity
+                      onPress={handleLoginSubmit}
+                      disabled={loading}
+                      activeOpacity={0.88}
+                      style={styles.submitButtonTouchable}
                     >
-                      {loading ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
-                      ) : (
-                        <>
-                          <Text style={styles.submitButtonText}>
-                            {viewState === 'login' ? 'Iniciar Sesión' : 'Comenzar'}
-                          </Text>
+                      <LinearGradient
+                        colors={BUTTON_GRADIENT}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.submitGradientPill}
+                      >
+                        {loading ? (
+                          <ActivityIndicator color="#FFFFFF" size="small" />
+                        ) : (
+                          <>
+                            <Text style={styles.submitButtonText}>{t('auth.signIn')}</Text>
+                            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                          </>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    {/* Social Login */}
+                    <View style={styles.dividerRow}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>{t('auth.orContinueWith')}</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
+                    <View style={styles.socialIconsRow}>
+                      <TouchableOpacity
+                        style={styles.socialCircleBtn}
+                        onPress={() => {
+                          fillDemoCredentials();
+                          Alert.alert('Acceso Rápido', 'Credenciales demo cargadas.');
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="logo-google" size={20} color="#EA4335" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.socialCircleBtn}
+                        onPress={() => Alert.alert('Apple ID', 'Disponible en compilación nativa.')}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="logo-apple" size={21} color="#000000" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.socialCircleBtn}
+                        onPress={() => Alert.alert('Facebook', 'Disponible en compilación nativa.')}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="logo-facebook" size={21} color="#1877F2" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Switch to Register */}
+                    <View style={styles.footerRow}>
+                      <View style={styles.switchPromptRow}>
+                        <Text style={styles.switchPromptText}>{t('auth.noAccount')} </Text>
+                        <TouchableOpacity onPress={() => handleSwitchView('register')} activeOpacity={0.7}>
+                          <Text style={styles.switchActionHighlight}>{t('auth.registerLink')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* ====================================================== */}
+                {/* WIZARD DE REGISTRO: PASO 1 (CREDENCIALES)             */}
+                {/* ====================================================== */}
+                {viewState === 'register' && registerStep === 1 && (
+                  <View style={styles.formContainer}>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>{t('auth.email')}</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="mail-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="tu@email.com"
+                          placeholderTextColor="#94A3B8"
+                          value={email}
+                          onChangeText={setEmail}
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                          autoCorrect={false}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>{t('auth.password')}</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="Mínimo 6 caracteres"
+                          placeholderTextColor="#94A3B8"
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry={!showPassword}
+                          autoCapitalize="none"
+                        />
+                        <TouchableOpacity
+                          onPress={() => setShowPassword(!showPassword)}
+                          style={styles.passwordToggle}
+                        >
                           <Ionicons
-                            name="arrow-forward"
-                            size={16}
-                            color="#FFFFFF"
-                            style={{ marginLeft: 6 }}
+                            name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                            size={18}
+                            color="#64748B"
                           />
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  {/* Separador "O inicia sesión con" */}
-                  <View style={styles.dividerRow}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>O inicia sesión con</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
-
-                  {/* Social Login: 3 Íconos Circulares */}
-                  <View style={styles.socialIconsRow}>
-                    {/* Google */}
-                    <TouchableOpacity
-                      style={styles.socialCircleBtn}
-                      onPress={() => {
-                        fillDemoCredentials();
-                        Alert.alert('Acceso Rápido', 'Credenciales demo cargadas para probar el acceso.');
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name="logo-google" size={20} color="#EA4335" />
-                    </TouchableOpacity>
-
-                    {/* Apple */}
-                    <TouchableOpacity
-                      style={styles.socialCircleBtn}
-                      onPress={() => {
-                        Alert.alert('Apple ID', 'Integración con Apple ID disponible en builds nativos.');
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name="logo-apple" size={21} color="#000000" />
-                    </TouchableOpacity>
-
-                    {/* Facebook */}
-                    <TouchableOpacity
-                      style={styles.socialCircleBtn}
-                      onPress={() => {
-                        Alert.alert('Facebook', 'Inicio de sesión con Facebook disponible en builds nativos.');
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name="logo-facebook" size={21} color="#1877F2" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Footer con enlace para alternar entre Login y Register */}
-                  <View style={styles.footerRow}>
-                    {viewState === 'login' ? (
-                      <View style={styles.switchPromptRow}>
-                        <Text style={styles.switchPromptText}>¿No tienes cuenta? </Text>
-                        <TouchableOpacity
-                          onPress={() => handleSwitchView('register')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.switchActionHighlight}>Regístrate</Text>
                         </TouchableOpacity>
                       </View>
-                    ) : (
+                    </View>
+
+                    {/* Botón Siguiente a Datos Personales */}
+                    <TouchableOpacity
+                      onPress={handleNextRegisterStep}
+                      activeOpacity={0.88}
+                      style={styles.submitButtonTouchable}
+                    >
+                      <LinearGradient
+                        colors={BUTTON_GRADIENT}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.submitGradientPill}
+                      >
+                        <Text style={styles.submitButtonText}>{t('auth.next')}</Text>
+                        <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <View style={styles.footerRow}>
                       <View style={styles.switchPromptRow}>
-                        <Text style={styles.switchPromptText}>¿Ya tienes cuenta? </Text>
-                        <TouchableOpacity
-                          onPress={() => handleSwitchView('login')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.switchActionHighlight}>Inicia sesión</Text>
+                        <Text style={styles.switchPromptText}>{t('auth.haveAccount')} </Text>
+                        <TouchableOpacity onPress={() => handleSwitchView('login')} activeOpacity={0.7}>
+                          <Text style={styles.switchActionHighlight}>{t('auth.loginLink')}</Text>
                         </TouchableOpacity>
                       </View>
-                    )}
+                    </View>
                   </View>
-                </View>
+                )}
+
+                {/* ====================================================== */}
+                {/* WIZARD DE REGISTRO: PASO 2 (DATOS PERSONALES)         */}
+                {/* ====================================================== */}
+                {viewState === 'register' && registerStep === 2 && (
+                  <View style={styles.formContainer}>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>{t('auth.fullName')}</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="person-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder={t('auth.fullNamePlaceholder')}
+                          placeholderTextColor="#94A3B8"
+                          value={fullName}
+                          onChangeText={setFullName}
+                          autoCapitalize="words"
+                          maxLength={50}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>{t('auth.age')}</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="calendar-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder={t('auth.agePlaceholder')}
+                          placeholderTextColor="#94A3B8"
+                          value={age}
+                          onChangeText={setAge}
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Botones de Navegación del Paso 2 */}
+                    <View style={styles.wizardButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.btnSecondaryStep}
+                        onPress={() => setRegisterStep(1)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="arrow-back" size={16} color="#334155" />
+                        <Text style={styles.btnSecondaryStepText}>{t('auth.back')}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.btnPrimaryStep, { flex: 1 }]}
+                        onPress={handleNextRegisterStep}
+                        activeOpacity={0.88}
+                      >
+                        <LinearGradient
+                          colors={BUTTON_GRADIENT}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.submitGradientPill}
+                        >
+                          <Text style={styles.submitButtonText}>{t('auth.next')}</Text>
+                          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* ====================================================== */}
+                {/* WIZARD DE REGISTRO: PASO 3 (BIOMETRÍA)                */}
+                {/* ====================================================== */}
+                {viewState === 'register' && registerStep === 3 && (
+                  <View style={styles.formContainer}>
+                    {/* 1. Fotografía Facial */}
+                    <View style={styles.biometricSection}>
+                      <View style={styles.biometricHeaderRow}>
+                        <Ionicons name="color-palette-outline" size={18} color="#7C3AED" />
+                        <Text style={styles.biometricSectionTitle}>{t('auth.facialPhoto')}</Text>
+                      </View>
+                      <Text style={styles.biometricSectionDesc}>{t('auth.facialDesc')}</Text>
+
+                      <View style={styles.biometricPreviewRow}>
+                        {faceImageUri ? (
+                          <View style={styles.circularFacePreview}>
+                            <Image source={{ uri: faceImageUri }} style={styles.circularFaceImage} />
+                            <View style={styles.badgeCheckOverlay}>
+                              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.circularFacePlaceholder}>
+                            <Ionicons name="person" size={28} color="#94A3B8" />
+                          </View>
+                        )}
+
+                        <View style={styles.biometricButtonsColumn}>
+                          <TouchableOpacity
+                            style={styles.mediaActionButton}
+                            onPress={() => handlePickImage('face', 'camera')}
+                            activeOpacity={0.75}
+                          >
+                            <Ionicons name="camera-outline" size={16} color="#1E1B4B" />
+                            <Text style={styles.mediaActionText}>{t('auth.openCamera')}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.mediaActionButton}
+                            onPress={() => handlePickImage('face', 'gallery')}
+                            activeOpacity={0.75}
+                          >
+                            <Ionicons name="images-outline" size={16} color="#1E1B4B" />
+                            <Text style={styles.mediaActionText}>{t('auth.openGallery')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* 2. Fotografía Corporal */}
+                    <View style={styles.biometricSection}>
+                      <View style={styles.biometricHeaderRow}>
+                        <Ionicons name="body-outline" size={18} color="#7C3AED" />
+                        <Text style={styles.biometricSectionTitle}>{t('auth.bodyPhoto')}</Text>
+                      </View>
+                      <Text style={styles.biometricSectionDesc}>{t('auth.bodyDesc')}</Text>
+
+                      <View style={styles.biometricPreviewRow}>
+                        {bodyImageUri ? (
+                          <View style={styles.rectangularBodyPreview}>
+                            <Image source={{ uri: bodyImageUri }} style={styles.rectangularBodyImage} />
+                            <View style={styles.badgeCheckOverlay}>
+                              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.rectangularBodyPlaceholder}>
+                            <Ionicons name="body-outline" size={28} color="#94A3B8" />
+                          </View>
+                        )}
+
+                        <View style={styles.biometricButtonsColumn}>
+                          <TouchableOpacity
+                            style={styles.mediaActionButton}
+                            onPress={() => handlePickImage('body', 'camera')}
+                            activeOpacity={0.75}
+                          >
+                            <Ionicons name="camera-outline" size={16} color="#1E1B4B" />
+                            <Text style={styles.mediaActionText}>{t('auth.openCamera')}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.mediaActionButton}
+                            onPress={() => handlePickImage('body', 'gallery')}
+                            activeOpacity={0.75}
+                          >
+                            <Ionicons name="images-outline" size={16} color="#1E1B4B" />
+                            <Text style={styles.mediaActionText}>{t('auth.openGallery')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Botón rápido de fotos muestra */}
+                    <TouchableOpacity
+                      onPress={handleUseSampleBiometrics}
+                      style={styles.sampleBiometricsBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="sparkles" size={14} color="#7C3AED" />
+                      <Text style={styles.sampleBiometricsText}>Cargar fotografías de muestra (Demo)</Text>
+                    </TouchableOpacity>
+
+                    {/* Botones de Finalización */}
+                    <View style={styles.wizardButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.btnSecondaryStep}
+                        onPress={() => setRegisterStep(2)}
+                        activeOpacity={0.75}
+                        disabled={loading}
+                      >
+                        <Ionicons name="arrow-back" size={16} color="#334155" />
+                        <Text style={styles.btnSecondaryStepText}>{t('auth.back')}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.btnPrimaryStep, { flex: 1 }]}
+                        onPress={handleFinishRegister}
+                        disabled={loading}
+                        activeOpacity={0.88}
+                      >
+                        <LinearGradient
+                          colors={BUTTON_GRADIENT}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.submitGradientPill}
+                        >
+                          {loading ? (
+                            <ActivityIndicator color="#FFFFFF" size="small" />
+                          ) : (
+                            <>
+                              <Text style={styles.submitButtonText}>{t('auth.finishRegister')}</Text>
+                              <Ionicons name="checkmark-done" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                            </>
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -467,7 +905,7 @@ export const AuthScreen: React.FC = () => {
 };
 
 // ==========================================
-// Estilos UI (Gradient Card & Bottom Sheet)
+// Estilos UI
 // ==========================================
 
 const styles = StyleSheet.create({
@@ -654,7 +1092,7 @@ const styles = StyleSheet.create({
     color: '#1E1B4B',
   },
   whiteBottomSheetCard: {
-    height: SCREEN_HEIGHT * 0.72,
+    height: SCREEN_HEIGHT * 0.78,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
@@ -675,13 +1113,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#E2E8F0',
     alignSelf: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   sheetHeader: {
     marginBottom: Spacing.lg,
   },
   sheetTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.3,
@@ -693,6 +1131,28 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '400',
   },
+
+  // Wizard Stepper
+  wizardHeaderContainer: {
+    marginBottom: Spacing.lg,
+  },
+  wizardPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: Spacing.sm,
+  },
+  wizardPill: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wizardPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
   alertErrorBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -725,6 +1185,7 @@ const styles = StyleSheet.create({
     color: '#15803D',
     flex: 1,
   },
+
   formContainer: {
     gap: Spacing.md,
   },
@@ -809,6 +1270,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
   },
   submitButtonText: {
     fontSize: 15,
@@ -816,6 +1278,148 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
+
+  wizardButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  btnSecondaryStep: {
+    height: 50,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+  },
+  btnSecondaryStepText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  btnPrimaryStep: {
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+  },
+
+  // Biometrics Section
+  biometricSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: Spacing.xs,
+  },
+  biometricHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  biometricSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  biometricSectionDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: Spacing.xs,
+  },
+  biometricPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  circularFacePreview: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2,
+    borderColor: '#7C3AED',
+    position: 'relative',
+    overflow: 'visible',
+  },
+  circularFaceImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 34,
+  },
+  circularFacePlaceholder: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rectangularBodyPreview: {
+    width: 68,
+    height: 80,
+    borderRadius: Radius.md,
+    borderWidth: 2,
+    borderColor: '#7C3AED',
+    position: 'relative',
+  },
+  rectangularBodyImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: Radius.md - 2,
+  },
+  rectangularBodyPlaceholder: {
+    width: 68,
+    height: 80,
+    borderRadius: Radius.md,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeCheckOverlay: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+  },
+  biometricButtonsColumn: {
+    flex: 1,
+    gap: 6,
+  },
+  mediaActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 34,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: Radius.md,
+  },
+  mediaActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E1B4B',
+  },
+  sampleBiometricsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  sampleBiometricsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#7C3AED',
+    textDecorationLine: 'underline',
+  },
+
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',

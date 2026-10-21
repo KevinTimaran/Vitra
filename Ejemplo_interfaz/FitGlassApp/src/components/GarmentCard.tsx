@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Garment } from '../types';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../theme';
+import { Typography, Spacing, Radius, Shadows } from '../theme';
 import { useTranslation } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface GarmentCardProps {
   garment: Garment;
@@ -18,32 +19,46 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
   onFavoriteToggle,
   isFavorite = false,
 }) => {
+  const { colors, isDark } = useTheme();
   const { t } = useTranslation();
-  
+
   const translatedCategory = t(`common.${garment.category.toLowerCase()}`) || garment.category;
   const translatedColor = t(`color.${garment.colorName}`) || garment.colorName;
   const translatedFit = t(`fit.${garment.fit}`) || garment.fit;
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.borderLight,
+        },
+      ]}
       onPress={onPress}
       activeOpacity={0.88}
     >
       {/* Visual Product Object Area */}
-      <View style={styles.imageCanvas}>
+      <View style={[styles.imageCanvas, { backgroundColor: colors.surfaceSubtle }]}>
         {garment.imageUrl ? (
           <Image source={{ uri: garment.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
         ) : (
           <View style={styles.silhouetteCanvas}>
-            {/* Abstract Architectural Garment Silhouette */}
             <View
               style={[
                 styles.colorSwatchBlock,
                 { backgroundColor: garment.colorHex },
               ]}
             />
-            <View style={styles.productShapeWrapper}>
+            <View
+              style={[
+                styles.productShapeWrapper,
+                {
+                  backgroundColor: isDark ? 'rgba(39, 39, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <Ionicons
                 name={
                   garment.category === 'Tops'
@@ -57,7 +72,7 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
                     : 'sparkles-outline'
                 }
                 size={36}
-                color={garment.colorHex === '#FFFFFF' ? '#A1A1AA' : '#3F3F46'}
+                color={colors.primaryText}
               />
             </View>
           </View>
@@ -66,41 +81,52 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
         {/* Favorite Action */}
         {onFavoriteToggle && (
           <TouchableOpacity
-            style={styles.favoriteButton}
+            style={[
+              styles.favoriteButton,
+              { backgroundColor: isDark ? 'rgba(24, 24, 27, 0.85)' : 'rgba(255, 255, 255, 0.85)' },
+            ]}
             onPress={onFavoriteToggle}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
               size={16}
-              color={isFavorite ? Colors.primaryText : Colors.secondaryText}
+              color={isFavorite ? '#EF4444' : colors.secondaryText}
             />
           </TouchableOpacity>
         )}
 
         {/* Size Badge */}
-        <View style={styles.sizeBadge}>
-          <Text style={styles.sizeText}>{garment.size}</Text>
+        <View
+          style={[
+            styles.sizeBadge,
+            {
+              backgroundColor: isDark ? 'rgba(39, 39, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+              borderColor: colors.borderLight,
+            },
+          ]}
+        >
+          <Text style={[styles.sizeText, { color: colors.primaryText }]}>{garment.size}</Text>
         </View>
       </View>
 
       {/* Editorial Content */}
       <View style={styles.infoArea}>
-        <Text style={[Typography.subhead, styles.name]} numberOfLines={1}>
+        <Text style={[Typography.subhead, { color: colors.primaryText, fontWeight: '600' }]} numberOfLines={1}>
           {garment.name}
         </Text>
         <View style={styles.metaRow}>
           <View
             style={[
               styles.colorDot,
-              { backgroundColor: garment.colorHex },
+              { backgroundColor: garment.colorHex, borderColor: colors.border },
             ]}
           />
-          <Text style={[Typography.caption, styles.metaText]} numberOfLines={1}>
+          <Text style={[Typography.caption, { color: colors.secondaryText, flex: 1 }]} numberOfLines={1}>
             {translatedCategory} · {translatedColor}
           </Text>
         </View>
-        <Text style={[Typography.caption, styles.brandText]}>
+        <Text style={[Typography.caption, { color: colors.tertiaryText, marginTop: 2, fontSize: 11 }]}>
           {garment.brand} · {translatedFit}
         </Text>
       </View>
@@ -110,17 +136,13 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
     overflow: 'hidden',
-    marginBottom: Spacing.md,
     ...Shadows.subtle,
   },
   imageCanvas: {
     height: 160,
-    backgroundColor: Colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -142,11 +164,9 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: Radius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
   },
   favoriteButton: {
     position: 'absolute',
@@ -155,7 +175,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -163,22 +182,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: Spacing.sm,
     left: Spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
   },
   sizeText: {
     ...Typography.micro,
-    color: Colors.primaryText,
   },
   infoArea: {
     padding: Spacing.md,
-  },
-  name: {
-    color: Colors.primaryText,
   },
   metaRow: {
     flexDirection: 'row',
@@ -191,15 +204,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  metaText: {
-    color: Colors.secondaryText,
-    flex: 1,
-  },
-  brandText: {
-    color: Colors.tertiaryText,
-    marginTop: 2,
-    fontSize: 11,
   },
 });

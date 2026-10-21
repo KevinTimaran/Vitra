@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../theme';
+import { Typography, Spacing, Radius, Shadows } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface BottomSheetProps {
   visible: boolean;
@@ -25,6 +26,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   maxHeightRatio = 0.75,
   rightAction,
 }) => {
+  const { colors, isDark } = useTheme();
   const windowHeight = Dimensions.get('window').height;
 
   if (!visible) return null;
@@ -45,20 +47,27 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         <View
           style={[
             styles.sheetContainer,
-            { maxHeight: windowHeight * maxHeightRatio },
+            {
+              backgroundColor: colors.surface,
+              maxHeight: windowHeight * maxHeightRatio,
+              borderColor: colors.borderLight,
+              borderTopWidth: isDark ? 1 : 0,
+            },
           ]}
         >
-          {/* iOS Grabber */}
+          {/* Grabber */}
           <View style={styles.grabberWrapper}>
-            <View style={styles.grabber} />
+            <View style={[styles.grabber, { backgroundColor: colors.border }]} />
           </View>
 
           {/* Sheet Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
             <View style={styles.titleArea}>
-              <Text style={[Typography.title2, styles.title]}>{title}</Text>
+              <Text style={[Typography.title2, { color: colors.primaryText }]}>{title}</Text>
               {subtitle && (
-                <Text style={[Typography.caption, styles.subtitle]}>{subtitle}</Text>
+                <Text style={[Typography.caption, { color: colors.secondaryText, marginTop: 2 }]}>
+                  {subtitle}
+                </Text>
               )}
             </View>
 
@@ -69,15 +78,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                   onPress={rightAction.onPress}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.rightActionText}>{rightAction.label}</Text>
+                  <Text style={[styles.rightActionText, { color: colors.cta }]}>{rightAction.label}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={styles.closeButton}
+                style={[styles.closeButton, { backgroundColor: colors.surfaceSubtle }]}
                 onPress={onClose}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={20} color={Colors.primaryText} />
+                <Ionicons name="close" size={20} color={colors.primaryText} />
               </TouchableOpacity>
             </View>
           </View>
@@ -99,14 +108,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'flex-end',
   },
   dismissArea: {
     flex: 1,
   },
   sheetContainer: {
-    backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     paddingTop: Spacing.xs,
@@ -121,7 +129,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: Colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -130,17 +137,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.borderLight,
   },
   titleArea: {
     flex: 1,
-  },
-  title: {
-    color: Colors.primaryText,
-  },
-  subtitle: {
-    color: Colors.secondaryText,
-    marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
@@ -151,14 +150,12 @@ const styles = StyleSheet.create({
   },
   rightActionText: {
     ...Typography.subhead,
-    color: Colors.cta,
     fontWeight: '600',
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../theme';
+import { Typography, Spacing, Radius, Shadows } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Viewport3DPlaceholderProps {
   currentGarmentName?: string;
@@ -24,6 +25,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
   customOverlay,
   onPressModel,
 }) => {
+  const { colors, isDark } = useTheme();
   const [activeAngle, setActiveAngle] = useState<'front' | 'side' | 'angle'>('front');
   const [rotationDeg, setRotationDeg] = useState(0);
 
@@ -95,18 +97,34 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
       </TouchableOpacity>
 
       {/* Studio Viewport Metadata Stamp */}
-      <View style={styles.metaStamp}>
+      <View
+        style={[
+          styles.metaStamp,
+          {
+            backgroundColor: isDark ? 'rgba(39, 39, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+            borderColor: colors.border,
+          },
+        ]}
+      >
         <View style={styles.liveIndicator} />
-        <Text style={styles.metaText}>
+        <Text style={[styles.metaText, { color: colors.secondaryText }]}>
           3D VIEWPORT · {rotationDeg}° · {activeAngle.toUpperCase()}
         </Text>
       </View>
 
       {/* Garment Tag Indicator */}
       {currentGarmentName && (
-        <View style={styles.garmentBadge}>
-          <Text style={styles.garmentBadgeCategory}>ACTIVE GARMENT</Text>
-          <Text style={styles.garmentBadgeName} numberOfLines={1}>
+        <View
+          style={[
+            styles.garmentBadge,
+            {
+              backgroundColor: isDark ? 'rgba(39, 39, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.garmentBadgeCategory, { color: colors.tertiaryText }]}>ACTIVE GARMENT</Text>
+          <Text style={[styles.garmentBadgeName, { color: colors.primaryText }]} numberOfLines={1}>
             {currentGarmentName}
           </Text>
         </View>
@@ -119,13 +137,13 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
           onPress={handleRotate}
           activeOpacity={0.7}
         >
-          <Ionicons name="refresh-outline" size={20} color={Colors.primaryText} />
+          <Ionicons name="refresh-outline" size={20} color={colors.primaryText} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[
             styles.floatingButton,
-            activeAngle === 'front' && styles.floatingButtonActive,
+            activeAngle === 'front' && { backgroundColor: colors.cta },
           ]}
           onPress={() => handleAngle('front')}
           activeOpacity={0.7}
@@ -133,14 +151,14 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
           <Ionicons
             name="body-outline"
             size={20}
-            color={activeAngle === 'front' ? Colors.ctaText : Colors.primaryText}
+            color={activeAngle === 'front' ? colors.ctaText : colors.primaryText}
           />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[
             styles.floatingButton,
-            activeAngle === 'side' && styles.floatingButtonActive,
+            activeAngle === 'side' && { backgroundColor: colors.cta },
           ]}
           onPress={() => handleAngle('side')}
           activeOpacity={0.7}
@@ -148,7 +166,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
           <Ionicons
             name="walk-outline"
             size={20}
-            color={activeAngle === 'side' ? Colors.ctaText : Colors.primaryText}
+            color={activeAngle === 'side' ? colors.ctaText : colors.primaryText}
           />
         </TouchableOpacity>
 
@@ -157,7 +175,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
           onPress={handleReset}
           activeOpacity={0.7}
         >
-          <Ionicons name="scan-outline" size={20} color={Colors.primaryText} />
+          <Ionicons name="scan-outline" size={20} color={colors.primaryText} />
         </TouchableOpacity>
       </View>
 
@@ -176,7 +194,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   studioLighting: {
     ...StyleSheet.absoluteFill,
@@ -325,17 +343,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   garmentBadgeCategory: {
     ...Typography.micro,
-    color: Colors.tertiaryText,
     fontSize: 9,
   },
   garmentBadgeName: {
     ...Typography.caption,
     fontWeight: '600',
-    color: Colors.primaryText,
     marginTop: 1,
   },
   floatingControls: {
@@ -356,7 +372,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 4,
   },
-  floatingButtonActive: {
-    backgroundColor: Colors.cta,
-  },
+  floatingButtonActive: {},
 });

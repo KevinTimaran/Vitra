@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SliderControlProps {
   label: string;
@@ -26,6 +27,7 @@ export const SliderControl: React.FC<SliderControlProps> = ({
   leftLabel,
   rightLabel,
 }) => {
+  const { colors } = useTheme();
   const percentage = Math.min(Math.max(((value - min) / (max - min)) * 100, 0), 100);
 
   const handleDecrement = () => {
@@ -40,43 +42,57 @@ export const SliderControl: React.FC<SliderControlProps> = ({
     <View style={styles.container}>
       {/* Header Info */}
       <View style={styles.headerRow}>
-        <Text style={[Typography.subhead, styles.label]}>{label}</Text>
-        <Text style={[Typography.headline, styles.valueText]}>
+        <Text style={[Typography.subhead, { color: colors.secondaryText }]}>{label}</Text>
+        <Text style={[Typography.headline, { color: colors.primaryText, fontVariant: ['tabular-nums'] }]}>
           {value} {unit}
         </Text>
       </View>
 
       {/* Slider Track with Monochromatic Thumb */}
       <View style={styles.sliderTrackContainer}>
-        <View style={styles.trackBackground}>
-          <View style={[styles.trackFill, { width: `${percentage}%` }]} />
-          <View style={[styles.thumb, { left: `${Math.max(percentage - 4, 0)}%` }]} />
+        <View style={[styles.trackBackground, { backgroundColor: colors.border }]}>
+          <View style={[styles.trackFill, { width: `${percentage}%`, backgroundColor: colors.cta }]} />
+          <View
+            style={[
+              styles.thumb,
+              {
+                left: `${Math.max(percentage - 4, 0)}%`,
+                backgroundColor: colors.surface,
+                borderColor: colors.cta,
+              },
+            ]}
+          />
         </View>
       </View>
 
       {/* Stepper Buttons for Fine Tuning */}
       <View style={styles.controlsRow}>
-        {leftLabel && <Text style={styles.endLabel}>{leftLabel}</Text>}
-        <View style={styles.steppersGroup}>
+        {leftLabel && <Text style={[Typography.caption, { color: colors.tertiaryText, fontSize: 11 }]}>{leftLabel}</Text>}
+        <View
+          style={[
+            styles.steppersGroup,
+            { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+          ]}
+        >
           <TouchableOpacity
             style={styles.stepButton}
             onPress={handleDecrement}
-            activeOpacity={0.6}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
           >
-            <Ionicons name="remove" size={16} color={Colors.primaryText} />
+            <Ionicons name="remove" size={14} color={colors.primaryText} />
           </TouchableOpacity>
-          <View style={styles.stepDivider} />
+          <View style={[styles.stepDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity
             style={styles.stepButton}
             onPress={handleIncrement}
-            activeOpacity={0.6}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
           >
-            <Ionicons name="add" size={16} color={Colors.primaryText} />
+            <Ionicons name="add" size={14} color={colors.primaryText} />
           </TouchableOpacity>
         </View>
-        {rightLabel && <Text style={styles.endLabel}>{rightLabel}</Text>}
+        {rightLabel && <Text style={[Typography.caption, { color: colors.tertiaryText, fontSize: 11 }]}>{rightLabel}</Text>}
       </View>
     </View>
   );
@@ -84,8 +100,7 @@ export const SliderControl: React.FC<SliderControlProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',
@@ -93,27 +108,18 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     marginBottom: Spacing.xs,
   },
-  label: {
-    color: Colors.primaryText,
-  },
-  valueText: {
-    color: Colors.primaryText,
-    fontVariant: ['tabular-nums'],
-  },
   sliderTrackContainer: {
     height: 24,
     justifyContent: 'center',
   },
   trackBackground: {
     height: 4,
-    backgroundColor: Colors.border,
     borderRadius: 2,
     position: 'relative',
     justifyContent: 'center',
   },
   trackFill: {
     height: 4,
-    backgroundColor: Colors.cta,
     borderRadius: 2,
   },
   thumb: {
@@ -121,9 +127,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: Colors.surface,
     borderWidth: 2,
-    borderColor: Colors.cta,
     top: -7,
   },
   controlsRow: {
@@ -132,18 +136,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
   },
-  endLabel: {
-    ...Typography.caption,
-    color: Colors.tertiaryText,
-    fontSize: 11,
-  },
   steppersGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSubtle,
     borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
   },
   stepButton: {
     paddingHorizontal: Spacing.sm,
@@ -152,6 +149,5 @@ const styles = StyleSheet.create({
   stepDivider: {
     width: 1,
     height: 14,
-    backgroundColor: Colors.border,
   },
 });
