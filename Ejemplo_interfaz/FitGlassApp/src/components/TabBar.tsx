@@ -96,14 +96,14 @@ export const TabBar: React.FC<TabBarProps> = ({
                 <Ionicons
                   name={isActive ? tab.activeIcon : tab.icon}
                   size={20}
-                  color={isActive ? colors.primaryText : colors.tertiaryText}
+                  color={isActive ? colors.cta : colors.tertiaryText}
                 />
               </View>
               <Text
                 style={[
                   styles.tabLabel,
                   {
-                    color: isActive ? colors.primaryText : colors.tertiaryText,
+                    color: isActive ? colors.cta : colors.tertiaryText,
                     fontWeight: isActive ? '600' : '400',
                   },
                 ]}
