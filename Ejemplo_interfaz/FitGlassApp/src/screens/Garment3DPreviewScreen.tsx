@@ -84,7 +84,7 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
       
       renderer.setPixelRatio(1);
       renderer.setSize(width, height, false); // false para no intentar modificar el style del mock
-      renderer.setClearColor(0x1e3a8a, 1); // Azul oscuro (Tailwind blue-900)
+      renderer.setClearColor(0x2E3238, 1); // Atelier Deep Slate Charcoal para estudio 3D
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100);
@@ -146,7 +146,7 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
           if (frame === 0) {
             console.log(TAG, '4) Primer frame renderizado por Three.js con éxito');
             setStatus('drawing');
-            setDetail('Camiseta 3D dibujada mediante Three.js');
+            setDetail('Camiseta 3D interactiva en Three.js');
           }
           frame++;
           if (frame % 60 === 0) {
@@ -169,19 +169,19 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
   };
 
   const statusColor =
-    status === 'drawing' ? '#16A34A' : status === 'error' ? '#DC2626' : status === 'context' ? '#D97706' : '#6B7280';
+    status === 'drawing' ? '#3C6473' : status === 'error' ? '#DC2626' : status === 'context' ? '#8EB6C7' : '#71787C';
   const statusLabel =
-    status === 'drawing' ? '✅ THREE.JS DIBUJANDO'
-    : status === 'context' ? '🟠 CONTEXTO CREADO'
-    : status === 'error' ? '❌ ERROR THREE.JS'
-    : '⏳ ESPERANDO CONTEXTO';
+    status === 'drawing' ? 'THREE.JS ATELIER ACTIVO'
+    : status === 'context' ? 'CALIBRANDO CONTEXTO'
+    : status === 'error' ? 'ERROR THREE.JS'
+    : 'INICIALIZANDO';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <Header title={'Prueba Three.js'} subtitle={garment.name} onBack={onBack} />
+      <Header title={'Visor 3D'} subtitle={garment.name} onBack={onBack} />
 
-      <View style={styles.uiFrame}>
-        <Text style={styles.uiFrameLabel}>Three.js sobre expo-gl</Text>
+      <View style={[styles.uiFrame, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}>
+        <Text style={[styles.uiFrameLabel, { color: colors.secondaryText }]}>ESTUDIO TRIPO3D · 60 FPS</Text>
         <GLView style={styles.glView} onContextCreate={onContextCreate} />
       </View>
 
@@ -189,14 +189,11 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
         <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
           <Text style={styles.statusText}>{statusLabel}</Text>
         </View>
-        <Text style={[Typography.caption, { color: colors.primaryText, textAlign: 'center', marginTop: Spacing.sm }]}>
+        <Text style={[Typography.caption, { fontFamily: Typography.outfit.medium, color: colors.primaryText, textAlign: 'center', marginTop: Spacing.sm }]}>
           {detail}
         </Text>
-        <Text style={[Typography.caption, { color: colors.secondaryText, textAlign: 'center', marginTop: 4 }]}>
+        <Text style={[Typography.caption, { fontFamily: Typography.outfit.regular, color: colors.secondaryText, textAlign: 'center', marginTop: 4 }]}>
           Frames presentados: {frames}
-        </Text>
-        <Text style={[Typography.caption, { color: colors.secondaryText, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 18 }]}>
-          Éxito = fondo azul oscuro con una camiseta 3D girando.
         </Text>
       </View>
     </View>
@@ -208,21 +205,19 @@ const styles = StyleSheet.create({
   uiFrame: {
     flex: 1,
     margin: Spacing.xl,
-    padding: 10,
-    paddingTop: 26,
-    borderRadius: Radius.lg,
-    borderWidth: 3,
-    borderStyle: 'dashed',
-    borderColor: '#3B82F6',
-    backgroundColor: '#9CA3AF',
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
   },
   uiFrameLabel: {
     position: 'absolute',
-    top: 6,
-    left: 12,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#111827',
+    top: 12,
+    left: 14,
+    zIndex: 10,
+    fontFamily: Typography.outfit.bold,
+    fontSize: 10,
+    letterSpacing: 1.2,
   },
   glView: { flex: 1 },
   infoArea: {
@@ -233,7 +228,12 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
   },
-  statusText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  statusText: {
+    color: '#FFFFFF',
+    fontFamily: Typography.outfit.bold,
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
 });

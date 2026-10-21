@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { Viewport3DPlaceholder } from '../components/Viewport3DPlaceholder';
 import { PrimaryButton } from '../components/Buttons';
+import { GlassCard } from '../components/GlassCard';
 import { Garment, OutfitLayer, SavedLookItem } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -29,7 +30,7 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
   onSaveLook,
 }) => {
   const { t } = useTranslation();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   // Initialize layers with garments from wardrobe
   const [layers, setLayers] = useState<OutfitLayer>({
@@ -131,7 +132,10 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
               style={[
                 styles.layerTab,
                 { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-                isActive && [styles.layerTabActive, { backgroundColor: colors.cta, borderColor: colors.cta }],
+                isActive && {
+                  backgroundColor: colors.cta,
+                  borderColor: colors.cta,
+                },
               ]}
               onPress={() => setActiveSlot(slot)}
               activeOpacity={0.7}
@@ -140,7 +144,7 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
                 style={[
                   styles.layerTabLabel,
                   { color: colors.secondaryText },
-                  isActive && [styles.layerTabLabelActive, { color: colors.ctaText }],
+                  isActive && { color: colors.ctaText, fontWeight: '700' },
                 ]}
               >
                 {getSlotLabel(slot)}
@@ -175,9 +179,11 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
           <Text style={[styles.catalogTitle, { color: colors.tertiaryText }]}>
             {t('outfitBuilder.selectPiece')} {getSlotLabel(activeSlot).toUpperCase()}
           </Text>
-          <Text style={[styles.catalogCount, { color: colors.secondaryText }]}>
-            {slotGarments.length}
-          </Text>
+          <View style={[styles.pillCounter, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}>
+            <Text style={[styles.catalogCount, { color: colors.primaryText }]}>
+              {slotGarments.length} {t('wardrobe.pieces')}
+            </Text>
+          </View>
         </View>
 
         <ScrollView
@@ -202,31 +208,35 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
               return (
                 <TouchableOpacity
                   key={garment.id}
-                  style={[
-                    styles.garmentPickCard,
-                    { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-                    isSelected && [styles.garmentPickCardSelected, { borderColor: colors.primaryText }],
-                  ]}
                   onPress={() => handleSelectGarmentForSlot(garment)}
                   activeOpacity={0.8}
                 >
-                  <View style={[styles.garmentColorBar, { backgroundColor: garment.colorHex }]} />
-                  <View style={styles.garmentPickDetails}>
-                    <Text
-                      style={[styles.garmentPickName, { color: colors.primaryText }]}
-                      numberOfLines={1}
-                    >
-                      {garment.name}
-                    </Text>
-                    <Text style={[styles.garmentPickMeta, { color: colors.secondaryText }]}>
-                      {garment.colorName} · {garment.size}
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <View style={[styles.checkedBadge, { backgroundColor: colors.cta }]}>
-                      <Ionicons name="checkmark" size={12} color={colors.ctaText} />
+                  <GlassCard
+                    variant={isSelected ? 'accent' : 'subtle'}
+                    intensity={15}
+                    style={[
+                      styles.garmentPickCard,
+                      isSelected && { borderColor: colors.primary, borderWidth: 1.5 },
+                    ]}
+                  >
+                    <View style={[styles.garmentColorBar, { backgroundColor: garment.colorHex }]} />
+                    <View style={styles.garmentPickDetails}>
+                      <Text
+                        style={[styles.garmentPickName, { color: colors.primaryText }]}
+                        numberOfLines={1}
+                      >
+                        {garment.name}
+                      </Text>
+                      <Text style={[styles.garmentPickMeta, { color: colors.secondaryText }]}>
+                        {garment.colorName} · {garment.size}
+                      </Text>
                     </View>
-                  )}
+                    {isSelected && (
+                      <View style={[styles.checkedBadge, { backgroundColor: colors.primary }]}>
+                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </GlassCard>
                 </TouchableOpacity>
               );
             })
@@ -261,19 +271,18 @@ const styles = StyleSheet.create({
   },
   layerTab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 4,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
-  layerTabActive: {},
   layerTabLabel: {
     ...Typography.micro,
-    fontWeight: '700',
+    fontFamily: 'Outfit-Bold',
+    letterSpacing: 0.5,
   },
-  layerTabLabelActive: {},
   assignedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -286,10 +295,12 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   assignedText: {
+    ...Typography.micro,
     fontSize: 9,
-    fontWeight: '500',
+    fontFamily: 'Outfit-Medium',
   },
   emptyLayerText: {
+    ...Typography.micro,
     fontSize: 9,
     marginTop: 3,
   },
@@ -300,16 +311,25 @@ const styles = StyleSheet.create({
   catalogHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.sm,
   },
   catalogTitle: {
     ...Typography.micro,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
+    fontFamily: 'Outfit-Bold',
+  },
+  pillCounter: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
   },
   catalogCount: {
     ...Typography.micro,
     fontSize: 10,
+    fontFamily: 'Outfit-Medium',
   },
   catalogScroll: {
     paddingHorizontal: Spacing.xl,
@@ -321,16 +341,14 @@ const styles = StyleSheet.create({
   },
   emptySlotText: {
     ...Typography.caption,
+    fontFamily: 'Outfit-Regular',
   },
   garmentPickCard: {
     width: 140,
-    borderRadius: Radius.md,
-    borderWidth: 1,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
     position: 'relative',
-  },
-  garmentPickCardSelected: {
-    borderWidth: 2,
+    padding: 0,
   },
   garmentColorBar: {
     height: 60,
@@ -341,20 +359,21 @@ const styles = StyleSheet.create({
   },
   garmentPickName: {
     ...Typography.caption,
-    fontWeight: '600',
+    fontFamily: 'Outfit-SemiBold',
   },
   garmentPickMeta: {
     ...Typography.micro,
     fontSize: 9,
     marginTop: 2,
+    fontFamily: 'Outfit-Regular',
   },
   checkedBadge: {
     position: 'absolute',
     top: 6,
     right: 6,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
