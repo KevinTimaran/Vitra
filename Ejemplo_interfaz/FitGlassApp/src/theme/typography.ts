@@ -2,6 +2,18 @@
 import { TextStyle, Platform } from 'react-native';
 
 export const Fonts = {
+  bodoni: {
+    regular: 'BodoniModa_400Regular',
+    medium: 'BodoniModa_500Medium',
+    semiBold: 'BodoniModa_600SemiBold',
+    bold: 'BodoniModa_700Bold',
+  },
+  outfit: {
+    regular: 'Outfit_400Regular',
+    medium: 'Outfit_500Medium',
+    semiBold: 'Outfit_600SemiBold',
+    bold: 'Outfit_700Bold',
+  },
   editorial: {
     regular: 'BodoniModa_400Regular',
     medium: 'BodoniModa_500Medium',
@@ -124,6 +136,10 @@ export const InterfaceTypography = {
  * Unified Typography export containing canonical tokens + backwards-compatible aliases
  */
 export const Typography = {
+  // Convenient font accessors
+  bodoni: Fonts.bodoni,
+  outfit: Fonts.outfit,
+
   // Canonical tokens
   ...EditorialTypography,
   ...InterfaceTypography,

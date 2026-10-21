@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
+import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { SavedLookItem, Garment } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -32,7 +33,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
   onSelectGarment,
 }) => {
   const { t } = useTranslation();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -51,12 +52,11 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Large Outfit Preview Silhouette Visual */}
-        <View
-          style={[
-            styles.previewCanvas,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
+        {/* Large Outfit Preview Silhouette Visual in GlassCard */}
+        <GlassCard
+          variant="subtle"
+          intensity={20}
+          style={styles.previewCanvas}
         >
           {/* Subtle architectural vertical axis */}
           <View style={[styles.centralAxis, { backgroundColor: colors.borderLight }]} />
@@ -65,7 +65,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
           <View style={styles.stackedFigureContainer}>
             <View style={[styles.avatarHead, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]} />
             <View style={styles.avatarTorso}>
-              <Ionicons name="shirt-outline" size={32} color={colors.primaryText} />
+              <Ionicons name="shirt-outline" size={32} color={colors.primary} />
             </View>
             <View style={styles.avatarLegs}>
               <Ionicons name="reorder-two-outline" size={30} color={colors.secondaryText} />
@@ -76,7 +76,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
           <View
             style={[
               styles.paletteStamp,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+              { backgroundColor: colors.surface, borderColor: colors.borderLight },
             ]}
           >
             {look.garments.map((g, idx) => (
@@ -91,14 +91,13 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
             ))}
             <Text style={[styles.paletteThemeText, { color: colors.secondaryText }]}>{look.paletteTheme}</Text>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Outfit Metadata Details */}
-        <View
-          style={[
-            styles.metaCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
+        <GlassCard
+          variant="subtle"
+          intensity={15}
+          style={styles.metaCard}
         >
           <View style={styles.metaRow}>
             <View>
@@ -111,7 +110,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
               <Text style={[styles.dateText, { color: colors.secondaryText }]}>{look.date}</Text>
             </View>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Garments in this Look */}
         <View style={styles.piecesSection}>
@@ -122,21 +121,23 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
           {look.garments.map((garment) => (
             <TouchableOpacity
               key={garment.id}
-              style={[
-                styles.garmentRowItem,
-                { backgroundColor: colors.surface, borderColor: colors.borderLight },
-              ]}
               onPress={() => onSelectGarment(garment)}
               activeOpacity={0.7}
             >
-              <View style={[styles.garmentDot, { backgroundColor: garment.colorHex }]} />
-              <View style={styles.garmentRowInfo}>
-                <Text style={[styles.garmentRowName, { color: colors.primaryText }]}>{garment.name}</Text>
-                <Text style={[styles.garmentRowMeta, { color: colors.secondaryText }]}>
-                  {garment.category} · {garment.brand} · {garment.fit}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.tertiaryText} />
+              <GlassCard
+                variant="subtle"
+                intensity={12}
+                style={styles.garmentRowItem}
+              >
+                <View style={[styles.garmentDot, { backgroundColor: garment.colorHex }]} />
+                <View style={styles.garmentRowInfo}>
+                  <Text style={[styles.garmentRowName, { color: colors.primaryText }]}>{garment.name}</Text>
+                  <Text style={[styles.garmentRowMeta, { color: colors.secondaryText }]}>
+                    {garment.category} · {garment.brand} · {garment.fit}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.tertiaryText} />
+              </GlassCard>
             </TouchableOpacity>
           ))}
         </View>
@@ -181,7 +182,6 @@ const styles = StyleSheet.create({
   previewCanvas: {
     height: 240,
     borderRadius: Radius.lg,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -218,25 +218,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: 5,
-    borderRadius: Radius.full,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     gap: 6,
   },
   paletteDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   paletteThemeText: {
     ...Typography.micro,
     fontSize: 9,
+    fontFamily: 'Outfit-Medium',
   },
   metaCard: {
     marginTop: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     padding: Spacing.lg,
-    borderWidth: 1,
   },
   metaRow: {
     flexDirection: 'row',
@@ -245,38 +245,40 @@ const styles = StyleSheet.create({
   },
   metaPreheader: {
     ...Typography.micro,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
+    fontFamily: 'Outfit-Bold',
   },
   metaValue: {
     ...Typography.subhead,
-    fontWeight: '700',
+    fontFamily: 'Outfit-SemiBold',
     marginTop: 2,
   },
   dateBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
     borderWidth: 1,
   },
   dateText: {
     ...Typography.micro,
     fontSize: 10,
+    fontFamily: 'Outfit-Medium',
   },
   piecesSection: {
     marginTop: Spacing.xl,
   },
   sectionHeader: {
     ...Typography.micro,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginBottom: Spacing.sm,
+    fontFamily: 'Outfit-Bold',
   },
   garmentRowItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     marginBottom: Spacing.xs,
-    borderWidth: 1,
   },
   garmentDot: {
     width: 14,
@@ -289,11 +291,12 @@ const styles = StyleSheet.create({
   },
   garmentRowName: {
     ...Typography.subhead,
-    fontWeight: '600',
+    fontFamily: 'Outfit-SemiBold',
   },
   garmentRowMeta: {
     ...Typography.caption,
     marginTop: 1,
+    fontFamily: 'Outfit-Regular',
   },
   actionButtons: {
     marginTop: Spacing.xl,
@@ -306,6 +309,6 @@ const styles = StyleSheet.create({
   deleteText: {
     ...Typography.caption,
     color: '#EF4444',
-    fontWeight: '500',
+    fontFamily: 'Outfit-Medium',
   },
 });
