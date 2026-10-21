@@ -2,31 +2,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { Colors as LightColors } from '../theme';
+import { lightThemeColors as LightColors, darkThemeColors, ThemeColors } from '../theme';
 
 const THEME_PREF_KEY = 'vitra_theme_mode_pref';
 
-// Refined dark theme palette designed for OLED screens and premium glassmorphism
-export const darkColors: typeof LightColors = {
-  bg: '#09090B',
-  surface: '#18181B',
-  surfaceSubtle: '#27272A',
-  surfaceElevated: '#202024',
-  border: '#3F3F46',
-  borderLight: '#27272A',
-  primaryText: '#F4F4F5',
-  secondaryText: '#A1A1AA',
-  tertiaryText: '#71717A',
-  disabled: '#52525B',
-  cta: '#FAFAFA',
-  ctaText: '#09090B',
-  glass: 'rgba(24, 24, 27, 0.85)',
-  glassDark: 'rgba(0, 0, 0, 0.65)',
-  tintSoft: '#27272A',
-  accentSubtle: '#F4F4F5',
-  badge: '#3F3F46',
-  successSubtle: '#27272A',
-};
+// Canonical dark theme palette for Pearl & Tiffany Atelier
+export const darkColors: ThemeColors = darkThemeColors;
 
 export type ThemeMode = 'light' | 'dark';
 

@@ -139,8 +139,9 @@ const styles = StyleSheet.create({
   steppersGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   stepButton: {
     paddingHorizontal: Spacing.sm,
