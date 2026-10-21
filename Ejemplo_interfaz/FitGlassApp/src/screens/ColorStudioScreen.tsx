@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
+import { GlassCard } from '../components/GlassCard';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
