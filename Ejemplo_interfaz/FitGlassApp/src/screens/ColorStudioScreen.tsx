@@ -434,9 +434,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   paletteName: {
-    ...Typography.title1,
-    fontSize: 22,
-    fontWeight: '800',
+    ...Typography.headlineMd,
+    fontSize: 24,
+    lineHeight: 32,
     marginTop: Spacing.xs,
   },
   chromaRingBox: {
@@ -490,18 +490,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionHeading: {
-    ...Typography.title2,
-    fontSize: 17,
-    fontWeight: '700',
+    ...Typography.headlineMd,
+    fontSize: 18,
+    lineHeight: 24,
   },
   badgeCount: {
-    ...Typography.micro,
-    fontWeight: '700',
+    ...Typography.labelSm,
     letterSpacing: 1,
   },
   sectionSubtitle: {
-    ...Typography.caption,
-    fontSize: 12,
+    ...Typography.bodySm,
     marginTop: 2,
     marginBottom: Spacing.md,
   },
