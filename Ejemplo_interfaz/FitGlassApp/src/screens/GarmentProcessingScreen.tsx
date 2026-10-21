@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
+import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
 import { analyzeGarment, generateTryOn } from '../services/ai/garmentAnalyzer';
 import { GarmentMetadata } from '../services/ai/types';
@@ -197,10 +198,10 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <GlassCard style={styles.card}>
         {/* Vista miniatura de la prenda en proceso */}
         {imageUri ? (
-          <View style={styles.thumbnailContainer}>
+          <View style={[styles.thumbnailContainer, { borderColor: colors.borderLight }]}>
             <Image source={{ uri: imageUri }} style={styles.thumbnailImage} />
           </View>
         ) : null}
@@ -219,7 +220,7 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
           <Ionicons
             name={error ? 'alert-circle-outline' : 'sparkles'}
             size={42}
-            color={error ? '#EF4444' : colors.primaryText}
+            color={error ? '#EF4444' : colors.primary}
           />
         </Animated.View>
 
@@ -240,7 +241,7 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.btnBack, { borderColor: colors.border }]}
+                style={[styles.btnBack, { borderColor: colors.borderLight }]}
                 onPress={handleCancelOrBack}
                 activeOpacity={0.7}
               >
@@ -264,7 +265,7 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
                 style={[
                   styles.progressBarFill,
                   {
-                    backgroundColor: colors.primaryText,
+                    backgroundColor: colors.primary,
                     width: progressAnim.interpolate({
                       inputRange: [0, 1],
                       outputRange: ['0%', '100%'],
@@ -287,7 +288,7 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
                         isPassed
                           ? styles.stepDotPassed
                           : isCurrent
-                          ? [styles.stepDotCurrent, { backgroundColor: colors.primaryText }]
+                          ? [styles.stepDotCurrent, { backgroundColor: colors.primary }]
                           : styles.stepDotPending,
                       ]}
                     >
@@ -320,7 +321,7 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
             </Text>
           </View>
         )}
-      </View>
+      </GlassCard>
     </View>
   );
 };
@@ -338,12 +339,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: Spacing.xxl,
     alignItems: 'center',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    marginBottom: Spacing.xl,
   },
   thumbnailContainer: {
     width: 64,
@@ -352,7 +348,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: Spacing.md,
     borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.06)',
   },
   thumbnailImage: {
     width: '100%',
@@ -374,12 +369,14 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     ...Typography.title2,
+    fontFamily: Typography.bodoni.bold,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   stepDetail: {
     ...Typography.body,
+    fontFamily: Typography.outfit.regular,
     textAlign: 'center',
     marginBottom: Spacing.xl,
     minHeight: 44,
@@ -414,7 +411,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepDotPassed: {
-    backgroundColor: '#15803D',
+    backgroundColor: '#8EB6C7',
   },
   stepDotCurrent: {},
   stepDotPending: {
@@ -422,9 +419,11 @@ const styles = StyleSheet.create({
   },
   stepItemLabel: {
     ...Typography.caption,
+    fontFamily: Typography.outfit.regular,
   },
   tipsFooter: {
     ...Typography.micro,
+    fontFamily: Typography.outfit.regular,
     textAlign: 'center',
     lineHeight: 14,
     paddingHorizontal: Spacing.sm,
@@ -435,11 +434,13 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     ...Typography.title2,
+    fontFamily: Typography.bodoni.bold,
     fontWeight: '700',
     marginBottom: Spacing.xs,
   },
   errorDetail: {
     ...Typography.body,
+    fontFamily: Typography.outfit.regular,
     textAlign: 'center',
     marginBottom: Spacing.xl,
   },
@@ -454,11 +455,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     gap: Spacing.xs,
   },
   btnRetryText: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   btnBack: {
@@ -466,11 +468,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     borderWidth: 1,
   },
   btnBackText: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
 });

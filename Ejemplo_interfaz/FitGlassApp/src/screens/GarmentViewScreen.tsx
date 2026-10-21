@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
+import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { Garment } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -52,12 +53,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* Large Editorial Garment Canvas */}
-        <View
-          style={[
-            styles.heroCanvas,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.heroCanvas}>
           <View
             style={[
               styles.colorBackdrop,
@@ -78,7 +74,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
                   : 'sparkles-outline'
               }
               size={68}
-              color={garment.colorHex === '#FFFFFF' ? '#A1A1AA' : colors.primaryText}
+              color={garment.colorHex === '#FFFFFF' ? '#71787C' : colors.primaryText}
             />
           </View>
 
@@ -86,7 +82,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
           <View
             style={[
               styles.sizeBadge,
-              { backgroundColor: isDark ? 'rgba(39, 39, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)', borderColor: colors.border },
+              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
             ]}
           >
             <Text style={[styles.sizeBadgeText, { color: colors.primaryText }]}>
@@ -99,10 +95,10 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
             <View
               style={[
                 styles.harmonyStamp,
-                { backgroundColor: isDark ? 'rgba(39, 39, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)', borderColor: colors.border },
+                { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
               ]}
             >
-              <Ionicons name="sparkles" size={12} color="#10B981" />
+              <Ionicons name="sparkles" size={12} color={colors.primary} />
               <Text style={[styles.harmonyStampText, { color: colors.primaryText }]}>
                 {t('garmentView.paletteHarmony')}
               </Text>
@@ -124,7 +120,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
               </Text>
             </TouchableOpacity>
           )}
-        </View>
+        </GlassCard>
 
         {/* Primary Information Hierarchy */}
         <View style={styles.infoSection}>
@@ -137,7 +133,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
             </Text>
           </View>
 
-          <Text style={[Typography.title1, styles.garmentTitle, { color: colors.primaryText }]}>
+          <Text style={[styles.garmentTitle, { color: colors.primaryText }]}>
             {garment.name}
           </Text>
 
@@ -184,12 +180,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
           </View>
 
           {/* Material & Construction */}
-          <View
-            style={[
-              styles.specCard,
-              { backgroundColor: colors.surface, borderColor: colors.borderLight },
-            ]}
-          >
+          <GlassCard style={styles.specCard}>
             <Text style={[styles.specHeader, { color: colors.tertiaryText }]}>
               {t('garmentView.fabricDetails')}
             </Text>
@@ -204,7 +195,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = ({
                 <Text style={[styles.specBody, { color: colors.secondaryText }]}>{garment.notes}</Text>
               </>
             )}
-          </View>
+          </GlassCard>
         </View>
       </ScrollView>
 
