@@ -1,80 +1,91 @@
+// src/components/VibrantBackground.tsx
 import React from 'react';
-import { View, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../contexts/ThemeContext';
+import { pearlTiffanyColors } from '../theme/colors';
 
 interface VibrantBackgroundProps {
   children?: React.ReactNode;
 }
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 /**
- * Fondo ambiental vibrante para Glassmorphism.
- * Inyecta un gradiente profundo (midnight/indigo/violeta en dark mode)
- * y 'blobs' de color puro (fucsia, cian, violeta) con desenfoque nativo,
- * permitiendo que las tarjetas GlassCard refracten y difuminen colores vivos.
+ * Atelier Luminous Background — Pearl & Tiffany Atelier
+ *
+ * Genera una atmósfera sutil, luminosa y sofisticada inspirada en un atelier
+ * de alta costura parisino. Reemplaza gradientes saturados o púrpuras genéricos
+ * por tonos minerales puros, perla, arena fina y reflejos suaves de Tiffany
+ * y menta empolvada, permitiendo que las tarjetas GlassCard refracten matices
+ * elegantes sin contaminar la composición.
  */
 export const VibrantBackground: React.FC<VibrantBackgroundProps> = ({ children }) => {
   const { isDark } = useTheme();
 
-  // Gradiente base: en modo oscuro azul medianoche a violeta profundo
+  // Gradiente arquitectónico base (superficie perla mineral o pizarra profunda)
   const gradientColors = isDark
-    ? (['#060814', '#0D1026', '#160B24', '#090D1E'] as const)
-    : (['#F1F5F9', '#EDE9FE', '#FCE7F3', '#E0F2FE'] as const);
+    ? (['#101213', '#151719', '#1A1D1F', '#121415'] as const)
+    : (['#FBFBFA', '#F4F4F1', '#ECECE9', '#F9F9F7'] as const);
 
-  // Paleta de orbes luminosos
-  const fuchsiaColor = isDark ? 'rgba(217, 70, 239, 0.45)' : 'rgba(232, 121, 249, 0.35)';
-  const cyanColor = isDark ? 'rgba(6, 182, 212, 0.42)' : 'rgba(56, 189, 248, 0.32)';
-  const violetColor = isDark ? 'rgba(139, 92, 246, 0.38)' : 'rgba(167, 139, 250, 0.28)';
+  // Orbes ambientales tenues (difusión mineral de lujo)
+  const tiffanyGlow = isDark
+    ? 'rgba(60, 100, 115, 0.18)'
+    : 'rgba(142, 182, 199, 0.16)';
+
+  const sandGlow = isDark
+    ? 'rgba(108, 91, 82, 0.14)'
+    : 'rgba(196, 185, 169, 0.18)';
+
+  const mintGlow = isDark
+    ? 'rgba(72, 100, 92, 0.15)'
+    : 'rgba(158, 188, 179, 0.14)';
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* 1. Gradiente de fondo en toda la pantalla */}
+      {/* 1. Gradiente arquitectónico de fondo */}
       <LinearGradient
         colors={gradientColors}
-        start={{ x: 0.1, y: 0.0 }}
-        end={{ x: 0.9, y: 1.0 }}
+        start={{ x: 0.05, y: 0.0 }}
+        end={{ x: 0.95, y: 1.0 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* 2. Blobs circulares vibrantes de iluminación ambiental */}
+      {/* 2. Orbes ambientales suaves */}
       <View style={StyleSheet.absoluteFill}>
-        {/* Blob Fucsia (superior derecho / detrás de la tarjeta) */}
+        {/* Orbe Tiffany (superior derecho) */}
         <View
           style={[
-            styles.blob,
-            styles.blobFuchsia,
-            { backgroundColor: fuchsiaColor },
-            Platform.OS === 'web' && ({ filter: 'blur(50px)' } as any),
+            styles.orb,
+            styles.orbTiffany,
+            { backgroundColor: tiffanyGlow },
+            Platform.OS === 'web' && ({ filter: 'blur(60px)' } as any),
           ]}
         />
 
-        {/* Blob Cian / Turquesa Eléctrico (inferior izquierdo) */}
+        {/* Orbe Arena Fina / Mineral (inferior izquierdo) */}
         <View
           style={[
-            styles.blob,
-            styles.blobCyan,
-            { backgroundColor: cyanColor },
+            styles.orb,
+            styles.orbSand,
+            { backgroundColor: sandGlow },
+            Platform.OS === 'web' && ({ filter: 'blur(65px)' } as any),
+          ]}
+        />
+
+        {/* Orbe Menta Empolvada (lateral central) */}
+        <View
+          style={[
+            styles.orb,
+            styles.orbMint,
+            { backgroundColor: mintGlow },
             Platform.OS === 'web' && ({ filter: 'blur(55px)' } as any),
-          ]}
-        />
-
-        {/* Blob Violeta (centro-lateral) */}
-        <View
-          style={[
-            styles.blob,
-            styles.blobViolet,
-            { backgroundColor: violetColor },
-            Platform.OS === 'web' && ({ filter: 'blur(45px)' } as any),
           ]}
         />
       </View>
 
-      {/* 3. Capa de desenfoque nativo sobre los orbes para difusión lumínica */}
+      {/* 3. Desenfoque nativo para difusión óptica ultra-suave */}
       <BlurView
-        intensity={Platform.OS === 'web' ? 25 : 60}
+        intensity={Platform.OS === 'web' ? 20 : 50}
         tint={isDark ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}
       />
@@ -85,28 +96,28 @@ export const VibrantBackground: React.FC<VibrantBackgroundProps> = ({ children }
 };
 
 const styles = StyleSheet.create({
-  blob: {
+  orb: {
     position: 'absolute',
   },
-  blobFuchsia: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    top: '8%',
-    right: '-8%',
-  },
-  blobCyan: {
+  orbTiffany: {
     width: 280,
     height: 280,
     borderRadius: 140,
-    bottom: '12%',
-    left: '-10%',
+    top: '5%',
+    right: '-10%',
   },
-  blobViolet: {
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    top: '42%',
-    left: '10%',
+  orbSand: {
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    bottom: '10%',
+    left: '-12%',
+  },
+  orbMint: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    top: '45%',
+    left: '5%',
   },
 });
