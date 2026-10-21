@@ -64,12 +64,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
         </GlassCard>
 
         {/* 3D Digital Twin Card */}
-        <View
-          style={[
-            styles.infoCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="cube-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
@@ -96,15 +91,10 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               {t('profile.viewInFittingRoom')}
             </Text>
           </TouchableOpacity>
-        </View>
+        </GlassCard>
 
         {/* Seasonal Colorimetry Card */}
-        <View
-          style={[
-            styles.infoCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
@@ -159,15 +149,10 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               {t('profile.openColorStudio')}
             </Text>
           </TouchableOpacity>
-        </View>
+        </GlassCard>
 
         {/* Ajustes de Apariencia: Modo Claro vs Fondo Negro */}
-        <View
-          style={[
-            styles.infoCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <GlassCard style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
@@ -176,7 +161,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
             <View
               style={[
                 styles.themeBadgePill,
-                { backgroundColor: isDark ? '#27272A' : '#F4F4F6' },
+                { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(60, 100, 115, 0.08)' },
               ]}
             >
               <Text style={[styles.themeBadgeText, { color: colors.primaryText }]}>
@@ -204,8 +189,8 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               onPress={() => setTheme('light')}
               activeOpacity={0.8}
             >
-              <View style={[styles.themeIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="sunny" size={20} color="#D97706" />
+              <View style={[styles.themeIconCircle, { backgroundColor: 'rgba(142, 182, 199, 0.2)' }]}>
+                <Ionicons name="sunny" size={20} color={colors.primary} />
               </View>
               <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
                 {t('profile.lightMode')}
@@ -220,12 +205,12 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               )}
             </TouchableOpacity>
 
-            {/* Opción 2: Fondo Negro */}
+            {/* Opción 2: Fondo Negro / Dark Atelier */}
             <TouchableOpacity
               style={[
                 styles.themeOptionCard,
                 {
-                  backgroundColor: isDark ? '#27272A' : 'transparent',
+                  backgroundColor: isDark ? colors.surfaceSubtle : 'transparent',
                   borderColor: isDark ? colors.primaryText : colors.borderLight,
                   borderWidth: isDark ? 2 : 1,
                 },
@@ -233,8 +218,8 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               onPress={() => setTheme('dark')}
               activeOpacity={0.8}
             >
-              <View style={[styles.themeIconCircle, { backgroundColor: '#312E81' }]}>
-                <Ionicons name="moon" size={20} color="#A5B4FC" />
+              <View style={[styles.themeIconCircle, { backgroundColor: 'rgba(60, 100, 115, 0.35)' }]}>
+                <Ionicons name="moon" size={20} color={colors.tiffany} />
               </View>
               <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
                 {t('profile.darkMode')}
@@ -263,19 +248,14 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
             <Switch
               value={isDark}
               onValueChange={toggleTheme}
-              trackColor={{ false: '#E5E5EA', true: '#111113' }}
-              thumbColor={isDark ? '#F4F4F5' : '#FFFFFF'}
+              trackColor={{ false: colors.borderLight, true: colors.tiffany }}
+              thumbColor={isDark ? colors.surface : '#FFFFFF'}
             />
           </View>
-        </View>
+        </GlassCard>
 
         {/* Ajustes de Idioma (i18n): Español vs English */}
-        <View
-          style={[
-            styles.infoCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <GlassCard style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="language-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
@@ -356,7 +336,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Acciones de Cuenta */}
         <View style={styles.actionsContainer}>
@@ -500,7 +480,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     gap: 6,
   },
