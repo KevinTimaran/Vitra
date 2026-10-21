@@ -189,6 +189,26 @@ def test_tryon_generate_tripo_failure():
         assert "Tripo3D" in response.json()["detail"]
 
 
+def test_tryon_generate_tripo_fallback_when_allowed():
+    with patch("app.api.tryon.generate_vton", new_callable=AsyncMock) as mock_vton, \
+         patch("app.api.tryon.generate_3d_model", new_callable=AsyncMock) as mock_3d:
+        
+        mock_vton.return_value = "https://replicate.delivery/pbxt/tryon_result.png"
+        mock_3d.side_effect = HTTPException(status_code=502, detail="Tripo3D sin créditos")
+
+        payload = {
+            "human_image": "https://example.com/human.jpg",
+            "garment_image": "https://example.com/shirt.jpg",
+            "allow_fallback": True,
+        }
+        response = client.post("/api/tryon/generate", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["image_2d_url"] == "https://replicate.delivery/pbxt/tryon_result.png"
+        assert "DamagedHelmet" in data["model_3d_url"]
+        assert data["status"] == "completed"
+
+
 # -------------------------------------------------------------
 # Pruebas de integración: POST /api/colorimetry/analyze
 # -------------------------------------------------------------

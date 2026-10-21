@@ -232,12 +232,14 @@ export const generateTryOn = async (
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
       },
       body: JSON.stringify({
         human_image: humanImageUrl.trim(),
         garment_image: garmentImageUrl.trim(),
         category,
         garment_description: garmentDescription,
+        allow_fallback: true,
       }),
     });
 
@@ -260,9 +262,9 @@ export const generateTryOn = async (
     console.log('[generateTryOn] Modelo 3D y vista 2D generados:', data);
     return data;
   } catch (error: any) {
-    console.error('[generateTryOn] Error en tryon:', error);
+    console.warn('[generateTryOn] Aviso en tryon:', error?.message || error);
     throw new Error(
-      error?.message || 'Error de red durante la generación del probador 3D.'
+      error?.message || 'Error durante la generación del probador 3D.'
     );
   }
 };
