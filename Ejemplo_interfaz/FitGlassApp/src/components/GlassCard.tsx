@@ -64,6 +64,11 @@ const OUTER_STYLE_KEYS = new Set([
   'maxHeight',
   'opacity',
   'transform',
+  'shadowColor',
+  'shadowOffset',
+  'shadowOpacity',
+  'shadowRadius',
+  'elevation',
 ]);
 
 /**
@@ -102,14 +107,14 @@ export const GlassCard: React.FC<GlassCardProps> = ({
     }
   });
 
-  // Colores por defecto de glassmorphism si el consumidor no los sobreescribe
+  // Colores translúcidos según especificación Glassmorphism (adaptados a light/dark)
   const defaultBg = isDark
     ? 'rgba(255, 255, 255, 0.05)'
-    : 'rgba(255, 255, 255, 0.55)';
+    : 'rgba(255, 255, 255, 0.10)';
 
   const defaultBorder = isDark
     ? 'rgba(255, 255, 255, 0.12)'
-    : 'rgba(255, 255, 255, 0.60)';
+    : 'rgba(255, 255, 255, 0.20)';
 
   return (
     <View
