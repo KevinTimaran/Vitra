@@ -1,0 +1,1989 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NASA & Voyager 1 | El Mensajero Cósmico</title>
+  <style>
+    /* ============================================================
+       ESTILOS GLOBALES Y VARIABLES
+       ============================================================ */
+    :root {
+      --bg-space: #05070e;
+      --bg-panel: rgba(11, 17, 32, 0.75);
+      --bg-panel-solid: #0b1120;
+      --bg-card: rgba(18, 27, 49, 0.65);
+      --border-hud: rgba(56, 189, 248, 0.25);
+      --border-glow: rgba(56, 189, 248, 0.5);
+      --nasa-blue: #0b3d91;
+      --nasa-blue-glow: #1e40af;
+      --nasa-red: #fc3d21;
+      --cyan-accent: #38bdf8;
+      --cyan-light: #7dd3fc;
+      --gold-accent: #f59e0b;
+      --gold-bright: #fbbf24;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-tech: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Space Grotesk', sans-serif;
+      --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+      --transition-speed: 0.45s;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-space);
+      color: var(--text-main);
+      font-family: var(--font-tech);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Canvas de Fondo Estelar */
+    #starfield-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Brillos de Nebulosa */
+    .nebula-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .nebula-blue {
+      background: radial-gradient(circle, #0284c7, transparent 70%);
+      top: -150px;
+      right: -100px;
+    }
+    .nebula-orange {
+      background: radial-gradient(circle, #d97706, transparent 70%);
+      bottom: -150px;
+      left: -100px;
+    }
+
+    /* Contenedor Principal */
+    .app-container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HUD Superior */
+    header.hud-header {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      border-bottom: 1px solid var(--border-hud);
+      background: rgba(5, 7, 14, 0.7);
+      backdrop-filter: blur(10px);
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      z-index: 10;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nasa-badge {
+      background: var(--nasa-blue);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 0 10px rgba(11, 61, 145, 0.6);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nasa-badge .red-vector {
+      color: var(--nasa-red);
+      font-weight: 900;
+    }
+    .mission-name {
+      font-weight: 700;
+      color: var(--cyan-accent);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .live-telemetry-pill {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hud);
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+    }
+    .telemetry-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .telemetry-item .label {
+      color: var(--text-muted);
+    }
+    .telemetry-item .val {
+      color: var(--gold-bright);
+      font-weight: 600;
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulseAnim 1.8s infinite;
+    }
+    @keyframes pulseAnim {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hud-btn {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-hud);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: var(--font-tech);
+    }
+    .hud-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--cyan-accent);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
+
+    /* Escenario de Diapositivas */
+    .deck-viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 2.5rem;
+    }
+
+    .slide {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: min(1200px, 92vw);
+      height: min(650px, 82vh);
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-hud);
+      border-radius: 16px;
+      padding: 2.5rem 3rem;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-speed) cubic-bezier(0.16, 1, 0.3, 1),
+                  transform var(--transition-speed) cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.08);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-hud) transparent;
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1);
+      z-index: 5;
+    }
+
+    .slide.prev {
+      transform: translate(-60%, -50%) scale(0.9);
+      opacity: 0;
+    }
+
+    .slide.next {
+      transform: translate(-40%, -50%) scale(0.9);
+      opacity: 0;
+    }
+
+    /* Encabezados de Diapositiva */
+    .slide-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+    }
+    .slide-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--cyan-accent);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .slide-tag::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--nasa-red);
+      border-radius: 2px;
+    }
+    .slide-num-indicator {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .slide-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.6rem;
+      background: linear-gradient(135deg, #ffffff 30%, var(--cyan-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+      font-weight: 400;
+    }
+
+    /* Layouts Internos de Diapositivas */
+    .slide-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      flex: 1;
+      align-items: center;
+    }
+
+    .slide-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      flex: 1;
+      align-items: stretch;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-hud);
+      border-radius: 12px;
+      padding: 1.4rem;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card:hover {
+      border-color: var(--cyan-accent);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px rgba(56, 189, 248, 0.15);
+    }
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 0.8rem;
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.6rem;
+    }
+    .card-text {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    /* Diapositiva 1: Portada */
+    .hero-slide {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+    }
+    .hero-badges {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+    .pill-badge {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--cyan-accent);
+      color: var(--cyan-light);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 999px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .hero-title {
+      font-size: 3.6rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1.1;
+      margin-bottom: 1.2rem;
+      background: linear-gradient(135deg, #ffffff 40%, var(--gold-bright) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+      font-size: 1.3rem;
+      max-width: 800px;
+      color: var(--text-muted);
+      margin-bottom: 2.2rem;
+      line-height: 1.6;
+    }
+    .hero-cta-group {
+      display: flex;
+      gap: 16px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--nasa-blue) 0%, #1d4ed8 100%);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 0 20px rgba(37, 99, 235, 0.5);
+      transition: all 0.25s ease;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.6);
+      background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+    }
+
+    /* Diapositiva: Esquema Interactivo de la Nave */
+    .voyager-schematic-wrap {
+      display: flex;
+      gap: 2rem;
+      height: 100%;
+      align-items: center;
+    }
+    .svg-schematic-container {
+      flex: 1.3;
+      background: rgba(10, 15, 30, 0.9);
+      border: 1px solid var(--border-hud);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .interactive-part {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .interactive-part:hover, .interactive-part.selected {
+      filter: drop-shadow(0 0 8px var(--cyan-accent));
+      stroke: var(--cyan-accent) !important;
+      stroke-width: 2.5px;
+    }
+    .schematic-details-panel {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hud);
+      border-radius: 12px;
+      padding: 1.8rem;
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* Diapositiva: Cita de Carl Sagan / Pale Blue Dot */
+    .sagan-quote-box {
+      background: radial-gradient(circle at 80% 30%, rgba(56, 189, 248, 0.08), transparent 60%),
+                  rgba(11, 17, 32, 0.85);
+      border: 1px solid var(--border-hud);
+      border-left: 5px solid var(--cyan-accent);
+      border-radius: 12px;
+      padding: 2.2rem;
+      position: relative;
+    }
+    .sagan-quote-text {
+      font-size: 1.25rem;
+      line-height: 1.7;
+      color: #e2e8f0;
+      font-style: italic;
+      margin-bottom: 1.2rem;
+    }
+    .sagan-author {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold-bright);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pale-dot-visual {
+      position: relative;
+      height: 160px;
+      background: #020408;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    .sunbeam-ray {
+      position: absolute;
+      width: 220%;
+      height: 30px;
+      background: linear-gradient(90deg, transparent, rgba(234, 179, 8, 0.18), rgba(234, 179, 8, 0.35), transparent);
+      transform: rotate(-35deg);
+    }
+    .earth-pale-pixel {
+      width: 6px;
+      height: 6px;
+      background: #93c5fd;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #60a5fa, 0 0 20px #3b82f6;
+      position: relative;
+      z-index: 3;
+      animation: earthGlint 2.5s infinite;
+    }
+    @keyframes earthGlint {
+      0%, 100% { opacity: 0.7; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+
+    /* Diapositiva: Disco de Oro con Simulación */
+    .golden-record-stage {
+      display: flex;
+      gap: 2.5rem;
+      align-items: center;
+    }
+    .record-disk-wrap {
+      width: 280px;
+      height: 280px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .gold-disk {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 40%, #fbbf24 0%, #b45309 60%, #78350f 100%);
+      box-shadow: 0 0 40px rgba(245, 158, 11, 0.4), inset 0 0 30px rgba(0, 0, 0, 0.5);
+      border: 4px solid #fef08a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      animation: spinRecord 20s linear infinite;
+      animation-play-state: paused;
+    }
+    .gold-disk.playing {
+      animation-play-state: running;
+    }
+    @keyframes spinRecord {
+      100% { transform: rotate(360deg); }
+    }
+    .disk-grooves {
+      width: 82%;
+      height: 82%;
+      border-radius: 50%;
+      border: 1px dashed rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 8px rgba(0,0,0,0.1), 0 0 0 16px rgba(0,0,0,0.1);
+    }
+    .disk-center-label {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: #451a03;
+      border: 2px solid var(--gold-bright);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold-bright);
+      font-size: 0.65rem;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.1;
+      padding: 6px;
+    }
+
+    /* Tabla Comparativa Voyager 1 vs 2 */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    .compare-table th {
+      background: rgba(15, 23, 42, 0.9);
+      padding: 12px 14px;
+      text-align: left;
+      color: var(--cyan-accent);
+      border-bottom: 2px solid var(--border-hud);
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .compare-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+    }
+    .compare-table tr:hover td {
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    /* Timeline / Hitos */
+    .timeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      position: relative;
+      padding-left: 24px;
+    }
+    .timeline-container::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--nasa-red), var(--cyan-accent), var(--gold-accent));
+    }
+    .timeline-step {
+      position: relative;
+    }
+    .timeline-step::before {
+      content: '';
+      position: absolute;
+      left: -24px;
+      top: 4px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--bg-space);
+      border: 2px solid var(--cyan-accent);
+    }
+    .timeline-step .year {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--gold-bright);
+      font-size: 0.85rem;
+      margin-bottom: 2px;
+    }
+    .timeline-step .heading {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #fff;
+    }
+    .timeline-step .body {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Barra Inferior de Navegación */
+    footer.hud-footer {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      border-top: 1px solid var(--border-hud);
+      background: rgba(5, 7, 14, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hud);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: all 0.2s ease;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--cyan-accent);
+      color: #fff;
+      transform: scale(1.05);
+    }
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      max-width: 450px;
+      margin: 0 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 8.33%;
+      background: linear-gradient(90deg, var(--nasa-blue), var(--cyan-accent), var(--gold-bright));
+      transition: width 0.3s ease;
+      border-radius: 999px;
+    }
+
+    .keyboard-shortcuts-pill {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kbd {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+    }
+
+    /* Modal de Vista General (Overview Grid) */
+    .overview-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(2, 4, 10, 0.92);
+      backdrop-filter: blur(16px);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      padding: 2.5rem;
+    }
+    .overview-modal.open {
+      display: flex;
+    }
+    .overview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.5rem;
+      overflow-y: auto;
+      padding-bottom: 2rem;
+    }
+    .overview-thumb {
+      background: var(--bg-card);
+      border: 1px solid var(--border-hud);
+      border-radius: 10px;
+      padding: 1.2rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 140px;
+    }
+    .overview-thumb:hover, .overview-thumb.active {
+      border-color: var(--cyan-accent);
+      transform: translateY(-4px);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+      background: rgba(15, 23, 42, 0.9);
+    }
+    .overview-thumb .thumb-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--cyan-accent);
+      margin-bottom: 6px;
+    }
+    .overview-thumb .thumb-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Panel de Notas del Orador (Speaker Notes Drawer) */
+    .speaker-drawer {
+      position: fixed;
+      right: -420px;
+      top: 56px;
+      bottom: 64px;
+      width: 400px;
+      background: rgba(11, 17, 32, 0.95);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--border-hud);
+      z-index: 50;
+      transition: right 0.35s ease;
+      display: flex;
+      flex-direction: column;
+      padding: 1.8rem;
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.7);
+    }
+    .speaker-drawer.open {
+      right: 0;
+    }
+    .drawer-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--gold-bright);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .speaker-content {
+      overflow-y: auto;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: #cbd5e1;
+      flex: 1;
+      padding-right: 8px;
+    }
+    .speaker-tip {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 3px solid var(--cyan-accent);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--cyan-light);
+    }
+
+    /* Quiz Interactivo */
+    .quiz-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-hud);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+    .quiz-question {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .quiz-opt-btn {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 14px;
+      border-radius: 8px;
+      color: var(--text-main);
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+    .quiz-opt-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--cyan-accent);
+    }
+    .quiz-opt-btn.correct {
+      background: rgba(16, 185, 129, 0.25) !important;
+      border-color: #10b981 !important;
+      color: #34d399 !important;
+    }
+    .quiz-opt-btn.wrong {
+      background: rgba(239, 68, 68, 0.25) !important;
+      border-color: #ef4444 !important;
+      color: #f87171 !important;
+    }
+
+    /* Estilos de Impresión / Exportación a PDF */
+    @media print {
+      body, html {
+        overflow: visible !important;
+        height: auto !important;
+        background: #000 !important;
+        color: #fff !important;
+      }
+      #starfield-canvas, .nebula-glow, header, footer, .speaker-drawer, .overview-modal, .hero-cta-group, .hud-btn {
+        display: none !important;
+      }
+      .app-container, .deck-viewport {
+        display: block !important;
+        padding: 0 !important;
+        height: auto !important;
+      }
+      .slide {
+        position: relative !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: none !important;
+        opacity: 1 !important;
+        width: 100% !important;
+        height: 100vh !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        border: none !important;
+        background: #05070e !important;
+        box-shadow: none !important;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .slide-grid-2, .slide-grid-3, .voyager-schematic-wrap, .golden-record-stage {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+      }
+      .live-telemetry-pill {
+        display: none;
+      }
+      .slide-title {
+        font-size: 1.6rem;
+      }
+      .hero-title {
+        font-size: 2.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fondo de Canvas y Efectos -->
+  <canvas id="starfield-canvas"></canvas>
+  <div class="nebula-glow nebula-blue"></div>
+  <div class="nebula-glow nebula-orange"></div>
+
+  <div class="app-container">
+
+    <!-- HUD Superior -->
+    <header class="hud-header">
+      <div class="brand-section">
+        <div class="nasa-badge">
+          NASA <span class="red-vector">▲</span>
+        </div>
+        <span class="mission-name">Voyager 1 • Misión Interestelar</span>
+      </div>
+
+      <!-- Telemetría Dinámica -->
+      <div class="live-telemetry-pill" title="Datos calculados en tiempo real según la velocidad de la Voyager 1">
+        <div class="pulse-dot"></div>
+        <div class="telemetry-item">
+          <span class="label">DISTANCIA:</span>
+          <span class="val" id="telemetry-km">24,451,892,100 km</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="label">AU:</span>
+          <span class="val" id="telemetry-au">163.45 AU</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="label">TIEMPO LUZ:</span>
+          <span class="val" id="telemetry-ltt">22h 39m 12s</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="hud-btn" id="btn-ambient-sound" title="Alternar Sonido Ambiental Cósmico (Web Audio API)">
+          <span>🔊</span> <span id="ambient-sound-text">Audio Espacial</span>
+        </button>
+        <button class="hud-btn" id="btn-notes" title="Ver Notas del Orador (Tecla N)">
+          <span>📝</span> Notas
+        </button>
+        <button class="hud-btn" id="btn-overview" title="Vista de Todas las Diapositivas (Tecla O)">
+          <span>🗂️</span> Índice
+        </button>
+        <button class="hud-btn" id="btn-pdf" title="Exportar o Imprimir en PDF (Tecla P)">
+          <span>📄</span> Imprimir / PDF
+        </button>
+        <button class="hud-btn" id="btn-fullscreen" title="Pantalla Completa (Tecla F)">
+          <span>⛶</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Escenario de Diapositivas -->
+    <main class="deck-viewport">
+
+      <!-- DIAPOSITIVA 1: PORTADA -->
+      <section class="slide active hero-slide" data-slide="1">
+        <div class="hero-badges">
+          <span class="pill-badge">Misión Activa de la NASA</span>
+          <span class="pill-badge" style="border-color: var(--gold-accent); color: var(--gold-bright);">47+ Años de Viaje</span>
+          <span class="pill-badge" style="border-color: #10b981; color: #34d399;">Espacio Interestelar</span>
+        </div>
+        <h1 class="hero-title">NASA & VOYAGER 1</h1>
+        <p class="hero-desc">
+          La mayor epopeya de exploración científica en la historia: la sonda construida en los años 70 que se convirtió en el objeto fabricado por el ser humano más distante en el cosmos infinito.
+        </p>
+        <div class="hero-cta-group">
+          <button class="btn-primary" onclick="goToSlide(2)">
+            Comenzar la Misión ➔
+          </button>
+          <button class="hud-btn" onclick="toggleOverview()" style="padding: 12px 20px; font-size: 0.95rem;">
+            Ver Índice de Diapositivas
+          </button>
+        </div>
+        <div style="margin-top: 2rem; font-size: 0.8rem; color: var(--text-dim); font-family: var(--font-mono);">
+          Navegación: Usa las teclas [ ← ] [ → ] o la barra espaciadora
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 2: EL CONTEXTO HISTÓRICO Y LA NASA -->
+      <section class="slide" data-slide="2">
+        <div class="slide-meta">
+          <span class="slide-tag">01. Origen y Contexto Histórico</span>
+          <span class="slide-num-indicator">02 / 12</span>
+        </div>
+        <h2 class="slide-title">La Alineación de una Vez en 175 Años</h2>
+        <p class="slide-subtitle">Cómo un cálculo matemático del Jet Propulsion Laboratory (JPL) abrió una ventana irrepetible en casi dos siglos.</p>
+        
+        <div class="slide-grid-3">
+          <div class="feature-card">
+            <div class="card-icon">🚀</div>
+            <h3 class="card-title">La Era Post-Apolo (Años 70)</h3>
+            <p class="card-text">
+              Tras coronar la Luna en 1969, la NASA buscaba una meta científica aún más ambiciosa: cartografiar los gigantes gaseosos del sistema solar exterior que hasta entonces eran solo borrones en telescopios terrestres.
+            </p>
+          </div>
+
+          <div class="feature-card" style="border-color: var(--cyan-accent);">
+            <div class="card-icon">🪐</div>
+            <h3 class="card-title">Alineación de 4 Gigantes</h3>
+            <p class="card-text">
+              En 1965, Gary Flandro descubrió que a finales de los años 70, Júpiter, Saturno, Urano y Neptuno se alinearían en el mismo cuadrante celeste, un evento orbital que ocurre solo una vez cada 175 años.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon">⚡</div>
+            <h3 class="card-title">La Honda Gravitacional</h3>
+            <p class="card-text">
+              Utilizar la gravedad de cada planeta para catapultar la nave hacia el siguiente (*gravity assist*). Esto redujo el tiempo de vuelo hacia Neptuno de 30 años a tan solo 12 años, ahorrando toneladas de combustible.
+            </p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; background: rgba(56, 189, 248, 0.08); padding: 1rem 1.4rem; border-radius: 8px; border-left: 4px solid var(--cyan-accent); font-size: 0.9rem; color: var(--text-main);">
+          💡 <strong>Dato Clave:</strong> Si la NASA no hubiera lanzado las sondas Voyager en 1977, la humanidad habría tenido que esperar hasta mediados del siglo XXI para tener una oportunidad similar.
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 3: DOS HERMANAS, DOS DESTINOS -->
+      <section class="slide" data-slide="3">
+        <div class="slide-meta">
+          <span class="slide-tag">02. El Programa Voyager</span>
+          <span class="slide-num-indicator">03 / 12</span>
+        </div>
+        <h2 class="slide-title">Voyager 1 vs Voyager 2: Dos Gemelas</h2>
+        <p class="slide-subtitle">¿Por qué Voyager 1 se lanzó después de Voyager 2 y cuál fue su misión estratégica?</p>
+
+        <div class="slide-grid-2">
+          <div>
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th>Parámetro</th>
+                  <th>Voyager 2</th>
+                  <th>Voyager 1</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Lanzamiento</strong></td>
+                  <td>20 de Agosto de 1977</td>
+                  <td style="color: var(--cyan-accent); font-weight: 700;">5 de Septiembre de 1977</td>
+                </tr>
+                <tr>
+                  <td><strong>Cohete</strong></td>
+                  <td>Titan IIIE-Centaur</td>
+                  <td>Titan IIIE-Centaur</td>
+                </tr>
+                <tr>
+                  <td><strong>Velocidad / Curva</strong></td>
+                  <td>Trayectoria más lenta</td>
+                  <td style="color: var(--gold-bright);">Más rápida y con mayor empuje</td>
+                </tr>
+                <tr>
+                  <td><strong>Planetas visitados</strong></td>
+                  <td>Júpiter, Saturno, Urano, Neptuno</td>
+                  <td>Júpiter, Saturno (+ Luna Titán)</td>
+                </tr>
+                <tr>
+                  <td><strong>Destino Final</strong></td>
+                  <td>Heliopausa Sur</td>
+                  <td style="color: #34d399; font-weight: 700;">El objeto humano más lejano</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="feature-card" style="border-left: 4px solid var(--nasa-red);">
+            <h3 class="card-title" style="color: var(--gold-bright);">La Decisión de Titán: El Gran Sacrificio</h3>
+            <p class="card-text" style="margin-bottom: 1rem;">
+              Voyager 1 fue programada deliberadamente en una trayectoria hiperbólica más veloz para adelantar a Voyager 2 camino a Júpiter.
+            </p>
+            <p class="card-text" style="margin-bottom: 1rem;">
+              En Saturno, los científicos tomaron una decisión histórica: acercarse a apenas <strong>6.500 km de la misteriosa luna Titán</strong> para estudiar su densa atmósfera rica en nitrógeno y metano.
+            </p>
+            <p class="card-text">
+              Esta aproximación extrema desvió la sonda hacia arriba, sacándola del plano de los planetas y cancelando sus visitas a Urano y Neptuno, pero lanzándola directamente al <strong>cosmos interestelar</strong>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 4: ANATOMÍA Y TECNOLOGÍA -->
+      <section class="slide" data-slide="4">
+        <div class="slide-meta">
+          <span class="slide-tag">03. Ingeniería Aeroespacial</span>
+          <span class="slide-num-indicator">04 / 12</span>
+        </div>
+        <h2 class="slide-title">Anatomía de la Voyager 1</h2>
+        <p class="slide-subtitle">Haz clic en los componentes del esquema interactivo para conocer su tecnología de 1977.</p>
+
+        <div class="voyager-schematic-wrap">
+          <div class="svg-schematic-container">
+            <svg viewBox="0 0 500 350" width="100%" height="100%">
+              <!-- Antena de Alta Ganancia -->
+              <ellipse class="interactive-part" id="part-dish" cx="240" cy="140" rx="110" ry="60" fill="#1e293b" stroke="#94a3b8" stroke-width="2" onclick="selectComponent('dish')"/>
+              <ellipse cx="240" cy="140" rx="40" ry="20" fill="#0f172a" stroke="#64748b" stroke-width="1.5"/>
+              <line x1="240" y1="140" x2="240" y2="70" stroke="#f59e0b" stroke-width="2"/>
+              <polygon points="235,70 245,70 240,60" fill="#f59e0b"/>
+              <text x="240" y="50" fill="#f59e0b" font-size="11" font-family="monospace" text-anchor="middle">SUB-REFLECTOR</text>
+
+              <!-- Bus Central (Cuerpo de la Nave) -->
+              <polygon class="interactive-part" id="part-bus" points="205,170 275,170 290,225 190,225" fill="#0f172a" stroke="#38bdf8" stroke-width="2" onclick="selectComponent('bus')"/>
+              <text x="240" y="205" fill="#38bdf8" font-size="11" font-family="monospace" text-anchor="middle">BUS CENTRAL (68 KB)</text>
+
+              <!-- Generadores RTG (Batería Nuclear) -->
+              <rect class="interactive-part" id="part-rtg" x="60" y="215" width="85" height="30" rx="4" fill="#78350f" stroke="#fbbf24" stroke-width="1.8" onclick="selectComponent('rtg')"/>
+              <line x1="145" y1="230" x2="190" y2="215" stroke="#fbbf24" stroke-width="2"/>
+              <text x="102" y="234" fill="#fef08a" font-size="10" font-family="monospace" text-anchor="middle">3x RTG (Pu-238)</text>
+
+              <!-- Brazo Científico y Cámaras -->
+              <rect class="interactive-part" id="part-scan" x="350" y="190" width="70" height="28" rx="4" fill="#1e3a8a" stroke="#60a5fa" stroke-width="1.8" onclick="selectComponent('scan')"/>
+              <line x1="285" y1="205" x2="350" y2="204" stroke="#60a5fa" stroke-width="2"/>
+              <circle cx="395" cy="204" r="6" fill="#38bdf8"/>
+              <text x="385" y="180" fill="#93c5fd" font-size="10" font-family="monospace" text-anchor="middle">PLATAFORMA CIENTÍFICA</text>
+
+              <!-- Brazo del Magnetómetro -->
+              <line class="interactive-part" id="part-mag" x1="200" y1="225" x2="90" y2="310" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="4" onclick="selectComponent('mag')"/>
+              <circle cx="90" cy="310" r="8" fill="#e11d48" stroke="#fff" stroke-width="1.5"/>
+              <text x="90" y="332" fill="#fda4af" font-size="10" font-family="monospace" text-anchor="middle">MAGNETÓMETRO (13m)</text>
+
+              <!-- Disco de Oro -->
+              <circle class="interactive-part" id="part-record" cx="240" cy="245" r="14" fill="#fbbf24" stroke="#d97706" stroke-width="2" onclick="selectComponent('record')"/>
+              <text x="240" y="275" fill="#fbbf24" font-size="10" font-family="monospace" text-anchor="middle">DISCO DE ORO</text>
+            </svg>
+          </div>
+
+          <div class="schematic-details-panel" id="component-info-box">
+            <h3 id="comp-title" style="color: var(--cyan-accent); font-size: 1.3rem; margin-bottom: 0.8rem;">
+              Antena de Alta Ganancia (HGA)
+            </h3>
+            <p id="comp-desc" style="color: var(--text-muted); line-height: 1.6; font-size: 0.95rem;">
+              Con 3.7 metros de diámetro, es la estructura más grande de la nave. Debe apuntar permanentemente hacia la Tierra con precisión milimétrica para enviar datos y recibir comandos a través de la Red del Espacio Profundo (DSN).
+            </p>
+            <div id="comp-specs" style="margin-top: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--gold-bright);">
+              Diámetro: 3.7 metros • Frecuencias: Banda X y S • Potencia: ~20 vatios
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 5: EL ENCUENTRO CON JÚPITER -->
+      <section class="slide" data-slide="5">
+        <div class="slide-meta">
+          <span class="slide-tag">04. Primera Gran Parada (1979)</span>
+          <span class="slide-num-indicator">05 / 12</span>
+        </div>
+        <h2 class="slide-title">Júpiter: El Gigante Revelado</h2>
+        <p class="slide-subtitle">En marzo de 1979, Voyager 1 reescribió los libros de texto de astronomía planetaria.</p>
+
+        <div class="slide-grid-2">
+          <div class="timeline-container">
+            <div class="timeline-step">
+              <div class="year">Descubrimiento Inédito</div>
+              <div class="heading">Volcanes Activos en Ío</div>
+              <div class="body">La científica Linda Morabito detectó una pluma de erupción de 300 km de altura. Fue la primera vez en la historia que se descubrieron volcanes activos fuera de la Tierra.</div>
+            </div>
+
+            <div class="timeline-step">
+              <div class="year">Atmósfera Profunda</div>
+              <div class="heading">La Gran Mancha Roja</div>
+              <div class="body">Reveló que la mancha es un anticiclón titánico con vientos de más de 400 km/h y una dinámica atmosférica compleja que no se asemejaba a nada en la Tierra.</div>
+            </div>
+
+            <div class="timeline-step">
+              <div class="year">Sorpresa Orbital</div>
+              <div class="heading">Anillos Jovianos y Nuevas Lunas</div>
+              <div class="body">Descubrió que Júpiter también posee un sistema de anillos tenues y oscuros de polvo, además de descubrir dos lunas nunca antes vistas: Tebe y Metis.</div>
+            </div>
+          </div>
+
+          <div class="feature-card" style="background: radial-gradient(circle at top right, rgba(234, 88, 12, 0.2), var(--bg-card)); border-color: rgba(234, 88, 12, 0.4);">
+            <div style="font-size: 2.5rem; margin-bottom: 0.8rem;">🌋</div>
+            <h3 class="card-title" style="color: #fdba74;">El Impacto en la Ciencia</h3>
+            <p class="card-text" style="margin-bottom: 1rem;">
+              Antes de la Voyager, los astrónomos creían que las lunas exteriores eran mundos muertos y congelados.
+            </p>
+            <p class="card-text" style="margin-bottom: 1rem;">
+              El descubrimiento del calor por mareas gravitatorias en <strong>Ío</strong> y los indicios de un océano subsuperficial en <strong>Europa</strong> demostraron que la energía geotérmica y la posibilidad de vida podían existir lejos del calor del Sol.
+            </p>
+            <div style="padding: 10px; background: rgba(0,0,0,0.4); border-radius: 6px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim);">
+              Aproximación máxima: 349.000 km • Fecha: 5 de marzo de 1979
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 6: SATURNO Y TITÁN -->
+      <section class="slide" data-slide="6">
+        <div class="slide-meta">
+          <span class="slide-tag">05. Segunda Gran Parada (1980)</span>
+          <span class="slide-num-indicator">06 / 12</span>
+        </div>
+        <h2 class="slide-title">Saturno y el Enigma de Titán</h2>
+        <p class="slide-subtitle">Noviembre de 1980: Un laberinto de miles de anillos y un mundo congelado con atmósfera propia.</p>
+
+        <div class="slide-grid-3">
+          <div class="feature-card">
+            <div class="card-icon">🪐</div>
+            <h3 class="card-title">Estructura Fina de los Anillos</h3>
+            <p class="card-text">
+              Demostró que los anillos de Saturno no son discos sólidos ni unas pocas bandas, sino miles de delgados "anillitos" esculpidos por ondas de densidad gravitatoria y misteriosos "rayos" electrostáticos oscuros.
+            </p>
+          </div>
+
+          <div class="feature-card" style="border-color: var(--gold-bright);">
+            <div class="card-icon">🌫️</div>
+            <h3 class="card-title">Titán: La Tierra en el Congelador</h3>
+            <p class="card-text">
+              Confirmó que Titán posee una atmósfera más densa que la de la Tierra, compuesta por un 95% de nitrógeno y una densa niebla fotoquímica de hidrocarburos, sentando las bases de la misión Cassini-Huygens.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon">🛡️</div>
+            <h3 class="card-title">Lunas Pastoras</h3>
+            <p class="card-text">
+              Descubrió lunas como Prometeo y Pandora, cuya gravedad actúa como "pastores" que confinan partículas de hielo impidiendo que los anillos delgados se dispersen en el espacio exterior.
+            </p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--gold-accent); padding: 1.2rem; border-radius: 10px; display: flex; align-items: center; gap: 16px;">
+          <span style="font-size: 2rem;">🚀</span>
+          <p style="font-size: 0.92rem; color: var(--text-main); line-height: 1.5;">
+            <strong>El Impulso Final:</strong> La tremenda gravedad de Saturno dobló la trayectoria de Voyager 1 aproximadamente 35 grados hacia el norte del plano planetario, acelerándola a 17 kilómetros por segundo rumbo a la frontera del sistema solar.
+          </p>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 7: UN PUNTO AZUL PÁLIDO -->
+      <section class="slide" data-slide="7">
+        <div class="slide-meta">
+          <span class="slide-tag">06. Filosofía Cósmica (1990)</span>
+          <span class="slide-num-indicator">07 / 12</span>
+        </div>
+        <h2 class="slide-title">Un Punto Azul Pálido (Pale Blue Dot)</h2>
+        <p class="slide-subtitle">14 de febrero de 1990: La imagen más humilde y conmovedora tomada por la especie humana.</p>
+
+        <div class="slide-grid-2">
+          <div class="sagan-quote-box">
+            <p class="sagan-quote-text">
+              «Mira de nuevo ese punto. Eso es aquí. Eso es nuestro hogar. Esos somos nosotros. En él todos los que amas, todos los que conoces, cada ser humano que ha existido, vivió su vida... sobre una mota de polvo suspendida en un rayo de sol.»
+            </p>
+            <div class="sagan-author">
+              <span>— Carl Sagan</span>
+              <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">(Astrónomo y divulgador)</span>
+            </div>
+
+            <div class="pale-dot-visual">
+              <div class="sunbeam-ray"></div>
+              <div class="earth-pale-pixel" title="La Tierra (0.12 píxeles)"></div>
+              <div style="position: absolute; bottom: 8px; right: 12px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--cyan-accent);">
+                TIERRA: 0.12 PÍXELES • DISTANCIA: 6.000 MILLONES KM
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="feature-card" style="margin-bottom: 1rem;">
+              <h3 class="card-title" style="color: var(--cyan-accent);">El Retrato de Familia del Sistema Solar</h3>
+              <p class="card-text">
+                Por insistencia de Carl Sagan, la NASA ordenó a Voyager 1 girar su cámara hacia el interior del sistema solar y tomar una serie de 60 fotos antes de apagar permanentemente sus cámaras para ahorrar energía.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <h3 class="card-title" style="color: var(--gold-bright);">La Lección Moral</h3>
+              <p class="card-text">
+                Esta fotografía transformó la perspectiva humana sobre la fragilidad del planeta. Desde 6.000 millones de kilómetros, no existen fronteras, razas, ni guerras; solo un pequeño hogar vulnerable en la inmensidad del vacío cósmico.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 8: EL DISCO DE ORO -->
+      <section class="slide" data-slide="8">
+        <div class="slide-meta">
+          <span class="slide-tag">07. Mensaje Interespecies</span>
+          <span class="slide-num-indicator">08 / 12</span>
+        </div>
+        <h2 class="slide-title">El Disco de Oro (The Golden Record)</h2>
+        <p class="slide-subtitle">Una cápsula del tiempo fonográfica diseñada para sobrevivir más de 1.000 millones de años.</p>
+
+        <div class="golden-record-stage">
+          <div class="record-disk-wrap" onclick="toggleRecordSpin()">
+            <div class="gold-disk" id="interactive-gold-disk" title="Haz clic para hacer girar el Disco de Oro">
+              <div class="disk-grooves">
+                <div class="disk-center-label">
+                  VOYAGER 1<br>SOUNDS OF<br>EARTH
+                </div>
+              </div>
+            </div>
+            <div style="text-align: center; margin-top: 10px; font-size: 0.75rem; color: var(--gold-bright); font-family: var(--font-mono);">
+              [ Click para rotar el disco ]
+            </div>
+          </div>
+
+          <div class="slide-grid-2" style="flex: 1;">
+            <div class="feature-card">
+              <div class="card-icon">📀</div>
+              <h3 class="card-title">Estructura y Material</h3>
+              <p class="card-text">
+                Disco de cobre bañado en oro con cubierta de aluminio dorado. Contiene una aguja de lectura y un cartucho fonográfico, con diagramas que explican la velocidad de reproducción y la escala de tiempo universal usando la frecuencia del átomo de hidrógeno.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="card-icon">🎶</div>
+              <h3 class="card-title">Voces y Melodías</h3>
+              <p class="card-text">
+                Saludos hablados en <strong>55 idiomas</strong>, cantos de ballenas, sonidos naturales (truenos, olas, risas de bebés) y 90 minutos de música que incluyen a Bach, Beethoven, Chuck Berry, música andina y cantos tradicionales de África y Asia.
+              </p>
+            </div>
+
+            <div class="feature-card" style="grid-column: span 2;">
+              <h3 class="card-title" style="color: var(--cyan-accent);">115 Imágenes Codificadas de Forma Analógica</h3>
+              <p class="card-text">
+                Diagramas de la estructura del ADN, la anatomía humana, plantas, animales, la arquitectura de las ciudades y la ubicación de nuestro Sol con respecto a 14 púlsares de la Vía Láctea.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 9: EL SALTO AL ESPACIO INTERESTELAR -->
+      <section class="slide" data-slide="9">
+        <div class="slide-meta">
+          <span class="slide-tag">08. Frontera Cósmica (2012)</span>
+          <span class="slide-num-indicator">09 / 12</span>
+        </div>
+        <h2 class="slide-title">El Salto al Espacio Interestelar</h2>
+        <p class="slide-subtitle">25 de agosto de 2012: La primera nave terrestre en cruzar la burbuja protectora del Sol.</p>
+
+        <div class="slide-grid-3">
+          <div class="feature-card">
+            <div class="card-icon">☀️</div>
+            <h3 class="card-title">La Heliosfera</h3>
+            <p class="card-text">
+              La gigantesca burbuja magnética soplada por el viento solar que envuelve a todos los planetas y nos protege de la radiación galáctica letal.
+            </p>
+          </div>
+
+          <div class="feature-card" style="border-color: var(--cyan-accent);">
+            <div class="card-icon">🌊</div>
+            <h3 class="card-title">Cruce de la Heliopausa</h3>
+            <p class="card-text">
+              A 121 Unidades Astronómicas (~18.000 millones de km), las partículas solares se desplomaron a casi cero y los rayos cósmicos galácticos se multiplicaron.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon">📡</div>
+            <h3 class="card-title">Ondas de Plasma</h3>
+            <p class="card-text">
+              El Dr. Don Gurnett demostró la entrada midiendo vibraciones en el plasma interestelar (más denso y frío), permitiendo escuchar el "sonido" del espacio interestelar.
+            </p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; border-radius: 10px; padding: 1.2rem; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h4 style="color: #34d399; font-size: 1rem; margin-bottom: 4px;">Un Hito Irrepetible para la Civilización</h4>
+            <p style="font-size: 0.88rem; color: var(--text-muted);">Voyager 1 es hoy el embajador de la Tierra navegando en el mar cósmico abierto de la Vía Láctea.</p>
+          </div>
+          <span style="font-size: 2.2rem;">🌌</span>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 10: EL MILAGRO DE INGENIERÍA 2024 -->
+      <section class="slide" data-slide="10">
+        <div class="slide-meta">
+          <span class="slide-tag">09. Resiliencia Máxima (2023 - 2024)</span>
+          <span class="slide-num-indicator">10 / 12</span>
+        </div>
+        <h2 class="slide-title">El Milagro de Ingeniería de 2024</h2>
+        <p class="slide-subtitle">Cómo el equipo del JPL resucitó una computadora de 1977 a 24.000 millones de kilómetros.</p>
+
+        <div class="slide-grid-2">
+          <div class="feature-card" style="border-left: 4px solid var(--nasa-red);">
+            <div class="card-icon">⚠️</div>
+            <h3 class="card-title" style="color: #f87171;">La Crisis del FDS (Noviembre 2023)</h3>
+            <p class="card-text" style="margin-bottom: 0.8rem;">
+              En noviembre de 2023, la telemetría de Voyager 1 se congeló en un patrón repetitivo de 0s y 1s sin sentido lógico. La nave seguía transmitiendo portadora, pero ningún dato científico podía ser descifrado.
+            </p>
+            <p class="card-text">
+              El diagnóstico: Un único chip de memoria del <em>Flight Data System</em> (FDS) se quemó debido al bombardeo de radiación tras 47 años en el espacio.
+            </p>
+          </div>
+
+          <div class="feature-card" style="border-left: 4px solid #10b981;">
+            <div class="card-icon">🛠️</div>
+            <h3 class="card-title" style="color: #34d399;">La Solución Genial (Abril - Mayo 2024)</h3>
+            <p class="card-text" style="margin-bottom: 0.8rem;">
+              No había chips de repuesto. Los ingenieros dividieron el código dañado en fragmentos y los reescribieron en sectores de memoria dispersos que aún funcionaban.
+            </p>
+            <p class="card-text">
+              La señal tardó <strong>22.5 horas</strong> en viajar a la velocidad de la luz y otras 22.5 horas en regresar. El 20 de abril de 2024, la nave envió nuevamente telemetría saludable y en mayo reanudó el envío de datos de los 4 instrumentos científicos.
+            </p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.2rem; background: var(--bg-card); border: 1px solid var(--border-hud); border-radius: 8px; padding: 1rem 1.4rem; display: flex; align-items: center; justify-content: space-around; font-family: var(--font-mono); font-size: 0.85rem;">
+          <div><span style="color: var(--text-dim);">TIEMPO DE SEÑAL IDA Y VUELTA:</span> <span style="color: var(--gold-bright);">~45 HORAS</span></div>
+          <div><span style="color: var(--text-dim);">MEMORIA TOTAL DE LA NAVE:</span> <span style="color: var(--cyan-accent);">68 KILOBYTES</span></div>
+          <div><span style="color: var(--text-dim);">INSTRUMENTOS RESTAURADOS:</span> <span style="color: #34d399;">4 DE 4</span></div>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 11: TELEMETRÍA Y ESTADO ACTUAL -->
+      <section class="slide" data-slide="11">
+        <div class="slide-meta">
+          <span class="slide-tag">10. Presente y Telemetría</span>
+          <span class="slide-num-indicator">11 / 12</span>
+        </div>
+        <h2 class="slide-title">Estado de la Misión Hoy</h2>
+        <p class="slide-subtitle">Vigilada segundo a segundo por la Red del Espacio Profundo (DSN).</p>
+
+        <div class="slide-grid-3">
+          <div class="feature-card">
+            <div class="card-icon">⚡</div>
+            <h3 class="card-title">Baterías Nucleares (RTG)</h3>
+            <p class="card-text">
+              El Plutonio-238 decae naturalmente, perdiendo aproximadamente <strong>4 vatios de potencia por año</strong>. La NASA apaga calentadores e instrumentos no esenciales para prolongar la vida útil de la nave hasta 2026-2030.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon">📡</div>
+            <h3 class="card-title">Señales Débiles</h3>
+            <p class="card-text">
+              La señal que llega a las antenas terrestres de 70 metros en Madrid, Goldstone y Canberra es de apenas una <strong>billonésima de vatio</strong>, captada gracias a amplificadores criogénicos enfriados cerca del cero absoluto.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon">🛰️</div>
+            <h3 class="card-title">Instrumentos Activos</h3>
+            <p class="card-text">
+              Aún operan: el Detector de Rayos Cósmicos (CRS), el Instrumento de Plasma de Baja Energía (LECP), el Magnetómetro (MAG) y el subsistema de Ondas de Plasma (PWS).
+            </p>
+          </div>
+        </div>
+
+        <!-- Mini Trivia Interactiva -->
+        <div class="quiz-card">
+          <div class="quiz-question">🧠 Pregunta Rápida para la Audiencia: ¿Cuánto tarda una señal de radio en viajar desde la Tierra hasta Voyager 1 actualmente?</div>
+          <div class="quiz-options">
+            <button class="quiz-opt-btn" onclick="checkQuiz(this, false)">A) 8 minutos (como la luz del Sol)</button>
+            <button class="quiz-opt-btn" onclick="checkQuiz(this, false)">B) Aproximadamente 5 horas</button>
+            <button class="quiz-opt-btn" onclick="checkQuiz(this, true)">C) Casi 23 horas de ida (45 horas ida y vuelta)</button>
+            <button class="quiz-opt-btn" onclick="checkQuiz(this, false)">D) 3 semanas completas</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIAPOSITIVA 12: EL FUTURO ETERNO Y LEGADO -->
+      <section class="slide" data-slide="12">
+        <div class="slide-meta">
+          <span class="slide-tag">11. El Futuro Eterno</span>
+          <span class="slide-num-indicator">12 / 12</span>
+        </div>
+        <h2 class="slide-title">Navegando por la Eternidad</h2>
+        <p class="slide-subtitle">El legado de una civilización que se atrevió a explorar lo desconocido.</p>
+
+        <div class="slide-grid-2">
+          <div class="timeline-container">
+            <div class="timeline-step">
+              <div class="year">En ~300 Años</div>
+              <div class="heading">Entrada a la Nube de Oort</div>
+              <div class="body">Alcanzará la frontera exterior de cometas congelados que rodean el sistema solar. Tardará unos 30.000 años en cruzarla por completo.</div>
+            </div>
+
+            <div class="timeline-step">
+              <div class="year">En ~40.000 Años</div>
+              <div class="heading">Paso por la Estrella Gliese 445</div>
+              <div class="body">Pasará a 1.6 años luz de la estrella enana roja Gliese 445 en la constelación de Camelopardalis.</div>
+            </div>
+
+            <div class="timeline-step">
+              <div class="year">En Miles de Millones de Años</div>
+              <div class="heading">Monumento Indestructible</div>
+              <div class="body">Incluso cuando nuestro Sol muera y la Tierra se extinga, Voyager 1 seguirá flotando en la Vía Láctea llevando el Disco de Oro.</div>
+            </div>
+          </div>
+
+          <div class="feature-card" style="border: 1px solid var(--gold-accent); background: radial-gradient(circle at center, rgba(245, 158, 11, 0.1), var(--bg-card)); display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 2.2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">✨</div>
+            <h3 style="font-size: 1.4rem; color: #fff; margin-bottom: 1rem;">«Somos una forma en que el cosmos se conoce a sí mismo»</h3>
+            <p style="color: var(--text-muted); line-height: 1.6; font-size: 0.95rem; margin-bottom: 1.5rem;">
+              Voyager 1 no es solo un artefacto de titanio y aluminio; es la manifestación física de nuestra curiosidad, valor e ingenio colectivo.
+            </p>
+            <div style="display: flex; justify-content: center; gap: 12px;">
+              <button class="btn-primary" onclick="goToSlide(1)" style="padding: 10px 20px; font-size: 0.9rem;">
+                ↺ Reiniciar Presentación
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Barra Inferior de Navegación -->
+    <footer class="hud-footer">
+      <div class="nav-controls">
+        <button class="nav-btn" id="btn-prev" onclick="changeSlide(-1)" title="Diapositiva Anterior (Flecha Izq)">
+          ◀
+        </button>
+        <button class="nav-btn" id="btn-next" onclick="changeSlide(1)" title="Diapositiva Siguiente (Flecha Der)">
+          ▶
+        </button>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div class="progress-info">
+          <span id="slide-name-indicator">NASA & VOYAGER 1</span>
+          <span id="slide-counter-indicator">01 / 12</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="keyboard-shortcuts-pill">
+        <span>Teclas:</span>
+        <span class="kbd">←</span>
+        <span class="kbd">→</span>
+        <span class="kbd">Espacio</span>
+        <span class="kbd">F</span>
+        <span class="kbd">O</span>
+        <span class="kbd">N</span>
+      </div>
+    </footer>
+
+    <!-- Panel Lateral de Notas del Orador (Speaker Notes) -->
+    <aside class="speaker-drawer" id="speaker-drawer">
+      <div class="drawer-title">
+        <span>🎙️ NOTAS DEL ORADOR</span>
+        <button class="hud-btn" onclick="toggleNotes()" style="padding: 2px 8px;">✕</button>
+      </div>
+      <div class="speaker-content" id="speaker-note-text">
+        <!-- Rellenado dinámicamente según la diapositiva actual -->
+      </div>
+      <div class="speaker-tip">
+        💡 <em>Consejo de Exposición:</em> Mantén un tono pausado y seguro. Enfatiza los contrastes (tecnología de 68 KB vs viaje cósmico infinito).
+      </div>
+    </aside>
+
+    <!-- Modal de Vista General (Overview Grid) -->
+    <div class="overview-modal" id="overview-modal">
+      <div class="overview-header">
+        <h2 style="color: var(--cyan-accent); font-size: 1.4rem;">Índice de Diapositivas de la Misión</h2>
+        <button class="hud-btn" onclick="toggleOverview()" style="padding: 8px 16px;">✕ Cerrar [Esc]</button>
+      </div>
+      <div class="overview-grid" id="overview-grid-container">
+        <!-- Rellenado dinámicamente -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================
+       SCRIPTS Y LÓGICA DE LA PRESENTACIÓN
+       ============================================================ -->
+  <script>
+    // 1. Estado y Datos de Diapositivas
+    let currentSlide = 1;
+    const totalSlides = 12;
+
+    const slidesMeta = [
+      { num: 1, title: "Portada: NASA & Voyager 1", note: "Buenas tardes a todos. Hoy vamos a viajar a través de una de las mayores hazañas científicas de la humanidad: la misión Voyager 1. Construida en los 70, hoy navega el silencio interestelar a más de 24.000 millones de kilómetros." },
+      { num: 2, title: "La Alineación de 175 Años", note: "Enfatizar el descubrimiento de Gary Flandro en 1965: los 4 gigantes gaseosos se alineaban en una ventana que ocurre solo una vez cada 175 años. Si la NASA no lanzaba en 1977, tendríamos que esperar hasta 2150." },
+      { num: 3, title: "Voyager 1 vs Voyager 2", note: "Aclarar la confusión común: Voyager 2 se lanzó primero (agosto 1977) y Voyager 1 después (septiembre 1977). Pero Voyager 1 viajaba más rápido. Y explicar el sacrificio de Urano y Neptuno para ver Titán de cerca." },
+      { num: 4, title: "Anatomía de la Nave", note: "Mencionar que toda la nave corre con 68 Kilobytes de memoria, menos que la llave inteligente de un auto. Todo funciona gracias a baterías nucleares de Plutonio-238 (RTG), ya que los paneles solares son inútiles en el espacio profundo." },
+      { num: 5, title: "Encuentro con Júpiter (1979)", note: "Destacar el descubrimiento de volcanes activos en Ío por Linda Morabito. Cambió el paradigma científico: los mundos exteriores no eran bloques de hielo muertos, sino cuerpos geológicamente vibrantes." },
+      { num: 6, title: "Saturno y Titán (1980)", note: "Describir la atmósfera espesa de Titán similar a la Tierra primitiva. Y cómo la gravedad de Saturno disparó a Voyager 1 hacia arriba sacándola del plano de la eclíptica a 17 km por segundo." },
+      { num: 7, title: "Un Punto Azul Pálido (1990)", note: "Momento solemne. Leer la cita de Carl Sagan con calma. La Tierra ocupa solo 0.12 píxeles en un rayo de sol disperso. Hacer reflexionar sobre la pequeñez y fragilidad de nuestro planeta." },
+      { num: 8, title: "El Disco de Oro", note: "Explicar el contenido del disco fonográfico de oro: saludos en 55 idiomas, música de Bach y Chuck Berry, 115 fotos codificadas. Durará más de 1.000 millones de años como mensaje para civilizaciones extraterrestres." },
+      { num: 9, title: "El Salto Interestelar (2012)", note: "Explicar la heliopausa: la frontera donde el viento solar choca contra el medio interestelar. Don Gurnett midió las oscilaciones de plasma que confirmaron que dejamos atrás la burbuja solar." },
+      { num: 10, title: "El Milagro de 2024", note: "Contar la dramática crisis de nov 2023: la telemetría enviaba ceros sin sentido. Un chip de memoria quemado a 24.000 millones de km fue reprogramado enviando parches que tardaban 45 horas en responder. Éxito absoluto del JPL." },
+      { num: 11, title: "Telemetría y Estado Actual", note: "Comentar que las baterías nucleares pierden 4W por año. Entre 2025 y 2030 se apagará el último instrumento. La Red del Espacio Profundo capta señales de una billonésima de vatio con antenas de 70m." },
+      { num: 12, title: "Navegando por la Eternidad", note: "Conclusión emotiva: En 40.000 años pasará cerca de la estrella Gliese 445. Mucho después de que nuestras ciudades se conviertan en polvo, Voyager 1 seguirá flotando por la galaxia como testimonio de que estuvimos aquí." }
+    ];
+
+    // 2. Control de Diapositivas
+    function updateSlide() {
+      const slides = document.querySelectorAll('.slide');
+      slides.forEach((s, idx) => {
+        const slideIndex = idx + 1;
+        s.classList.remove('active', 'prev', 'next');
+        if (slideIndex === currentSlide) {
+          s.classList.add('active');
+        } else if (slideIndex < currentSlide) {
+          s.classList.add('prev');
+        } else {
+          s.classList.add('next');
+        }
+      });
+
+      // Actualizar Controles Inferiores
+      document.getElementById('btn-prev').disabled = (currentSlide === 1);
+      document.getElementById('btn-next').disabled = (currentSlide === totalSlides);
+
+      const progressPercent = (currentSlide / totalSlides) * 100;
+      document.getElementById('progress-bar-fill').style.width = progressPercent + '%';
+      document.getElementById('slide-counter-indicator').innerText = 
+        String(currentSlide).padStart(2, '0') + ' / ' + String(totalSlides).padStart(2, '0');
+      
+      const currentMeta = slidesMeta.find(m => m.num === currentSlide);
+      if (currentMeta) {
+        document.getElementById('slide-name-indicator').innerText = currentMeta.title;
+        document.getElementById('speaker-note-text').innerHTML = `
+          <h4 style="color: #fff; margin-bottom: 8px;">${currentMeta.title}</h4>
+          <p>${currentMeta.note}</p>
+        `;
+      }
+
+      // Actualizar miniaturas de overview
+      document.querySelectorAll('.overview-thumb').forEach(thumb => {
+        if (parseInt(thumb.dataset.target) === currentSlide) {
+          thumb.classList.add('active');
+        } else {
+          thumb.classList.remove('active');
+        }
+      });
+    }
+
+    function changeSlide(direction) {
+      const newSlide = currentSlide + direction;
+      if (newSlide >= 1 && newSlide <= totalSlides) {
+        currentSlide = newSlide;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(slideNum) {
+      if (slideNum >= 1 && slideNum <= totalSlides) {
+        currentSlide = slideNum;
+        updateSlide();
+        closeOverview();
+      }
+    }
+
+    // 3. Teclado y Atajos
+    window.addEventListener('keydown', (e) => {
+      // Si el modal de overview está abierto
+      const overviewModal = document.getElementById('overview-modal');
+      if (overviewModal.classList.contains('open')) {
+        if (e.key === 'Escape' || e.key === 'o' || e.key === 'O') {
+          toggleOverview();
+          return;
+        }
+      }
+
+      switch (e.key) {
+        case 'ArrowRight':
+        case ' ':
+        case 'PageDown':
+          e.preventDefault();
+          changeSlide(1);
+          break;
+        case 'ArrowLeft':
+        case 'Backspace':
+        case 'PageUp':
+          e.preventDefault();
+          changeSlide(-1);
+          break;
+        case 'Home':
+          e.preventDefault();
+          goToSlide(1);
+          break;
+        case 'End':
+          e.preventDefault();
+          goToSlide(totalSlides);
+          break;
+        case 'f':
+        case 'F':
+          toggleFullscreen();
+          break;
+        case 'o':
+        case 'O':
+          toggleOverview();
+          break;
+        case 'n':
+        case 'N':
+          toggleNotes();
+          break;
+        case 'p':
+        case 'P':
+          window.print();
+          break;
+      }
+    });
+
+    // 4. Pantalla Completa
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn('Fullscreen error:', err);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+    document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+
+    // 5. Notas del Orador
+    function toggleNotes() {
+      const drawer = document.getElementById('speaker-drawer');
+      drawer.classList.toggle('open');
+    }
+    document.getElementById('btn-notes').addEventListener('click', toggleNotes);
+
+    // 6. Vista General (Overview Grid)
+    function toggleOverview() {
+      const modal = document.getElementById('overview-modal');
+      modal.classList.toggle('open');
+    }
+    function closeOverview() {
+      document.getElementById('overview-modal').classList.remove('open');
+    }
+    document.getElementById('btn-overview').addEventListener('click', toggleOverview);
+
+    // Generar Miniaturas del Overview
+    const overviewContainer = document.getElementById('overview-grid-container');
+    slidesMeta.forEach(meta => {
+      const thumb = document.createElement('div');
+      thumb.className = `overview-thumb ${meta.num === 1 ? 'active' : ''}`;
+      thumb.dataset.target = meta.num;
+      thumb.innerHTML = `
+        <div>
+          <div class="thumb-num">DIAPOSITIVA ${String(meta.num).padStart(2, '0')}</div>
+          <div class="thumb-title">${meta.title}</div>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 10px;">Clic para saltar ➔</div>
+      `;
+      thumb.addEventListener('click', () => goToSlide(meta.num));
+      overviewContainer.appendChild(thumb);
+    });
+
+    // 7. Botón Imprimir / PDF
+    document.getElementById('btn-pdf').addEventListener('click', () => {
+      window.print();
+    });
+
+    // 8. Esquema Interactivo de la Nave
+    const componentsInfo = {
+      dish: {
+        title: "Antena de Alta Ganancia (HGA)",
+        desc: "Reflector parabólico de 3.7 metros hecho de compuesto de grafito epoxi. Es vital para emitir señales directas a la Tierra y concentrar el haz de microondas. Si dejara de apuntar a la Tierra, la misión se perdería.",
+        specs: "Diámetro: 3.7 m • Frecuencia: Banda X (8.4 GHz) y Banda S (2.3 GHz) • Potencia: ~20 W"
+      },
+      bus: {
+        title: "Computadora y Bus Central (68 KB)",
+        desc: "El corazón informático consta de tres subsistemas redundantes: CCS (Computer Command System), FDS (Flight Data System) y AACS (Artitude Control). Posee solo 68 Kilobytes de memoria magnética y procesadores de apenas unas decenas de miles de ciclos por segundo.",
+        specs: "Memoria: 68 KB • Cinta de respaldo: 8 pistas de datos • Tolerancia a fallos: Doble redundancia"
+      },
+      rtg: {
+        title: "Generadores Termoeléctricos de Radioisótopos (RTG)",
+        desc: "Tres generadores nucleares cilíndricos cargados con esferas de dióxido de Plutonio-238. Al desintegrarse radiactivamente, generan calor que se convierte directamente en electricidad mediante termopares de silicio-germanio.",
+        specs: "Combustible: Plutonio-238 • Potencia original (1977): 470 W • Potencia actual (2026): ~215 W"
+      },
+      scan: {
+        title: "Plataforma de Escaneo Móvil",
+        desc: "Llevaba las cámaras de ángulo estrecho y ancho de televisión, espectrómetros ultravioleta e infrarrojos y fotopolarímetro. Se apagó definitivamente tras tomar el retrato del 'Punto Azul Pálido' en 1990 para ahorrar memoria y energía.",
+        specs: "Cámaras: Vidicon Blanco y Negro con filtros • Apagado: 14 de Febrero de 1990"
+      },
+      mag: {
+        title: "Brazo del Magnetómetro de 13 Metros",
+        desc: "Un largo mástil desplegable de fibra de vidrio que aleja los sensores magnéticos sensibles de las interferencias electromagnéticas del cuerpo de la nave. Es el instrumento que midió la fuerza y dirección de los campos magnéticos interplanetarios e interestelares.",
+        specs: "Longitud desplegada: 13 metros • Estado actual: ACTIVO y midiendo el campo magnético de la galaxia"
+      },
+      record: {
+        title: "El Disco de Oro Fonográfico",
+        desc: "Fijado en un lateral del bus de la nave y protegido por una cubierta de aluminio dorado. Contiene sonidos, música de la Tierra, saludos en 55 idiomas y 115 fotografías analógicas para cualquier inteligencia extraterrestre que lo encuentre.",
+        specs: "Diámetro: 12 pulgadas • Material: Cobre chapado en oro • Durabilidad estimada: >1.000 Millones de Años"
+      }
+    };
+
+    function selectComponent(compKey) {
+      const data = componentsInfo[compKey];
+      if (!data) return;
+      document.querySelectorAll('.interactive-part').forEach(p => p.classList.remove('selected'));
+      const partEl = document.getElementById('part-' + compKey);
+      if (partEl) partEl.classList.add('selected');
+
+      document.getElementById('comp-title').innerText = data.title;
+      document.getElementById('comp-desc').innerText = data.desc;
+      document.getElementById('comp-specs').innerText = data.specs;
+    }
+
+    // 9. Rotación del Disco de Oro
+    function toggleRecordSpin() {
+      const disk = document.getElementById('interactive-gold-disk');
+      disk.classList.toggle('playing');
+    }
+
+    // 10. Quiz Interactivo
+    function checkQuiz(btn, isCorrect) {
+      const allButtons = btn.parentElement.querySelectorAll('.quiz-opt-btn');
+      allButtons.forEach(b => {
+        b.disabled = true;
+        b.classList.remove('correct', 'wrong');
+      });
+      if (isCorrect) {
+        btn.classList.add('correct');
+        btn.innerText += "  ✔ ¡CORRECTO! (22h 39m de ida)";
+      } else {
+        btn.classList.add('wrong');
+        btn.innerText += "  ✖ Incorrecto";
+      }
+    }
+
+    // 11. Generador de Audio Ambiental Cósmico (Web Audio API)
+    let audioCtx = null;
+    let isAudioPlaying = false;
+    let osc1, osc2, gainNode;
+
+    function toggleCosmicAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      if (isAudioPlaying) {
+        gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+        setTimeout(() => {
+          if (osc1) osc1.stop();
+          if (osc2) osc2.stop();
+          isAudioPlaying = false;
+          document.getElementById('ambient-sound-text').innerText = "Audio Espacial";
+        }, 1000);
+      } else {
+        audioCtx.resume();
+        osc1 = audioCtx.createOscillator();
+        osc2 = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+
+        // Sonido suave tipo drone interestelar (65Hz y 130Hz)
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(65, audioCtx.currentTime);
+
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(130.8, audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 2);
+
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc1.start();
+        osc2.start();
+        isAudioPlaying = true;
+        document.getElementById('ambient-sound-text').innerText = "Silenciar Audio";
+      }
+    }
+    document.getElementById('btn-ambient-sound').addEventListener('click', toggleCosmicAudio);
+
+    // 12. Fondo de Estrellas Animado (Canvas)
+    const canvas = document.getElementById('starfield-canvas');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+    const numStars = 250;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initStars();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function initStars() {
+      stars = [];
+      for (let i = 0; i < numStars; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.6 + 0.3,
+          alpha: Math.random(),
+          speed: Math.random() * 0.3 + 0.05,
+          twinkleSpeed: (Math.random() - 0.5) * 0.02
+        });
+      }
+    }
+
+    function animateStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let s of stars) {
+        s.alpha += s.twinkleSpeed;
+        if (s.alpha <= 0.1 || s.alpha >= 1) {
+          s.twinkleSpeed = -s.twinkleSpeed;
+        }
+        s.y += s.speed;
+        if (s.y > canvas.height) {
+          s.y = 0;
+          s.x = Math.random() * canvas.width;
+        }
+
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(240, 246, 255, ${Math.max(0, Math.min(1, s.alpha))})`;
+        ctx.fill();
+      }
+      requestAnimationFrame(animateStars);
+    }
+
+    // 13. Telemetría Dinámica en Tiempo Real
+    // Base a Octubre 2026: ~24.452.000.000 km, incrementando a ~17 km/s
+    const baseDistanceKm = 24452000000;
+    const speedKmPerSec = 17.0;
+    const startTime = Date.now();
+
+    function updateLiveTelemetry() {
+      const elapsedSec = (Date.now() - startTime) / 1000;
+      const currentKm = baseDistanceKm + (elapsedSec * speedKmPerSec);
+      const currentAU = currentKm / 149597870.7; // 1 AU en km
+      const lightSeconds = currentKm / 299792.458;
+      
+      const hours = Math.floor(lightSeconds / 3600);
+      const minutes = Math.floor((lightSeconds % 3600) / 60);
+      const seconds = Math.floor(lightSeconds % 60);
+
+      document.getElementById('telemetry-km').innerText = Math.round(currentKm).toLocaleString('es-ES') + ' km';
+      document.getElementById('telemetry-au').innerText = currentAU.toFixed(2) + ' AU';
+      document.getElementById('telemetry-ltt').innerText = `${hours}h ${minutes}m ${seconds}s`;
+    }
+    setInterval(updateLiveTelemetry, 1000);
+
+    // Inicialización al cargar la página
+    resizeCanvas();
+    animateStars();
+    updateSlide();
+    updateLiveTelemetry();
+  </script>
+</body>
+</html>
