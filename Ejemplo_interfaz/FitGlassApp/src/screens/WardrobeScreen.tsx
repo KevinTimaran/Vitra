@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { GlassCard } from '../components/GlassCard';
 
 export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
@@ -11,16 +12,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            shadowColor: isDark ? '#000000' : '#888888',
-          },
-        ]}
-      >
+      <GlassCard style={styles.card}>
         <View style={[styles.iconCircle, { backgroundColor: colors.surfaceSubtle }]}>
           <Ionicons name="shirt-outline" size={38} color={colors.primaryText} />
         </View>
@@ -51,7 +43,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
             {t('wardrobe.addGarmentBtn')}
           </Text>
         </TouchableOpacity>
-      </View>
+      </GlassCard>
     </View>
   );
 };
