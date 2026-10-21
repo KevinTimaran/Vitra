@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
+import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton } from '../components/Buttons';
 import { Garment } from '../types';
 import { GarmentAnalysis } from '../services/ai/types';
@@ -41,7 +42,7 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
   const [brand, setBrand] = useState('Unknown Brand');
   const [material, setMaterial] = useState('Unknown Material');
 
-  const defaultColorHex = initialAnalysis?.dominantColor || '#27272A';
+  const defaultColorHex = initialAnalysis?.dominantColor || '#2E3238';
   const defaultColorName = initialAnalysis?.dominantColor ? 'Extracted Color' : 'Anthracite Fog';
 
   const [selectedColor, setSelectedColor] = useState<{ name: string; hex: string }>({
@@ -56,10 +57,10 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
 
   const colorCandidates = [
     { name: defaultColorName, hex: defaultColorHex },
-    { name: 'Anthracite Fog', hex: '#27272A' },
-    { name: 'Slate Umber', hex: '#3F3F46' },
-    { name: 'Cool Greige', hex: '#71717A' },
-    { name: 'Mineral White', hex: '#F4F4F5' },
+    { name: 'Tiffany Blue', hex: '#8EB6C7' },
+    { name: 'Powdered Mint', hex: '#9EBCB3' },
+    { name: 'Slate Gray', hex: '#4A5157' },
+    { name: 'Mineral White', hex: '#F9F9F7' },
   ];
 
   const handleSave = async () => {
@@ -114,12 +115,7 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* Large Garment Canvas / Image Object Area */}
-        <View
-          style={[
-            styles.garmentCanvas,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.garmentCanvas}>
           {imageUri ? (
             <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
           ) : (
@@ -134,19 +130,19 @@ export const GarmentDetailsScreen: React.FC<GarmentDetailsScreenProps> = ({
                 <Ionicons
                   name={category === 'Outerwear' ? 'layers-outline' : 'shirt-outline'}
                   size={54}
-                  color={selectedColor.hex === '#FFFFFF' ? '#A1A1AA' : colors.primaryText}
+                  color={selectedColor.hex === '#FFFFFF' ? '#71787C' : colors.primaryText}
                 />
               </View>
             </>
           )}
 
-          <View style={[styles.matteTag, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
-            <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+          <View style={[styles.matteTag, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}>
+            <Ionicons name="checkmark-circle" size={13} color={colors.primary} />
             <Text style={[styles.matteTagText, { color: colors.primaryText }]}>
               {t('garmentDetails.matteTag')}
             </Text>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Editable Form Group */}
         <View style={styles.formSection}>
@@ -366,14 +362,15 @@ const styles = StyleSheet.create({
     bottom: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     gap: 4,
   },
   matteTagText: {
     ...Typography.micro,
+    fontFamily: Typography.outfit.bold,
     fontSize: 9,
     fontWeight: '700',
   },
@@ -383,15 +380,17 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...Typography.micro,
-    letterSpacing: 1,
+    fontFamily: Typography.outfit.bold,
+    letterSpacing: 1.2,
     marginBottom: Spacing.xs,
   },
   textInput: {
-    height: 44,
-    borderRadius: Radius.md,
+    height: 46,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     paddingHorizontal: Spacing.md,
     ...Typography.subhead,
+    fontFamily: Typography.outfit.regular,
   },
   pillsRow: {
     flexDirection: 'row',
@@ -401,15 +400,17 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: Spacing.md,
     paddingVertical: 7,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     borderWidth: 1,
   },
   pillActive: {},
   pillText: {
     ...Typography.caption,
+    fontFamily: Typography.outfit.medium,
     fontWeight: '500',
   },
   pillTextActive: {
+    fontFamily: Typography.outfit.bold,
     fontWeight: '700',
   },
   swatchesRow: {
@@ -420,9 +421,9 @@ const styles = StyleSheet.create({
   swatchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 6,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     gap: 6,
   },
@@ -436,6 +437,7 @@ const styles = StyleSheet.create({
   },
   swatchTitle: {
     ...Typography.micro,
+    fontFamily: Typography.outfit.medium,
     fontSize: 10,
     fontWeight: '500',
   },

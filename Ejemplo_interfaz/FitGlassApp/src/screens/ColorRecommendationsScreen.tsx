@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
+import { GlassCard } from '../components/GlassCard';
 import { Garment } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -50,14 +51,9 @@ export const ColorRecommendationsScreen: React.FC<ColorRecommendationsScreenProp
         showsVerticalScrollIndicator={false}
       >
         {/* Harmony Context Badge */}
-        <View
-          style={[
-            styles.harmonyHeaderCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.harmonyHeaderCard}>
           <View style={[styles.harmonyIconBox, { backgroundColor: colors.surfaceSubtle }]}>
-            <Ionicons name="color-filter-outline" size={22} color={colors.primaryText} />
+            <Ionicons name="color-filter-outline" size={22} color={colors.primary} />
           </View>
           <View style={styles.harmonyInfo}>
             <Text style={[styles.harmonyBadgeTitle, { color: colors.primaryText }]}>
@@ -67,11 +63,11 @@ export const ColorRecommendationsScreen: React.FC<ColorRecommendationsScreenProp
               {harmoniousGarments.length} {t('colorRecommendations.matchDesc')}
             </Text>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Section 1: Works well with your palette */}
         <View style={styles.sectionTitleArea}>
-          <Text style={[Typography.title2, styles.sectionTitle, { color: colors.primaryText }]}>
+          <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
             {t('colorRecommendations.worksWellTitle')}
           </Text>
           <Text style={[styles.sectionCaption, { color: colors.secondaryText }]}>
@@ -83,73 +79,72 @@ export const ColorRecommendationsScreen: React.FC<ColorRecommendationsScreenProp
           {harmoniousGarments.map((garment) => (
             <TouchableOpacity
               key={garment.id}
-              style={[
-                styles.garmentCard,
-                { backgroundColor: colors.surface, borderColor: colors.borderLight },
-              ]}
+              style={styles.garmentCardWrapper}
               onPress={() => onSelectGarment(garment)}
               activeOpacity={0.88}
             >
-              <View style={[styles.cardVisualArea, { backgroundColor: colors.surfaceSubtle }]}>
-                <View
-                  style={[
-                    styles.swatchBackdrop,
-                    { backgroundColor: garment.colorHex },
-                  ]}
-                />
-                <Ionicons
-                  name={
-                    garment.category === 'Tops'
-                      ? 'shirt-outline'
-                      : garment.category === 'Outerwear'
-                      ? 'layers-outline'
-                      : garment.category === 'Pants'
-                      ? 'reorder-two-outline'
-                      : 'footsteps-outline'
-                  }
-                  size={32}
-                  color={garment.colorHex === '#FFFFFF' ? '#A1A1AA' : '#27272A'}
-                />
-
-                <View style={styles.harmonyScorePill}>
-                  <Ionicons name="sparkles" size={10} color="#10B981" />
-                  <Text style={styles.harmonyScoreText}>HARMONY</Text>
-                </View>
-              </View>
-
-              <View style={styles.cardDetails}>
-                <Text style={[styles.cardGarmentName, { color: colors.primaryText }]} numberOfLines={1}>
-                  {garment.name}
-                </Text>
-                <View style={styles.swatchRow}>
+              <GlassCard style={styles.garmentCard}>
+                <View style={[styles.cardVisualArea, { backgroundColor: colors.surfaceSubtle }]}>
                   <View
                     style={[
-                      styles.colorIndicatorDot,
+                      styles.swatchBackdrop,
                       { backgroundColor: garment.colorHex },
                     ]}
                   />
-                  <Text style={[styles.cardMetaText, { color: colors.secondaryText }]} numberOfLines={1}>
-                    {garment.colorName} · {garment.category}
-                  </Text>
-                </View>
-              </View>
+                  <Ionicons
+                    name={
+                      garment.category === 'Tops'
+                        ? 'shirt-outline'
+                        : garment.category === 'Outerwear'
+                        ? 'layers-outline'
+                        : garment.category === 'Pants'
+                        ? 'reorder-two-outline'
+                        : 'footsteps-outline'
+                    }
+                    size={32}
+                    color={garment.colorHex === '#FFFFFF' ? '#71787C' : colors.primaryText}
+                  />
 
-              <TouchableOpacity
-                style={[styles.quickTryButton, { borderTopColor: colors.borderLight, backgroundColor: colors.surfaceSubtle }]}
-                onPress={() => onTryOn(garment)}
-              >
-                <Text style={[styles.quickTryText, { color: colors.primaryText }]}>
-                  {t('colorRecommendations.tryOn')} 3D
-                </Text>
-                <Ionicons name="arrow-forward" size={12} color={colors.primaryText} />
-              </TouchableOpacity>
+                  <View style={styles.harmonyScorePill}>
+                    <Ionicons name="sparkles" size={10} color={colors.primary} />
+                    <Text style={[styles.harmonyScoreText, { color: colors.primary }]}>HARMONY</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDetails}>
+                  <Text style={[styles.cardGarmentName, { color: colors.primaryText }]} numberOfLines={1}>
+                    {garment.name}
+                  </Text>
+                  <View style={styles.swatchRow}>
+                    <View
+                      style={[
+                        styles.colorIndicatorDot,
+                        { backgroundColor: garment.colorHex },
+                      ]}
+                    />
+                    <Text style={[styles.cardMetaText, { color: colors.secondaryText }]} numberOfLines={1}>
+                      {garment.colorName} · {garment.category}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.quickTryButton, { borderTopColor: colors.borderLight, backgroundColor: colors.surfaceSubtle }]}
+                  onPress={() => onTryOn(garment)}
+                >
+                  <Text style={[styles.quickTryText, { color: colors.primaryText }]}>
+                    {t('colorRecommendations.tryOn')} 3D
+                  </Text>
+                  <Ionicons name="arrow-forward" size={12} color={colors.primaryText} />
+                </TouchableOpacity>
+              </GlassCard>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Section 2: Explore Other Tones */}
         <View style={[styles.sectionTitleArea, { marginTop: Spacing.xl }]}>
-          <Text style={[Typography.title2, styles.sectionTitle, { color: colors.primaryText }]}>
+          <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
             {t('colorRecommendations.otherTonesTitle')}
           </Text>
           <Text style={[styles.sectionCaption, { color: colors.secondaryText }]}>
@@ -161,60 +156,58 @@ export const ColorRecommendationsScreen: React.FC<ColorRecommendationsScreenProp
           {otherTonesGarments.map((garment) => (
             <TouchableOpacity
               key={garment.id}
-              style={[
-                styles.garmentCard,
-                styles.garmentCardSecondary,
-                { backgroundColor: colors.surface, borderColor: colors.borderLight },
-              ]}
+              style={styles.garmentCardWrapper}
               onPress={() => onSelectGarment(garment)}
               activeOpacity={0.88}
             >
-              <View style={[styles.cardVisualArea, { backgroundColor: colors.surfaceSubtle }]}>
-                <View
-                  style={[
-                    styles.swatchBackdrop,
-                    { backgroundColor: garment.colorHex },
-                  ]}
-                />
-                <Ionicons
-                  name={
-                    garment.category === 'Outerwear'
-                      ? 'layers-outline'
-                      : garment.category === 'Pants'
-                      ? 'reorder-two-outline'
-                      : 'shirt-outline'
-                  }
-                  size={32}
-                  color={garment.colorHex === '#FFFFFF' ? '#A1A1AA' : '#27272A'}
-                />
-              </View>
-
-              <View style={styles.cardDetails}>
-                <Text style={[styles.cardGarmentName, { color: colors.primaryText }]} numberOfLines={1}>
-                  {garment.name}
-                </Text>
-                <View style={styles.swatchRow}>
+              <GlassCard style={styles.garmentCard}>
+                <View style={[styles.cardVisualArea, { backgroundColor: colors.surfaceSubtle }]}>
                   <View
                     style={[
-                      styles.colorIndicatorDot,
+                      styles.swatchBackdrop,
                       { backgroundColor: garment.colorHex },
                     ]}
                   />
-                  <Text style={[styles.cardMetaText, { color: colors.secondaryText }]} numberOfLines={1}>
-                    {garment.colorName} · {garment.category}
-                  </Text>
+                  <Ionicons
+                    name={
+                      garment.category === 'Outerwear'
+                        ? 'layers-outline'
+                        : garment.category === 'Pants'
+                        ? 'reorder-two-outline'
+                        : 'shirt-outline'
+                    }
+                    size={32}
+                    color={garment.colorHex === '#FFFFFF' ? '#71787C' : colors.primaryText}
+                  />
                 </View>
-              </View>
 
-              <TouchableOpacity
-                style={[styles.quickTryButton, { borderTopColor: colors.borderLight, backgroundColor: colors.surfaceSubtle }]}
-                onPress={() => onTryOn(garment)}
-              >
-                <Text style={[styles.quickTryText, { color: colors.primaryText }]}>
-                  {t('colorRecommendations.tryOn')} 3D
-                </Text>
-                <Ionicons name="arrow-forward" size={12} color={colors.primaryText} />
-              </TouchableOpacity>
+                <View style={styles.cardDetails}>
+                  <Text style={[styles.cardGarmentName, { color: colors.primaryText }]} numberOfLines={1}>
+                    {garment.name}
+                  </Text>
+                  <View style={styles.swatchRow}>
+                    <View
+                      style={[
+                        styles.colorIndicatorDot,
+                        { backgroundColor: garment.colorHex },
+                      ]}
+                    />
+                    <Text style={[styles.cardMetaText, { color: colors.secondaryText }]} numberOfLines={1}>
+                      {garment.colorName} · {garment.category}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.quickTryButton, { borderTopColor: colors.borderLight, backgroundColor: colors.surfaceSubtle }]}
+                  onPress={() => onTryOn(garment)}
+                >
+                  <Text style={[styles.quickTryText, { color: colors.primaryText }]}>
+                    {t('colorRecommendations.tryOn')} 3D
+                  </Text>
+                  <Ionicons name="arrow-forward" size={12} color={colors.primaryText} />
+                </TouchableOpacity>
+              </GlassCard>
             </TouchableOpacity>
           ))}
         </View>
@@ -238,7 +231,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -255,10 +247,12 @@ const styles = StyleSheet.create({
   },
   harmonyBadgeTitle: {
     ...Typography.subhead,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '700',
   },
   harmonyBadgeDesc: {
     ...Typography.caption,
+    fontFamily: Typography.outfit.regular,
     marginTop: 2,
     lineHeight: 16,
   },
@@ -267,25 +261,29 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
     marginBottom: Spacing.md,
   },
-  sectionTitle: {},
+  sectionTitle: {
+    ...Typography.headlineMd,
+    fontFamily: Typography.bodoni.bold,
+  },
   sectionCaption: {
     ...Typography.caption,
+    fontFamily: Typography.outfit.regular,
     marginTop: 2,
   },
   garmentGrid: {
     paddingHorizontal: Spacing.xl,
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: Spacing.md,
   },
-  garmentCard: {
+  garmentCardWrapper: {
     width: '47.5%',
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    overflow: 'hidden',
   },
-  garmentCardSecondary: {
-    opacity: 0.88,
+  garmentCard: {
+    width: '100%',
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
   },
   cardVisualArea: {
     height: 120,
@@ -308,20 +306,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
   },
   harmonyScoreText: {
+    fontFamily: Typography.outfit.bold,
     fontSize: 8,
     fontWeight: '700',
-    color: '#10B981',
   },
   cardDetails: {
     padding: Spacing.sm,
   },
   cardGarmentName: {
     ...Typography.caption,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   swatchRow: {
@@ -337,6 +336,7 @@ const styles = StyleSheet.create({
   },
   cardMetaText: {
     ...Typography.micro,
+    fontFamily: Typography.outfit.regular,
     fontSize: 9,
     flex: 1,
   },
@@ -344,12 +344,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 4,
   },
   quickTryText: {
     ...Typography.micro,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
     fontSize: 10,
   },
