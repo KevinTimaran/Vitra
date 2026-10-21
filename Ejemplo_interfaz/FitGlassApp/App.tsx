@@ -7,6 +7,20 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
+import {
+  useFonts,
+  BodoniModa_400Regular,
+  BodoniModa_500Medium,
+  BodoniModa_600SemiBold,
+  BodoniModa_700Bold,
+} from '@expo-google-fonts/bodoni-moda';
+import {
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+} from '@expo-google-fonts/outfit';
+
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider, useTranslation } from './src/contexts/LanguageContext';
 import { UserProvider, useUser } from './src/contexts/UserContext';
@@ -22,6 +36,13 @@ import { AddGarmentScreen } from './src/screens/AddGarmentScreen';
 import { GarmentProcessingScreen } from './src/screens/GarmentProcessingScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { BodyProfileScreen } from './src/screens/BodyProfileScreen';
+import { ColorRecommendationsScreen } from './src/screens/ColorRecommendationsScreen';
+import { FitResultScreen } from './src/screens/FitResultScreen';
+import { Garment3DPreviewScreen } from './src/screens/Garment3DPreviewScreen';
+import { GarmentDetailsScreen } from './src/screens/GarmentDetailsScreen';
+import { GarmentViewScreen } from './src/screens/GarmentViewScreen';
+import { OutfitBuilderScreen } from './src/screens/OutfitBuilderScreen';
+import { SavedLookScreen } from './src/screens/SavedLookScreen';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -44,25 +65,25 @@ function AppTabs() {
           borderBottomColor: colors.borderLight,
         },
         headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 17,
+          fontFamily: 'BodoniModa_600SemiBold',
+          fontSize: 18,
           color: colors.primaryText,
           letterSpacing: -0.2,
         },
         headerTitleAlign: 'center',
-        tabBarActiveTintColor: colors.primaryText,
+        tabBarActiveTintColor: colors.cta,
         tabBarInactiveTintColor: colors.tertiaryText,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.borderLight,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 64,
+          paddingBottom: 10,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
+          fontFamily: 'Outfit_500Medium',
           fontSize: 11,
-          fontWeight: '500',
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
@@ -222,6 +243,62 @@ function NavigationRoot() {
                 animation: 'fade',
               }}
             />
+            <Stack.Screen
+              name="ColorRecommendations"
+              component={ColorRecommendationsScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="FitResult"
+              component={FitResultScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="Garment3DPreview"
+              component={Garment3DPreviewScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="GarmentDetails"
+              component={GarmentDetailsScreen as any}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen
+              name="GarmentView"
+              component={GarmentViewScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="OutfitBuilder"
+              component={OutfitBuilderScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="SavedLook"
+              component={SavedLookScreen as any}
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
           </Stack.Group>
         )}
       </Stack.Navigator>
@@ -230,6 +307,32 @@ function NavigationRoot() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    BodoniModa_400Regular,
+    BodoniModa_500Medium,
+    BodoniModa_600SemiBold,
+    BodoniModa_700Bold,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#F9F9F7',
+        }}
+      >
+        <ActivityIndicator size="large" color="#3C6473" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>
