@@ -7,8 +7,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
+import { GlassCard } from '../components/GlassCard';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -56,7 +57,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
             ]}
           >
-            <Ionicons name="sparkles" size={12} color={colors.primaryText} />
+            <Ionicons name="sparkles" size={12} color={colors.primary} />
             <Text style={[styles.brandBadge, { color: colors.secondaryText }]}>
               VITRA ATELIER · IDENTIDAD BIOMÉTRICA
             </Text>
@@ -65,19 +66,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
         {/* Brand Headline */}
         <View style={styles.brandSection}>
-          <Text style={[styles.wordmark, { color: colors.primaryText }]}>FITGLASS</Text>
+          <Text style={[styles.wordmark, { color: colors.primaryText }]}>VITRA</Text>
           <Text style={[styles.tagline, { color: colors.secondaryText }]}>
             Crea tu identidad biométrica con Inteligencia Artificial: Avatar 3D y Colorimetría de Precisión.
           </Text>
         </View>
 
         {/* Abstract 3D Optical Hologram Box */}
-        <View
-          style={[
-            styles.visualCanvas,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.visualCanvas}>
           {/* Subtle Matrix Lines */}
           <View style={styles.gridBox}>
             <View style={[styles.gridLineV, { backgroundColor: colors.borderLight }]} />
@@ -91,32 +87,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             <View
               style={[
                 styles.abstractHead,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+                { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
               ]}
             >
-              <View style={[styles.faceTarget, { borderColor: colors.primaryText }]} />
+              <View style={[styles.faceTarget, { borderColor: colors.tiffany }]} />
             </View>
             <View
               style={[
                 styles.abstractTorso,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+                { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
               ]}
             >
-              <View style={[styles.measurementRing, { borderColor: colors.secondaryText }]} />
+              <View style={[styles.measurementRing, { borderColor: colors.tiffany }]} />
               <View
                 style={[
                   styles.measurementRing,
-                  { top: 52, width: 80, borderColor: colors.secondaryText },
+                  { top: 52, width: 80, borderColor: colors.tiffany },
                 ]}
               />
             </View>
-            <View style={[styles.verticalAxis, { backgroundColor: colors.border }]} />
+            <View style={[styles.verticalAxis, { backgroundColor: colors.borderLight }]} />
 
             {/* Caliper ticks */}
-            <View style={[styles.caliperTick, { top: 65, left: 6, backgroundColor: colors.primaryText }]} />
-            <View style={[styles.caliperTick, { top: 65, right: 6, backgroundColor: colors.primaryText }]} />
-            <View style={[styles.caliperTick, { top: 105, left: 14, backgroundColor: colors.primaryText }]} />
-            <View style={[styles.caliperTick, { top: 105, right: 14, backgroundColor: colors.primaryText }]} />
+            <View style={[styles.caliperTick, { top: 65, left: 6, backgroundColor: colors.tiffany }]} />
+            <View style={[styles.caliperTick, { top: 65, right: 6, backgroundColor: colors.tiffany }]} />
+            <View style={[styles.caliperTick, { top: 105, left: 14, backgroundColor: colors.tiffany }]} />
+            <View style={[styles.caliperTick, { top: 105, right: 14, backgroundColor: colors.tiffany }]} />
           </View>
 
           {/* Calibration Overlay Tag */}
@@ -124,28 +120,23 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             style={[
               styles.calibrationTag,
               {
-                backgroundColor: isDark ? 'rgba(39, 39, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                borderColor: colors.border,
+                backgroundColor: colors.surfaceSubtle,
+                borderColor: colors.borderLight,
               },
             ]}
           >
-            <Ionicons name="scan-outline" size={13} color={colors.primaryText} />
+            <Ionicons name="scan-outline" size={13} color={colors.primary} />
             <Text style={[styles.calibrationText, { color: colors.primaryText }]}>
               ESCÁNER 1:1 · GEMINI VISION & TRIPO 3D
             </Text>
           </View>
-        </View>
+        </GlassCard>
 
         {/* 3 Key Pillars of Phase 4 */}
         <View style={styles.pillarsContainer}>
-          <View
-            style={[
-              styles.pillarCard,
-              { backgroundColor: colors.surface, borderColor: colors.borderLight },
-            ]}
-          >
+          <GlassCard style={styles.pillarCard}>
             <View style={[styles.pillarIconBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
+              <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
             </View>
             <View style={styles.pillarTextContent}>
               <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
@@ -155,16 +146,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 Gemini Vision analiza tu subtono de piel y cabello para definir tu paleta HEX de máxima armonía.
               </Text>
             </View>
-          </View>
+          </GlassCard>
 
-          <View
-            style={[
-              styles.pillarCard,
-              { backgroundColor: colors.surface, borderColor: colors.borderLight },
-            ]}
-          >
+          <GlassCard style={styles.pillarCard}>
             <View style={[styles.pillarIconBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <Ionicons name="cube-outline" size={20} color={colors.primaryText} />
+              <Ionicons name="cube-outline" size={20} color={colors.primary} />
             </View>
             <View style={styles.pillarTextContent}>
               <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
@@ -174,16 +160,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 Reconstrucción tridimensional de tu cuerpo con Tripo3D en un archivo interactivo .glb.
               </Text>
             </View>
-          </View>
+          </GlassCard>
 
-          <View
-            style={[
-              styles.pillarCard,
-              { backgroundColor: colors.surface, borderColor: colors.borderLight },
-            ]}
-          >
+          <GlassCard style={styles.pillarCard}>
             <View style={[styles.pillarIconBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <Ionicons name="sparkles-outline" size={20} color={colors.primaryText} />
+              <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
             </View>
             <View style={styles.pillarTextContent}>
               <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
@@ -193,7 +174,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 Pruébate cualquier prenda de tu armario sobre tu gemelo digital con drapeado realista.
               </Text>
             </View>
-          </View>
+          </GlassCard>
         </View>
       </ScrollView>
 
@@ -251,12 +232,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   wordmark: {
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: 6,
+    ...Typography.displayLg,
+    fontFamily: Typography.bodoni.bold,
+    letterSpacing: 8,
+    textAlign: 'center',
   },
   tagline: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.regular,
     textAlign: 'center',
     marginTop: Spacing.xs,
     maxWidth: 320,

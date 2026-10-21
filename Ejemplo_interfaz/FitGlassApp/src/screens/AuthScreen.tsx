@@ -23,13 +23,13 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
 import { loginUser, registerUser, setupUserProfile } from '../services/auth/authClient';
-import { Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Paleta de gradiente suave (púrpura, rosa, durazno)
-const BACKGROUND_GRADIENT = ['#E0C3FC', '#F8B4D9', '#FFC3A0'] as const;
-const BUTTON_GRADIENT = ['#8B5CF6', '#EC4899', '#FB923C'] as const;
+// Paleta Atelier: Perla difusa, Tiffany Blue y Teal
+const BACKGROUND_GRADIENT = ['#F9F9F7', '#EEF4F6', '#E2ECF0'] as const;
+const BUTTON_GRADIENT = ['#3C6473', '#2E505E'] as const;
 
 export const AuthScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
@@ -293,7 +293,7 @@ export const AuthScreen: React.FC = () => {
             {/* Cabecera / Marca */}
             <View style={styles.brandHeader}>
               <View style={styles.brandBadge}>
-                <Ionicons name="sparkles" size={14} color="#6B21A8" />
+                <Ionicons name="sparkles" size={14} color="#3C6473" />
                 <Text style={styles.brandBadgeText}>HAUTE COUTURE DIGITAL</Text>
               </View>
             </View>
@@ -302,7 +302,7 @@ export const AuthScreen: React.FC = () => {
             <View style={styles.heroIllustrationContainer}>
               <View style={styles.outerGlowCircle}>
                 <View style={styles.innerGlowCircle}>
-                  <Ionicons name="shirt-outline" size={72} color="#4C1D95" />
+                  <Ionicons name="shirt-outline" size={72} color="#3C6473" />
                   <View style={styles.floatingGemBadge}>
                     <Ionicons name="cube-outline" size={20} color="#FFFFFF" />
                   </View>
@@ -325,7 +325,7 @@ export const AuthScreen: React.FC = () => {
                 activeOpacity={0.88}
               >
                 <Text style={styles.btnCreateAccountText}>{t('auth.createAccount')}</Text>
-                <Ionicons name="arrow-forward" size={18} color="#1E1B4B" style={{ marginLeft: 6 }} />
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
               </TouchableOpacity>
 
               {/* Botón Iniciar Sesión */}
@@ -371,7 +371,7 @@ export const AuthScreen: React.FC = () => {
                 activeOpacity={0.7}
                 accessibilityLabel={t('auth.back')}
               >
-                <Ionicons name="arrow-back" size={22} color="#1E1B4B" />
+                <Ionicons name="arrow-back" size={22} color="#1A1C1B" />
               </TouchableOpacity>
 
               <Text style={styles.topBrandName}>VITRA</Text>
@@ -412,10 +412,10 @@ export const AuthScreen: React.FC = () => {
                               styles.wizardPill,
                               {
                                 backgroundColor: isActive
-                                  ? '#7C3AED'
+                                  ? '#3C6473'
                                   : isPassed
-                                  ? '#10B981'
-                                  : '#F1F5F9',
+                                  ? '#8EB6C7'
+                                  : '#EEEEEC',
                               },
                             ]}
                           >
@@ -425,7 +425,7 @@ export const AuthScreen: React.FC = () => {
                               <Text
                                 style={[
                                   styles.wizardPillText,
-                                  { color: isActive ? '#FFFFFF' : '#64748B' },
+                                  { color: isActive ? '#FFFFFF' : '#71787C' },
                                 ]}
                               >
                                 {step}
@@ -765,7 +765,7 @@ export const AuthScreen: React.FC = () => {
                     {/* 1. Fotografía Facial */}
                     <View style={styles.biometricSection}>
                       <View style={styles.biometricHeaderRow}>
-                        <Ionicons name="color-palette-outline" size={18} color="#7C3AED" />
+                        <Ionicons name="color-palette-outline" size={18} color="#3C6473" />
                         <Text style={styles.biometricSectionTitle}>{t('auth.facialPhoto')}</Text>
                       </View>
                       <Text style={styles.biometricSectionDesc}>{t('auth.facialDesc')}</Text>
@@ -775,7 +775,7 @@ export const AuthScreen: React.FC = () => {
                           <View style={styles.circularFacePreview}>
                             <Image source={{ uri: faceImageUri }} style={styles.circularFaceImage} />
                             <View style={styles.badgeCheckOverlay}>
-                              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                              <Ionicons name="checkmark-circle" size={20} color="#8EB6C7" />
                             </View>
                           </View>
                         ) : (
@@ -790,7 +790,7 @@ export const AuthScreen: React.FC = () => {
                             onPress={() => handlePickImage('face', 'camera')}
                             activeOpacity={0.75}
                           >
-                            <Ionicons name="camera-outline" size={16} color="#1E1B4B" />
+                            <Ionicons name="camera-outline" size={16} color="#1A1C1B" />
                             <Text style={styles.mediaActionText}>{t('auth.openCamera')}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -798,7 +798,7 @@ export const AuthScreen: React.FC = () => {
                             onPress={() => handlePickImage('face', 'gallery')}
                             activeOpacity={0.75}
                           >
-                            <Ionicons name="images-outline" size={16} color="#1E1B4B" />
+                            <Ionicons name="images-outline" size={16} color="#1A1C1B" />
                             <Text style={styles.mediaActionText}>{t('auth.openGallery')}</Text>
                           </TouchableOpacity>
                         </View>
@@ -808,7 +808,7 @@ export const AuthScreen: React.FC = () => {
                     {/* 2. Fotografía Corporal */}
                     <View style={styles.biometricSection}>
                       <View style={styles.biometricHeaderRow}>
-                        <Ionicons name="body-outline" size={18} color="#7C3AED" />
+                        <Ionicons name="body-outline" size={18} color="#3C6473" />
                         <Text style={styles.biometricSectionTitle}>{t('auth.bodyPhoto')}</Text>
                       </View>
                       <Text style={styles.biometricSectionDesc}>{t('auth.bodyDesc')}</Text>
@@ -818,7 +818,7 @@ export const AuthScreen: React.FC = () => {
                           <View style={styles.rectangularBodyPreview}>
                             <Image source={{ uri: bodyImageUri }} style={styles.rectangularBodyImage} />
                             <View style={styles.badgeCheckOverlay}>
-                              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                              <Ionicons name="checkmark-circle" size={20} color="#8EB6C7" />
                             </View>
                           </View>
                         ) : (
@@ -833,7 +833,7 @@ export const AuthScreen: React.FC = () => {
                             onPress={() => handlePickImage('body', 'camera')}
                             activeOpacity={0.75}
                           >
-                            <Ionicons name="camera-outline" size={16} color="#1E1B4B" />
+                            <Ionicons name="camera-outline" size={16} color="#1A1C1B" />
                             <Text style={styles.mediaActionText}>{t('auth.openCamera')}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -841,7 +841,7 @@ export const AuthScreen: React.FC = () => {
                             onPress={() => handlePickImage('body', 'gallery')}
                             activeOpacity={0.75}
                           >
-                            <Ionicons name="images-outline" size={16} color="#1E1B4B" />
+                            <Ionicons name="images-outline" size={16} color="#1A1C1B" />
                             <Text style={styles.mediaActionText}>{t('auth.openGallery')}</Text>
                           </TouchableOpacity>
                         </View>
@@ -854,7 +854,7 @@ export const AuthScreen: React.FC = () => {
                       style={styles.sampleBiometricsBtn}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="sparkles" size={14} color="#7C3AED" />
+                      <Ionicons name="sparkles" size={14} color="#3C6473" />
                       <Text style={styles.sampleBiometricsText}>Cargar fotografías de muestra (Demo)</Text>
                     </TouchableOpacity>
 
@@ -934,17 +934,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: 'rgba(193, 199, 203, 0.5)',
   },
   brandBadgeText: {
+    fontFamily: Typography.outfit.bold,
     fontSize: 11,
     fontWeight: '700',
-    color: '#581C87',
+    color: '#3C6473',
     letterSpacing: 1.5,
   },
   heroIllustrationContainer: {
@@ -956,12 +957,12 @@ const styles = StyleSheet.create({
     width: 170,
     height: 170,
     borderRadius: 85,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(142, 182, 199, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#3C6473',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 24,
     elevation: 8,
   },
@@ -983,12 +984,12 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#3C6473',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    shadowColor: '#000000',
+    shadowColor: '#2E3238',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -1000,18 +1001,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   welcomeTitle: {
+    fontFamily: Typography.bodoni.bold,
     fontSize: 32,
-    fontWeight: '800',
-    color: '#1E1B4B',
+    fontWeight: '700',
+    color: '#1A1C1B',
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
     marginBottom: Spacing.sm,
   },
   welcomeSubtitle: {
+    fontFamily: Typography.outfit.regular,
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '500',
-    color: 'rgba(30, 27, 75, 0.82)',
+    color: '#41484B',
     textAlign: 'center',
     maxWidth: 320,
   },
@@ -1021,44 +1023,47 @@ const styles = StyleSheet.create({
   },
   btnCreateAccount: {
     height: 52,
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radius.full,
+    backgroundColor: '#3C6473',
+    borderRadius: Radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1E1B4B',
+    shadowColor: '#2E3238',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 4,
   },
   btnCreateAccountText: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1E1B4B',
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   btnSignInOutline: {
     height: 52,
     backgroundColor: 'transparent',
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: '#3C6473',
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnSignInOutlineText: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#3C6473',
   },
   demoLinkButton: {
     alignSelf: 'center',
     paddingVertical: 6,
   },
   demoLinkText: {
+    fontFamily: Typography.outfit.medium,
     fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(30, 27, 75, 0.7)',
+    fontWeight: '500',
+    color: '#41484B',
     textDecorationLine: 'underline',
   },
 
@@ -1081,22 +1086,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   topBrandName: {
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 2,
-    color: '#1E1B4B',
+    fontFamily: Typography.bodoni.bold,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 3,
+    color: '#1A1C1B',
   },
   whiteBottomSheetCard: {
     height: SCREEN_HEIGHT * 0.78,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    shadowColor: '#000000',
+    shadowColor: '#2E3238',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
@@ -1111,7 +1117,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E2E3E1',
     alignSelf: 'center',
     marginBottom: Spacing.md,
   },
@@ -1119,17 +1125,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   sheetTitle: {
+    fontFamily: Typography.bodoni.bold,
     fontSize: 24,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '700',
+    color: '#1A1C1B',
     letterSpacing: -0.3,
     marginBottom: 4,
   },
   sheetSubtitle: {
+    fontFamily: Typography.outfit.regular,
     fontSize: 14,
-    color: '#64748B',
+    color: '#41484B',
     lineHeight: 20,
-    fontWeight: '400',
   },
 
   // Wizard Stepper
@@ -1149,6 +1156,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wizardPillText: {
+    fontFamily: Typography.outfit.bold,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1165,6 +1173,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   alertErrorText: {
+    fontFamily: Typography.outfit.regular,
     fontSize: 13,
     color: '#DC2626',
     flex: 1,
@@ -1181,6 +1190,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   alertSuccessText: {
+    fontFamily: Typography.outfit.regular,
     fontSize: 13,
     color: '#15803D',
     flex: 1,
@@ -1193,16 +1203,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   inputLabel: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: '#41484B',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F9F9F7',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#C1C7CB',
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
     height: 48,
@@ -1211,10 +1222,11 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   textInput: {
+    fontFamily: Typography.outfit.regular,
     flex: 1,
     height: 48,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#1A1C1B',
   },
   passwordToggle: {
     padding: 6,
@@ -1235,46 +1247,48 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: '#94A3B8',
+    borderColor: '#71787C',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
   checkboxBoxActive: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#8B5CF6',
+    backgroundColor: '#3C6473',
+    borderColor: '#3C6473',
   },
   checkboxLabel: {
+    fontFamily: Typography.outfit.regular,
     fontSize: 13,
-    color: '#475569',
-    fontWeight: '500',
+    color: '#41484B',
   },
   forgotPasswordText: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 13,
     fontWeight: '600',
-    color: '#7C3AED',
+    color: '#3C6473',
   },
   submitButtonTouchable: {
     marginTop: Spacing.sm,
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#2E3238',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 4,
   },
   submitGradientPill: {
     height: 50,
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
   },
   submitButtonText: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
@@ -1288,32 +1302,33 @@ const styles = StyleSheet.create({
   btnSecondaryStep: {
     height: 50,
     paddingHorizontal: Spacing.lg,
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#C1C7CB',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F9F9F7',
   },
   btnSecondaryStepText: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
+    color: '#41484B',
   },
   btnPrimaryStep: {
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     overflow: 'hidden',
   },
 
   // Biometrics Section
   biometricSection: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F9F9F7',
     borderRadius: Radius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(193, 199, 203, 0.5)',
     gap: Spacing.xs,
   },
   biometricHeaderRow: {
@@ -1322,13 +1337,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   biometricSectionTitle: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '600',
+    color: '#1A1C1B',
   },
   biometricSectionDesc: {
+    fontFamily: Typography.outfit.regular,
     fontSize: 12,
-    color: '#64748B',
+    color: '#41484B',
     marginBottom: Spacing.xs,
   },
   biometricPreviewRow: {
@@ -1341,7 +1358,7 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: 34,
     borderWidth: 2,
-    borderColor: '#7C3AED',
+    borderColor: '#8EB6C7',
     position: 'relative',
     overflow: 'visible',
   },
@@ -1354,7 +1371,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#EEEEEC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1363,7 +1380,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: Radius.md,
     borderWidth: 2,
-    borderColor: '#7C3AED',
+    borderColor: '#8EB6C7',
     position: 'relative',
   },
   rectangularBodyImage: {
@@ -1375,7 +1392,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 80,
     borderRadius: Radius.md,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#EEEEEC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1395,16 +1412,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 34,
+    height: 36,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: Radius.md,
+    borderColor: '#C1C7CB',
+    borderRadius: Radius.pill,
   },
   mediaActionText: {
+    fontFamily: Typography.outfit.medium,
     fontSize: 12,
-    fontWeight: '600',
-    color: '#1E1B4B',
+    fontWeight: '500',
+    color: '#1A1C1B',
   },
   sampleBiometricsBtn: {
     flexDirection: 'row',
@@ -1414,9 +1432,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   sampleBiometricsText: {
+    fontFamily: Typography.outfit.medium,
     fontSize: 12,
-    fontWeight: '600',
-    color: '#7C3AED',
+    fontWeight: '500',
+    color: '#3C6473',
     textDecorationLine: 'underline',
   },
 
@@ -1428,13 +1447,13 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E2E3E1',
   },
   dividerText: {
+    fontFamily: Typography.outfit.regular,
     paddingHorizontal: Spacing.md,
     fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '500',
+    color: '#71787C',
   },
   socialIconsRow: {
     flexDirection: 'row',
@@ -1449,10 +1468,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#C1C7CB',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
+    shadowColor: '#2E3238',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
@@ -1468,12 +1487,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   switchPromptText: {
+    fontFamily: Typography.outfit.regular,
     fontSize: 14,
-    color: '#64748B',
+    color: '#71787C',
   },
   switchActionHighlight: {
+    fontFamily: Typography.outfit.semiBold,
     fontSize: 14,
-    fontWeight: '700',
-    color: '#7C3AED',
+    fontWeight: '600',
+    color: '#3C6473',
   },
 });

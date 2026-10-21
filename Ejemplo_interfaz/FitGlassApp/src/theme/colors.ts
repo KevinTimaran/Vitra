@@ -93,6 +93,9 @@ export interface ThemeColors {
   ctaText: string;
   ctaContainer: string;
   onCtaContainer: string;
+  primary: string;
+  tiffany: string;
+  powderedMint: string;
   glass: string;
   glassDark: string;
   glassBorder: string;
@@ -128,6 +131,11 @@ export const lightThemeColors: ThemeColors = {
   ctaText: pearlTiffanyColors.onPrimary,
   ctaContainer: pearlTiffanyColors.primaryContainer,
   onCtaContainer: pearlTiffanyColors.onPrimaryContainer,
+
+  // Direct brand references
+  primary: pearlTiffanyColors.primary,
+  tiffany: pearlTiffanyColors.tiffany,
+  powderedMint: pearlTiffanyColors.powderedMint,
 
   // Glassmorphism overlays
   glass: 'rgba(255, 255, 255, 0.92)',
@@ -169,6 +177,11 @@ export const darkThemeColors: ThemeColors = {
   ctaText: '#001F29',
   ctaContainer: '#1F4856',
   onCtaContainer: pearlTiffanyColors.primaryFixed,
+
+  // Direct brand references
+  primary: pearlTiffanyColors.inversePrimary,
+  tiffany: pearlTiffanyColors.tiffany,
+  powderedMint: pearlTiffanyColors.powderedMint,
 
   // Glassmorphism overlays
   glass: 'rgba(26, 28, 30, 0.88)',
