@@ -11,7 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
+import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface AddGarmentScreenProps {
@@ -141,7 +142,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={colors.primaryText} />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.secondaryText }]}>
               Procesando imagen y extrayendo Base64...
             </Text>
@@ -149,18 +150,20 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
         ) : selectedImageUri ? (
           /* Vista previa de la foto capturada */
           <View style={styles.previewContainer}>
-            <View style={[styles.imageWrapper, { borderColor: colors.border }]}>
+            <View style={[styles.imageWrapper, { borderColor: colors.borderLight }]}>
               <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
             </View>
 
             <View style={styles.badgeSuccess}>
-              <Ionicons name="checkmark-circle" size={16} color="#15803D" />
-              <Text style={styles.badgeSuccessText}>Imagen Base64 lista para análisis</Text>
+              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+              <Text style={[styles.badgeSuccessText, { color: colors.primary }]}>
+                Imagen Base64 lista para análisis
+              </Text>
             </View>
 
             <View style={styles.actionsRow}>
               <TouchableOpacity
-                style={[styles.btnSecondary, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                style={[styles.btnSecondary, { borderColor: colors.borderLight, backgroundColor: colors.surfaceSubtle }]}
                 onPress={() => {
                   setSelectedImageUri(null);
                   setImageBase64(null);
@@ -184,9 +187,9 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
         ) : (
           /* Opciones de captura cuando no hay foto */
           <View style={styles.selectionContainer}>
-            <View style={[styles.guidanceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="camera-outline" size={32} color={colors.primaryText} />
+            <GlassCard style={styles.guidanceCard}>
+              <View style={[styles.iconCircle, { backgroundColor: 'rgba(142, 182, 199, 0.15)' }]}>
+                <Ionicons name="camera-outline" size={32} color={colors.primary} />
               </View>
               <Text style={[styles.guidanceTitle, { color: colors.primaryText }]}>
                 Captura tu Prenda
@@ -194,7 +197,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
               <Text style={[styles.guidanceSubtitle, { color: colors.secondaryText }]}>
                 Toma una foto bien iluminada sobre un fondo neutro para obtener los mejores resultados con Gemini y Tripo3D.
               </Text>
-            </View>
+            </GlassCard>
 
             <View style={styles.buttonsContainer}>
               <TouchableOpacity
@@ -209,7 +212,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.actionOptionSecondaryBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[styles.actionOptionSecondaryBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
                 onPress={handleLaunchGallery}
                 activeOpacity={0.7}
               >

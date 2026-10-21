@@ -13,8 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { PrimaryButton, SecondaryButton, TextButton } from '../components/Buttons';
+import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
@@ -270,7 +271,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
 
     return (
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        <View style={[styles.processingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <GlassCard style={styles.processingCard}>
           {/* Vista previa miniatura de la foto */}
           {selectedImageUri ? (
             <View style={[styles.photoThumbnail, { borderColor: colors.borderLight }]}>
@@ -299,7 +300,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
               }
               size={48}
               color={
-                isSuccess ? '#15803D' : error ? '#EF4444' : colors.primaryText
+                isSuccess ? '#15803D' : error ? '#EF4444' : colors.primary
               }
             />
           </Animated.View>
@@ -349,7 +350,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.btnActionSecondary, { borderColor: colors.border }]}
+                  style={[styles.btnActionSecondary, { borderColor: colors.borderLight }]}
                   onPress={() => {
                     setError(null);
                     setIsProcessing(false);
@@ -378,7 +379,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                   style={[
                     styles.progressFill,
                     {
-                      backgroundColor: colors.primaryText,
+                      backgroundColor: colors.primary,
                       width: progressAnim.interpolate({
                         inputRange: [0, 1],
                         outputRange: ['0%', '100%'],
@@ -401,7 +402,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                           isPassed
                             ? styles.stepDotPassed
                             : isCurrent
-                            ? [styles.stepDotCurrent, { backgroundColor: colors.primaryText }]
+                            ? [styles.stepDotCurrent, { backgroundColor: colors.primary }]
                             : styles.stepDotPending,
                         ]}
                       >
@@ -434,7 +435,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
               </Text>
             </View>
           )}
-        </View>
+        </GlassCard>
       </View>
     );
   }
@@ -468,38 +469,33 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
         </View>
 
         {/* Viewfinder con Guía Óptica Biométrico */}
-        <View
-          style={[
-            styles.viewfinderCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.viewfinderCard}>
           {selectedImageUri ? (
             <View style={styles.previewContainer}>
               <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
               <View style={styles.previewBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                <Ionicons name="checkmark-circle" size={14} color="#8EB6C7" />
                 <Text style={styles.previewBadgeText}>Fotografía Capturada</Text>
               </View>
             </View>
           ) : (
             <View style={styles.guideContainer}>
               {/* Abstract Facial/Body Silhouette Guidelines */}
-              <View style={[styles.faceOvalGuide, { borderColor: colors.border }]}>
+              <View style={[styles.faceOvalGuide, { borderColor: colors.tiffany }]}>
                 <View style={[styles.eyeLineGuide, { backgroundColor: colors.borderLight }]} />
                 <View style={[styles.verticalAxisGuide, { backgroundColor: colors.borderLight }]} />
               </View>
               <View style={[styles.shoulderGuide, { borderColor: colors.borderLight }]} />
 
               <View style={styles.guideInstructionBox}>
-                <Ionicons name="camera-reverse-outline" size={24} color={colors.secondaryText} />
+                <Ionicons name="camera-reverse-outline" size={24} color={colors.primary} />
                 <Text style={[styles.guideInstructionText, { color: colors.secondaryText }]}>
                   Encuadra tu rostro y torso con buena iluminación y fondo neutro
                 </Text>
               </View>
             </View>
           )}
-        </View>
+        </GlassCard>
 
         {/* Selector de Captura: Cámara y Galería */}
         <View style={styles.buttonsGroup}>
@@ -530,17 +526,12 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
         </View>
 
         {/* Consejos de captura */}
-        <View
-          style={[
-            styles.tipsCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
-          <Ionicons name="information-circle-outline" size={18} color={colors.secondaryText} />
+        <GlassCard style={styles.tipsCard}>
+          <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
           <Text style={[styles.tipsCardText, { color: colors.secondaryText }]}>
             Para una colorimetría precisa, evita sombras duras, lentes oscuros y filtros artificiales.
           </Text>
-        </View>
+        </GlassCard>
       </ScrollView>
 
       {/* Footer de Confirmación */}
@@ -704,24 +695,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     gap: Spacing.sm,
   },
   cameraActionText: {
     ...Typography.callout,
-    fontWeight: '700',
+    fontFamily: Typography.outfit.semiBold,
+    fontWeight: '600',
   },
   galleryActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     gap: Spacing.sm,
   },
   galleryActionText: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   tipsCard: {
@@ -861,11 +854,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     gap: Spacing.xs,
   },
   btnActionText: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   btnActionSecondary: {
@@ -873,11 +867,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     borderWidth: 1,
   },
   btnActionSecondaryText: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
 });
