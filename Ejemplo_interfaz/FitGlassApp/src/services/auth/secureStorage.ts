@@ -18,7 +18,7 @@ if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
 // En Web, expo-secure-store utiliza localStorage automáticamente o fallback en memoria
 const isSecureStoreAvailable = async (): Promise<boolean> => {
   try {
-    return await SecureStore.isAvailableAsync();
+    return typeof SecureStore?.isAvailableAsync === 'function' && (await SecureStore.isAvailableAsync());
   } catch {
     return false;
   }

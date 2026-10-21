@@ -75,7 +75,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let saved: string | null = null;
         if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
           saved = localStorage.getItem(ONBOARDING_KEY);
-        } else if (await SecureStore.isAvailableAsync()) {
+        } else if (typeof SecureStore?.isAvailableAsync === 'function' && (await SecureStore.isAvailableAsync())) {
           saved = await SecureStore.getItemAsync(ONBOARDING_KEY);
         }
         if (saved === 'true') {
@@ -126,7 +126,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.setItem(ONBOARDING_KEY, 'true');
-      } else {
+      } else if (typeof SecureStore?.setItemAsync === 'function') {
         SecureStore.setItemAsync(ONBOARDING_KEY, 'true').catch(() => {});
       }
     } catch {
@@ -149,7 +149,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.removeItem(ONBOARDING_KEY);
-      } else {
+      } else if (typeof SecureStore?.deleteItemAsync === 'function') {
         SecureStore.deleteItemAsync(ONBOARDING_KEY).catch(() => {});
       }
     } catch {

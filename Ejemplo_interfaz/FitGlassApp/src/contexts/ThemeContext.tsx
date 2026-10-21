@@ -57,7 +57,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         let saved: string | null = null;
         if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
           saved = localStorage.getItem(THEME_PREF_KEY);
-        } else if (await SecureStore.isAvailableAsync()) {
+        } else if (typeof SecureStore?.isAvailableAsync === 'function' && (await SecureStore.isAvailableAsync())) {
           saved = await SecureStore.getItemAsync(THEME_PREF_KEY);
         }
 
@@ -77,7 +77,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.setItem(THEME_PREF_KEY, mode);
-      } else {
+      } else if (typeof SecureStore?.setItemAsync === 'function') {
         SecureStore.setItemAsync(THEME_PREF_KEY, mode).catch(() => {});
       }
     } catch {

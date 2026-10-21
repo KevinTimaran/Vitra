@@ -172,7 +172,7 @@ function NavigationRoot() {
         {!userToken ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : (
-          <>
+          <Stack.Group>
             <Stack.Screen name="MainTabs" component={AppTabs} />
             <Stack.Screen
               name="Welcome"
@@ -222,7 +222,7 @@ function NavigationRoot() {
                 animation: 'fade',
               }}
             />
-          </>
+          </Stack.Group>
         )}
       </Stack.Navigator>
     </NavigationContainer>

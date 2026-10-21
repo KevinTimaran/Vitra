@@ -672,7 +672,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         let saved: string | null = null;
         if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
           saved = localStorage.getItem(LANGUAGE_PREF_KEY);
-        } else if (await SecureStore.isAvailableAsync()) {
+        } else if (typeof SecureStore?.isAvailableAsync === 'function' && (await SecureStore.isAvailableAsync())) {
           saved = await SecureStore.getItemAsync(LANGUAGE_PREF_KEY);
         }
         if (saved === 'en' || saved === 'es') {
@@ -691,7 +691,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.setItem(LANGUAGE_PREF_KEY, lang);
-      } else {
+      } else if (typeof SecureStore?.setItemAsync === 'function') {
         SecureStore.setItemAsync(LANGUAGE_PREF_KEY, lang).catch(() => {});
       }
     } catch {
