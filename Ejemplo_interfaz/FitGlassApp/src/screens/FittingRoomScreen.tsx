@@ -9,10 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useGLTF, OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
-
+import { Viewport3DPlaceholder } from '../components/Viewport3DPlaceholder';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -31,59 +28,8 @@ interface FittingRoomScreenProps {
   onOpenAddGarment?: () => void;
 }
 
-// Modelo de respaldo para demostración
 const DEFAULT_SAMPLE_MODEL_URL =
   'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf';
-
-/**
- * Componente que carga y renderiza el archivo GLTF/GLB dinámico
- */
-function DynamicGLTFModel({ url }: { url: string }) {
-  const gltf = useGLTF(url);
-  const modelRef = useRef<THREE.Group>(null);
-
-  // Rotación sutil automática continua
-  useFrame((_, delta) => {
-    if (modelRef.current) {
-      modelRef.current.rotation.y += delta * 0.35;
-    }
-  });
-
-  return (
-    <primitive
-      ref={modelRef}
-      object={gltf.scene}
-      scale={1.2}
-      position={[0, -0.4, 0]}
-    />
-  );
-}
-
-/**
- * Geometría estilizada de respaldo mientras carga o si no hay modelo GLB
- */
-function Fallback3DMesh() {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame((_, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * 0.5;
-      meshRef.current.rotation.x += delta * 0.2;
-    }
-  });
-
-  return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <octahedronGeometry args={[0.9, 2]} />
-      <meshStandardMaterial
-        color="#111113"
-        metalness={0.7}
-        roughness={0.2}
-        wireframe={false}
-      />
-    </mesh>
-  );
-}
 
 export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const { colors, isDark } = useTheme();
@@ -159,32 +105,14 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             </View>
           </View>
         ) : (
-          /* Visor 3D interactivo con Three.js / Canvas */
+          /* Visor 3D interactivo */
           <View style={styles.canvasContainer}>
-            <Canvas
-              style={styles.canvas}
-              camera={{ position: [0, 0, 3.2], fov: 45 }}
-            >
-              <ambientLight intensity={1.4} />
-              <directionalLight position={[10, 15, 10]} intensity={1.8} />
-              <directionalLight position={[-10, -10, -10]} intensity={0.6} />
-
-              <Suspense fallback={<Fallback3DMesh />}>
-                {!loadError && modelUrl ? (
-                  <DynamicGLTFModel url={modelUrl} />
-                ) : (
-                  <Fallback3DMesh />
-                )}
-              </Suspense>
-
-              <OrbitControls
-                enableZoom={true}
-                enablePan={false}
-                minDistance={1.2}
-                maxDistance={5.5}
-              />
-            </Canvas>
-
+            <Viewport3DPlaceholder
+              currentGarmentName={metadata?.tipo_prenda || 'Prenda Atelier'}
+              heightRatio={0.52}
+              highlightFit={true}
+              selectedLayer={metadata?.tipo_prenda || 'Capa 3D'}
+            />
             {/* Guía táctil superpuesta */}
             <View style={styles.touchHintBadge}>
               <Ionicons name="finger-print-outline" size={16} color="rgba(255,255,255,0.9)" />
