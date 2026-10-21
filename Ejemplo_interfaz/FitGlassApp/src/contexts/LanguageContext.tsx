@@ -1,7 +1,10 @@
-// src/contexts/LanguageContext.tsx
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 export type Language = 'en' | 'es';
+
+const LANGUAGE_PREF_KEY = 'vitra_language_pref';
 
 export const translations: Record<Language, Record<string, string>> = {
   "en": {
@@ -238,7 +241,66 @@ export const translations: Record<Language, Record<string, string>> = {
     "settings.english": "English",
     "settings.spanish": "Español",
     "settings.privacy_body_data": "Privacy & Body Data",
-    "settings.stored_locally": "Stored locally on device"
+    "settings.stored_locally": "Stored locally on device",
+    "settings.appearance": "Appearance Settings",
+    "settings.appearance_desc": "Customize atelier visual theme. Choose between high-contrast OLED black or editorial light mode.",
+    "settings.light_mode": "Light Mode",
+    "settings.light_mode_desc": "Editorial White",
+    "settings.dark_mode_title": "OLED Black",
+    "settings.dark_mode_desc": "Deep Dark Mode",
+    "settings.language_title": "Atelier Language",
+    "settings.language_desc": "Select your preferred language for interfaces, measurements, and recommendations.",
+    "auth.welcomeTitle": "Welcome to Vitra",
+    "auth.welcomeSubtitle": "Your digital wardrobe and intelligent 3D fitting room. Sign in or create an account to begin.",
+    "auth.createAccount": "Create Account",
+    "auth.signIn": "Sign In",
+    "auth.welcomeBack": "Welcome Back",
+    "auth.welcomeBackSubtitle": "Ready to explore your wardrobe? Your style is here.",
+    "auth.createAccountTitle": "Create your Account",
+    "auth.step1Subtitle": "Step 1 of 3 · Access Credentials",
+    "auth.step2Subtitle": "Step 2 of 3 · Personal Information",
+    "auth.step3Subtitle": "Step 3 of 3 · Biometric Identity",
+    "auth.fullName": "Full Name",
+    "auth.fullNamePlaceholder": "E.g. Sofia Rossi",
+    "auth.age": "Age",
+    "auth.agePlaceholder": "E.g. 26",
+    "auth.email": "Email address",
+    "auth.password": "Password",
+    "auth.rememberMe": "Remember me",
+    "auth.forgotPassword": "Forgot password?",
+    "auth.next": "Next",
+    "auth.finishRegister": "Create my Digital Twin",
+    "auth.orContinueWith": "Or sign in with",
+    "auth.noAccount": "Don't have an account?",
+    "auth.registerLink": "Sign up",
+    "auth.haveAccount": "Already have an account?",
+    "auth.loginLink": "Sign in",
+    "auth.facialPhoto": "Facial Photograph",
+    "auth.facialDesc": "To discover your colorimetry palette and skin undertone resonance.",
+    "auth.bodyPhoto": "Body Photograph",
+    "auth.bodyDesc": "Full-body photograph in 'A' pose to calibrate your 3D mannequin.",
+    "auth.openCamera": "Camera",
+    "auth.openGallery": "Gallery",
+    "auth.demoFill": "Fill demo credentials",
+    "auth.back": "Back",
+    "home.serverStatus": "BACKEND SERVER STATUS",
+    "home.checkingServer": "Checking connection with FitGlassAI...",
+    "home.connected": "FitGlassAI Connected",
+    "home.disconnected": "Disconnected",
+    "home.retry": "Retry Connection",
+    "home.biometricScan": "Biometric Scan & Colorimetry",
+    "home.digitalizeGarment": "Digitize Garment (Gemini AI)",
+    "home.openFittingRoom": "Open Virtual 3D Fitting Room",
+    "wardrobe.addGarmentBtn": "Add Garment to Wardrobe",
+    "profile.avatarTitle": "3D Base Avatar (.glb)",
+    "profile.avatarDesc": "Generated with Tripo3D from your full body photo. Ready for virtual try-on.",
+    "profile.viewInFittingRoom": "View in 3D Fitting Room",
+    "profile.colorimetryTitle": "Seasonal Colorimetry",
+    "profile.skinLabel": "Skin",
+    "profile.openColorStudio": "Open Full Color Studio",
+    "profile.scanAgain": "Scan Again (Camera / Gallery)",
+    "profile.resetDefaults": "Reset Initial Values",
+    "profile.signOut": "Sign Out"
   },
   "es": {
     "common.back": "Atrás",

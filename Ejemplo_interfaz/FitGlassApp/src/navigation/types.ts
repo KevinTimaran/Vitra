@@ -17,7 +17,6 @@ export type RootTabParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
-  WelcomeOnboarding: undefined;
   MainTabs: NavigatorScreenParams<RootTabParamList> | undefined;
   FittingRoom: {
     model_3d_url?: string;

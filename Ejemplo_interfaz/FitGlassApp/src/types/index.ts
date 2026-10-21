@@ -61,10 +61,28 @@ export interface ColorProfile {
 export interface UserProfile {
   id: string;
   name: string;
+  age?: number;
+  email?: string;
+  facePhotoUri?: string;
+  bodyPhotoUri?: string;
   avatar_url?: string;
   color_profile?: ColorProfile;
   body_profile?: BodyProfile;
   completedOnboarding: boolean;
+}
+
+export interface RegistrationWizardData {
+  // Paso 1: Credenciales
+  email: string;
+  password: string;
+  // Paso 2: Datos Personales
+  fullName: string;
+  age: string;
+  // Paso 3: Biometría
+  faceImageUri?: string | null;
+  faceImageBase64?: string | null;
+  bodyImageUri?: string | null;
+  bodyImageBase64?: string | null;
 }
 
 export interface FitSettings {
