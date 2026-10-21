@@ -30,17 +30,17 @@ export const VibrantBackground: React.FC<VibrantBackgroundProps> = ({ children }
   const violetColor = isDark ? 'rgba(139, 92, 246, 0.38)' : 'rgba(167, 139, 250, 0.28)';
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {/* 1. Gradiente de fondo en toda la pantalla */}
       <LinearGradient
         colors={gradientColors}
         start={{ x: 0.1, y: 0.0 }}
         end={{ x: 0.9, y: 1.0 }}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       {/* 2. Blobs circulares vibrantes de iluminación ambiental */}
-      <View style={StyleSheet.absoluteFillObject}>
+      <View style={StyleSheet.absoluteFill}>
         {/* Blob Fucsia (superior derecho / detrás de la tarjeta) */}
         <View
           style={[
@@ -76,7 +76,7 @@ export const VibrantBackground: React.FC<VibrantBackgroundProps> = ({ children }
       <BlurView
         intensity={Platform.OS === 'web' ? 25 : 60}
         tint={isDark ? 'dark' : 'light'}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       {children}
