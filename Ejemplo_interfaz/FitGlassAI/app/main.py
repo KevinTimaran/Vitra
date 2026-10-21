@@ -1,11 +1,20 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import os
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from .api import garments, tryon, colorimetry, avatar, auth, users
 
 app = FastAPI(title="FitGlassAI", description="Orquestador de IA Generativa para Vitra")
+
+# Configurar directorio de archivos estáticos (modelos 3D optimizados)
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+MODELS_DIR = os.path.join(STATIC_DIR, "models")
+os.makedirs(MODELS_DIR, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Configurar CORS para desarrollo con el cliente móvil Expo
 app.add_middleware(

@@ -7,6 +7,7 @@ class TryOnRequest(BaseModel):
     garment_image: str = Field(..., description="URL o imagen Base64 de la prenda")
     category: Optional[str] = Field("upper_body", description="Categoría de la prenda (upper_body, lower_body, dresses)")
     garment_description: Optional[str] = Field("clothing", description="Descripción de la prenda")
+    allow_fallback: Optional[bool] = Field(False, description="Si es True, aplica modelos 3D o vistas de respaldo si las APIs externas no tienen créditos")
 
 
 class TryOnResponse(BaseModel):
