@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: Radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border,
+    borderColor: '#E2E8F0',
   },
   liveIndicator: {
     width: 6,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     ...Typography.micro,
-    color: Colors.secondaryText,
+    color: '#64748B',
   },
   garmentBadge: {
     position: 'absolute',

@@ -1,32 +1,55 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../theme';
-
-import { TouchableOpacity } from 'react-native';
+import { Typography, Spacing, Radius } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
+
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="shirt-outline" size={38} color={Colors.primaryText} />
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            shadowColor: isDark ? '#000000' : '#888888',
+          },
+        ]}
+      >
+        <View style={[styles.iconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+          <Ionicons name="shirt-outline" size={38} color={colors.primaryText} />
         </View>
-        <Text style={styles.title}>WardrobeScreen</Text>
-        <Text style={styles.subtitle}>
-          Armario Digital - Catálogo de Prendas
+        <Text style={[styles.title, { color: colors.primaryText }]}>
+          {t('wardrobe.title')}
         </Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Fase 2 & 3 · Ingesta & 3D</Text>
+        <Text style={[styles.subtitle, { color: colors.secondaryText }]}>
+          {t('wardrobe.subtitle')}
+        </Text>
+        <View
+          style={[
+            styles.badge,
+            { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+          ]}
+        >
+          <Text style={[styles.badgeText, { color: colors.tertiaryText }]}>
+            {t('wardrobe.phaseBadge')}
+          </Text>
         </View>
 
         <TouchableOpacity
-          style={styles.addBtn}
+          style={[styles.addBtn, { backgroundColor: colors.cta }]}
           onPress={() => (navigation ? navigation.navigate('AddGarment') : null)}
           activeOpacity={0.8}
         >
-          <Ionicons name="camera-outline" size={18} color={Colors.ctaText} />
-          <Text style={styles.addBtnText}>Añadir Prenda al Armario</Text>
+          <Ionicons name="camera-outline" size={18} color={colors.ctaText} />
+          <Text style={[styles.addBtnText, { color: colors.ctaText }]}>
+            {t('wardrobe.addGarmentBtn')}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -36,7 +59,6 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
@@ -44,15 +66,12 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.xxl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
   },
@@ -60,34 +79,28 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
   },
   title: {
     ...Typography.title1,
-    color: Colors.primaryText,
     marginBottom: Spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
     ...Typography.subhead,
-    color: Colors.secondaryText,
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
   badge: {
-    backgroundColor: Colors.surfaceSubtle,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
   },
   badgeText: {
     ...Typography.caption,
-    color: Colors.tertiaryText,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
@@ -95,7 +108,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.cta,
     paddingHorizontal: Spacing.xl,
     paddingVertical: 14,
     borderRadius: Radius.lg,
@@ -105,7 +117,6 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     ...Typography.callout,
-    color: Colors.ctaText,
     fontWeight: '600',
   },
 });

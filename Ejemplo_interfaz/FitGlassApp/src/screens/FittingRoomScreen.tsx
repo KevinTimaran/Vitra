@@ -13,8 +13,9 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface FittingRoomScreenProps {
   route?: {
@@ -86,6 +87,7 @@ function Fallback3DMesh() {
 
 export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
 
   const modelUrl =
     props.model_3d_url ||
@@ -111,11 +113,11 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       {/* Barra superior con metadatos y alternador 2D/3D */}
       <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.borderLight }]}>
         <View style={styles.titleColumn}>
-          <Text style={[styles.screenTitle, { color: colors.primaryText }]}>Probador Virtual</Text>
+          <Text style={[styles.screenTitle, { color: colors.primaryText }]}>{t('fittingRoom.title')}</Text>
           <Text style={[styles.screenSubtitle, { color: colors.secondaryText }]}>
             {metadata?.tipo_prenda
               ? `${metadata.tipo_prenda} · ${metadata.estilo_recomendado || 'Generativo'}`
-              : 'Visor 3D Interactivo'}
+              : t('fittingRoom.subtitle')}
           </Text>
         </View>
 
@@ -131,7 +133,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
               color={colors.primaryText}
             />
             <Text style={[styles.toggleBtnText, { color: colors.primaryText }]}>
-              {show2DView ? 'Ver 3D' : 'Ver Fusión 2D'}
+              {show2DView ? t('fittingRoom.view3D') : t('fittingRoom.view2D')}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -141,7 +143,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             activeOpacity={0.8}
           >
             <Ionicons name="camera-outline" size={16} color={colors.ctaText} />
-            <Text style={[styles.addBtnText, { color: colors.ctaText }]}>Probar Prenda</Text>
+            <Text style={[styles.addBtnText, { color: colors.ctaText }]}>{t('fittingRoom.tryGarment')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -186,7 +188,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             {/* Guía táctil superpuesta */}
             <View style={styles.touchHintBadge}>
               <Ionicons name="finger-print-outline" size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.touchHintText}>Arrastra para rotar 360° · Pellizca para zoom</Text>
+              <Text style={styles.touchHintText}>{t('fittingRoom.touchHint')}</Text>
             </View>
           </View>
         )}
@@ -197,7 +199,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
         <View style={styles.cardHeader}>
           <View style={styles.statusIndicator}>
             <View style={styles.dotOnline} />
-            <Text style={[styles.statusText, { color: colors.secondaryText }]}>Modelo 3D activo (.glb)</Text>
+            <Text style={[styles.statusText, { color: colors.secondaryText }]}>{t('fittingRoom.activeModel')}</Text>
           </View>
 
           <TouchableOpacity
@@ -206,7 +208,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={18} color={colors.ctaText} />
-            <Text style={[styles.cameraActionText, { color: colors.ctaText }]}>Nueva Prenda</Text>
+            <Text style={[styles.cameraActionText, { color: colors.ctaText }]}>{t('fittingRoom.newGarment')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -230,7 +232,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
           </View>
         ) : (
           <Text style={[styles.hintNote, { color: colors.tertiaryText }]}>
-            Puedes rotar la prenda tridimensional en cualquier ángulo para examinar su caída y proporciones generadas.
+            {t('fittingRoom.rotationHint')}
           </Text>
         )}
       </View>

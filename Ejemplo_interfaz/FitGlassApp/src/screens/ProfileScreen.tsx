@@ -8,16 +8,18 @@ import {
   Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 
 export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark, toggleTheme, setTheme } = useTheme();
   const { userProfile, colorProfile, avatarUrl, resetProfile } = useUser();
   const { userEmail, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
 
   const handleStartScan = () => {
     if (navigation) {
@@ -61,7 +63,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
             </Text>
           ) : null}
           <Text style={[styles.userBadge, { color: colors.secondaryText }]}>
-            Identidad Biométrica · Sesión Activa (JWT)
+            {t('profile.biometricIdentity')}
           </Text>
         </View>
 
@@ -75,15 +77,15 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="cube-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              Avatar Base 3D (.glb)
+              {t('profile.avatarTitle')}
             </Text>
             <View style={styles.statusPillActive}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusPillText}>Activo</Text>
+              <Text style={styles.statusPillText}>{language === 'es' ? 'Activo' : 'Active'}</Text>
             </View>
           </View>
           <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
-            Generado con Tripo3D a partir de tu fotografía de cuerpo entero. Listo para simulación en el Probador Virtual.
+            {t('profile.avatarDesc')}
           </Text>
           <TouchableOpacity
             style={[
@@ -95,7 +97,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           >
             <Ionicons name="sparkles-outline" size={16} color={colors.primaryText} />
             <Text style={[styles.inlineBtnText, { color: colors.primaryText }]}>
-              Visualizar en Probador 3D
+              {t('profile.viewInFittingRoom')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -110,7 +112,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              Colorimetría Estacional
+              {t('profile.colorimetryTitle')}
             </Text>
             <View
               style={[
@@ -132,7 +134,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               ]}
             />
             <Text style={[styles.miniToneLabel, { color: colors.secondaryText }]}>
-              Piel: {colorProfile.skin_tone}
+              {t('profile.skinLabel')}: {colorProfile.skin_tone}
             </Text>
           </View>
 
@@ -158,7 +160,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           >
             <Ionicons name="eye-outline" size={16} color={colors.primaryText} />
             <Text style={[styles.inlineBtnText, { color: colors.primaryText }]}>
-              Abrir Estudio de Color Completo
+              {t('profile.openColorStudio')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -173,7 +175,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              Ajustes de Apariencia
+              {t('profile.appearanceTitle')}
             </Text>
             <View
               style={[
@@ -182,13 +184,13 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               ]}
             >
               <Text style={[styles.themeBadgeText, { color: colors.primaryText }]}>
-                {isDark ? 'Fondo Negro' : 'Modo Claro'}
+                {isDark ? t('profile.darkMode') : t('profile.lightMode')}
               </Text>
             </View>
           </View>
 
           <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
-            Personaliza el tema visual del atelier. Puedes activar el fondo negro de alto contraste OLED o mantener el estilo editorial claro.
+            {t('profile.appearanceDesc')}
           </Text>
 
           {/* Selector de Dos Tarjetas */}
@@ -210,10 +212,10 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
                 <Ionicons name="sunny" size={20} color="#D97706" />
               </View>
               <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
-                Modo Claro
+                {t('profile.lightMode')}
               </Text>
               <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
-                Blanco Editorial
+                {t('profile.lightEditorial')}
               </Text>
               {!isDark && (
                 <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
@@ -239,10 +241,10 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
                 <Ionicons name="moon" size={20} color="#A5B4FC" />
               </View>
               <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
-                Fondo Negro
+                {t('profile.darkMode')}
               </Text>
               <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
-                Negro OLED
+                {t('profile.darkOled')}
               </Text>
               {isDark && (
                 <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
@@ -256,10 +258,10 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           <View style={[styles.switchRow, { borderTopColor: colors.borderLight }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.switchTitle, { color: colors.primaryText }]}>
-                Fondo Negro (Modo Oscuro)
+                {t('profile.darkMode')}
               </Text>
               <Text style={[styles.switchSubtitle, { color: colors.secondaryText }]}>
-                Pantalla negra OLED para reducir fatiga visual
+                {t('profile.darkOled')}
               </Text>
             </View>
             <Switch
@@ -271,20 +273,109 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           </View>
         </View>
 
+        {/* Ajustes de Idioma (i18n): Español vs English */}
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.cardHeaderRow}>
+            <Ionicons name="language-outline" size={20} color={colors.primaryText} />
+            <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
+              {t('profile.languageTitle')}
+            </Text>
+            <View
+              style={[
+                styles.themeBadgePill,
+                { backgroundColor: colors.surfaceSubtle },
+              ]}
+            >
+              <Text style={[styles.themeBadgeText, { color: colors.primaryText }]}>
+                {language === 'es' ? 'Español' : 'English'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
+            {t('profile.languageDesc')}
+          </Text>
+
+          <View style={styles.themeOptionsRow}>
+            {/* Opción Español */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionCard,
+                {
+                  backgroundColor: language === 'es' ? colors.surfaceSubtle : 'transparent',
+                  borderColor: language === 'es' ? colors.primaryText : colors.borderLight,
+                  borderWidth: language === 'es' ? 2 : 1,
+                },
+              ]}
+              onPress={() => setLanguage('es')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.themeIconCircle, { backgroundColor: '#FEE2E2' }]}>
+                <Ionicons name="globe-outline" size={20} color="#DC2626" />
+              </View>
+              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
+                Español
+              </Text>
+              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
+                Castellano
+              </Text>
+              {language === 'es' && (
+                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
+                  <Ionicons name="checkmark" size={12} color={colors.bg} />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Opción English */}
+            <TouchableOpacity
+              style={[
+                styles.themeOptionCard,
+                {
+                  backgroundColor: language === 'en' ? colors.surfaceSubtle : 'transparent',
+                  borderColor: language === 'en' ? colors.primaryText : colors.borderLight,
+                  borderWidth: language === 'en' ? 2 : 1,
+                },
+              ]}
+              onPress={() => setLanguage('en')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.themeIconCircle, { backgroundColor: '#DBEAFE' }]}>
+                <Ionicons name="planet-outline" size={20} color="#2563EB" />
+              </View>
+              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
+                English
+              </Text>
+              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
+                International
+              </Text>
+              {language === 'en' && (
+                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
+                  <Ionicons name="checkmark" size={12} color={colors.bg} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Acciones de Cuenta */}
         <View style={styles.actionsContainer}>
           <PrimaryButton
-            label="Escanear de Nuevo (Cámara / Galería)"
+            label={t('profile.scanAgain')}
             onPress={handleStartScan}
             icon="scan-outline"
           />
           <SecondaryButton
-            label="Restablecer Valores Iniciales"
+            label={t('profile.resetDefaults')}
             onPress={resetProfile}
             style={{ marginTop: Spacing.sm }}
           />
           <SecondaryButton
-            label="Cerrar Sesión (Sign Out)"
+            label={t('profile.signOut')}
             onPress={logout}
             icon="log-out-outline"
             style={{ marginTop: Spacing.sm, borderColor: 'rgba(239, 68, 68, 0.4)' }}

@@ -8,7 +8,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
-import { LanguageProvider } from './src/contexts/LanguageContext';
+import { LanguageProvider, useTranslation } from './src/contexts/LanguageContext';
 import { UserProvider, useUser } from './src/contexts/UserContext';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 

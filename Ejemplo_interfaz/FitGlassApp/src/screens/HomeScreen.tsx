@@ -8,9 +8,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { checkHealth, HealthStatusResponse } from '../services/ai/garmentAnalyzer';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [healthStatus, setHealthStatus] = useState<HealthStatusResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,26 +40,44 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="home-outline" size={38} color={Colors.primaryText} />
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            shadowColor: isDark ? '#000000' : '#888888',
+          },
+        ]}
+      >
+        <View style={[styles.iconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+          <Ionicons name="home-outline" size={38} color={colors.primaryText} />
         </View>
 
-        <Text style={styles.title}>HomeScreen</Text>
-        <Text style={styles.subtitle}>
-          Cimientos de Vitra (Arquitectura Generativa)
+        <Text style={[styles.title, { color: colors.primaryText }]}>
+          {t('tabs.home')}
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.secondaryText }]}>
+          {t('welcome.tagline')}
         </Text>
 
         {/* Indicador de Conexión con el Backend */}
-        <View style={styles.statusBox}>
-          <Text style={styles.statusBoxTitle}>ESTADO DEL SERVIDOR BACKEND</Text>
+        <View
+          style={[
+            styles.statusBox,
+            { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+          ]}
+        >
+          <Text style={[styles.statusBoxTitle, { color: colors.tertiaryText }]}>
+            {t('home.serverStatus')}
+          </Text>
 
           {loading && (
             <View style={styles.statusRow}>
-              <ActivityIndicator size="small" color={Colors.primaryText} />
-              <Text style={styles.statusText}>
-                Comprobando conexión con FitGlassAI...
+              <ActivityIndicator size="small" color={colors.primaryText} />
+              <Text style={[styles.statusText, { color: colors.secondaryText }]}>
+                {t('home.checkingServer')}
               </Text>
             </View>
           )}
@@ -64,14 +86,14 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
             <View style={styles.statusContent}>
               <View style={styles.badgeSuccess}>
                 <View style={styles.statusDotGreen} />
-                <Text style={styles.badgeSuccessText}>FitGlassAI Conectado</Text>
+                <Text style={styles.badgeSuccessText}>{t('home.connected')}</Text>
               </View>
-              <Text style={styles.detailText}>
-                Estado: <Text style={styles.bold}>{healthStatus.status}</Text>
+              <Text style={[styles.detailText, { color: colors.secondaryText }]}>
+                {t('home.status')}: <Text style={[styles.bold, { color: colors.primaryText }]}>{healthStatus.status}</Text>
               </Text>
               {healthStatus.message && (
-                <Text style={styles.detailText}>
-                  Mensaje: <Text style={styles.bold}>{healthStatus.message}</Text>
+                <Text style={[styles.detailText, { color: colors.secondaryText }]}>
+                  {t('home.message')}: <Text style={[styles.bold, { color: colors.primaryText }]}>{healthStatus.message}</Text>
                 </Text>
               )}
             </View>
@@ -81,7 +103,7 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
             <View style={styles.statusContent}>
               <View style={styles.badgeError}>
                 <View style={styles.statusDotRed} />
-                <Text style={styles.badgeErrorText}>Desconectado</Text>
+                <Text style={styles.badgeErrorText}>{t('home.disconnected')}</Text>
               </View>
               <Text style={styles.errorText} numberOfLines={2}>
                 {error}
@@ -90,45 +112,57 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           )}
 
           <TouchableOpacity
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.cta }]}
             onPress={performHealthCheck}
             activeOpacity={0.7}
             disabled={loading}
           >
-            <Ionicons name="refresh-outline" size={16} color={Colors.ctaText} />
-            <Text style={styles.retryButtonText}>
-              {loading ? 'Consultando...' : 'Reintentar Conexión'}
+            <Ionicons name="refresh-outline" size={16} color={colors.ctaText} />
+            <Text style={[styles.retryButtonText, { color: colors.ctaText }]}>
+              {loading ? t('home.connecting') : t('home.retry')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Acciones Generativas Fases 2, 3 y 4 */}
+        {/* Acciones Rápidas */}
         <View style={styles.quickActionsContainer}>
           <TouchableOpacity
-            style={styles.primaryActionBtn}
-            onPress={() => (navigation ? navigation.navigate('Welcome') : null)}
+            style={[styles.primaryActionBtn, { backgroundColor: colors.cta }]}
+            onPress={() => (navigation ? navigation.navigate('ColorStudio') : null)}
             activeOpacity={0.8}
           >
-            <Ionicons name="scan-outline" size={18} color={Colors.ctaText} />
-            <Text style={styles.primaryActionBtnText}>Escaneo Biométrico & Colorimetría</Text>
+            <Ionicons name="color-palette-outline" size={18} color={colors.ctaText} />
+            <Text style={[styles.primaryActionBtnText, { color: colors.ctaText }]}>
+              {t('home.biometricScan')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryActionBtn}
+            style={[
+              styles.secondaryActionBtn,
+              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+            ]}
             onPress={() => (navigation ? navigation.navigate('AddGarment') : null)}
             activeOpacity={0.7}
           >
-            <Ionicons name="camera" size={18} color={Colors.primaryText} />
-            <Text style={styles.secondaryActionBtnText}>Digitalizar Prenda (Gemini AI)</Text>
+            <Ionicons name="camera" size={18} color={colors.primaryText} />
+            <Text style={[styles.secondaryActionBtnText, { color: colors.primaryText }]}>
+              {t('home.digitalizeGarment')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryActionBtn}
+            style={[
+              styles.secondaryActionBtn,
+              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+            ]}
             onPress={() => (navigation ? navigation.navigate('FittingRoom') : null)}
             activeOpacity={0.7}
           >
-            <Ionicons name="sparkles-outline" size={18} color={Colors.primaryText} />
-            <Text style={styles.secondaryActionBtnText}>Abrir Probador Virtual 3D</Text>
+            <Ionicons name="sparkles-outline" size={18} color={colors.primaryText} />
+            <Text style={[styles.secondaryActionBtnText, { color: colors.primaryText }]}>
+              {t('home.openFittingRoom')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -139,7 +173,6 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
@@ -147,15 +180,12 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.xxl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
   },
@@ -163,35 +193,29 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
   },
   title: {
     ...Typography.title1,
-    color: Colors.primaryText,
     marginBottom: Spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
     ...Typography.subhead,
-    color: Colors.secondaryText,
     textAlign: 'center',
     marginBottom: Spacing.xl,
   },
   statusBox: {
     width: '100%',
-    backgroundColor: Colors.surfaceSubtle,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
     alignItems: 'center',
   },
   statusBoxTitle: {
     ...Typography.micro,
-    color: Colors.tertiaryText,
     letterSpacing: 1,
     marginBottom: Spacing.md,
   },
@@ -203,7 +227,6 @@ const styles = StyleSheet.create({
   },
   statusText: {
     ...Typography.caption,
-    color: Colors.secondaryText,
   },
   statusContent: {
     width: '100%',
@@ -255,11 +278,9 @@ const styles = StyleSheet.create({
   },
   detailText: {
     ...Typography.caption,
-    color: Colors.secondaryText,
   },
   bold: {
     fontWeight: '600',
-    color: Colors.primaryText,
   },
   errorText: {
     ...Typography.caption,
@@ -270,7 +291,6 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.cta,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: Radius.md,
@@ -279,7 +299,6 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     ...Typography.callout,
-    color: Colors.ctaText,
     fontWeight: '600',
     fontSize: 13,
   },
@@ -292,30 +311,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.cta,
     paddingVertical: 14,
     borderRadius: Radius.lg,
     gap: Spacing.xs,
   },
   primaryActionBtnText: {
     ...Typography.callout,
-    color: Colors.ctaText,
     fontWeight: '600',
   },
   secondaryActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
     paddingVertical: 14,
     borderRadius: Radius.lg,
     gap: Spacing.xs,
   },
   secondaryActionBtnText: {
     ...Typography.callout,
-    color: Colors.primaryText,
     fontWeight: '600',
   },
 });
