@@ -206,3 +206,76 @@ async def test_generate_3d_model_failed_task():
             assert exc_info.value.status_code == 502
             assert "Mesh reconstruction error" in exc_info.value.detail
 
+
+# -------------------------------------------------------------
+# Pruebas unitarias: optimize_3d_model (Draco + WebP)
+# -------------------------------------------------------------
+from app.services.optimizer_service import optimize_3d_model
+
+@pytest.mark.anyio
+async def test_optimize_3d_model_empty():
+    res = await optimize_3d_model("")
+    assert res == ""
+
+
+@pytest.mark.anyio
+async def test_optimize_3d_model_fallback_on_download_error():
+    mock_resp = MagicMock()
+    mock_resp.status_code = 404
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_resp)
+    mock_client.__aenter__.return_value = mock_client
+
+    with patch("app.services.optimizer_service.httpx.AsyncClient", return_value=mock_client):
+        fallback = await optimize_3d_model("https://example.com/notfound.glb")
+        assert fallback == "https://example.com/notfound.glb"
+
+
+@pytest.mark.anyio
+async def test_optimize_3d_model_fallback_on_cli_failure():
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b"fake_glb_bytes"
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_resp)
+    mock_client.__aenter__.return_value = mock_client
+
+    mock_proc = MagicMock()
+    mock_proc.returncode = 1
+    mock_proc.stderr = "npx failed"
+
+    with patch("app.services.optimizer_service.httpx.AsyncClient", return_value=mock_client), \
+         patch("app.services.optimizer_service.subprocess.run", return_value=mock_proc):
+        fallback = await optimize_3d_model("https://example.com/model.glb")
+        assert fallback == "https://example.com/model.glb"
+
+
+@pytest.mark.anyio
+async def test_optimize_3d_model_success():
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b"fake_glb_bytes"
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_resp)
+    mock_client.__aenter__.return_value = mock_client
+
+    def mock_run(cmd, *args, **kwargs):
+        # Crear archivo simulado en output_path (índice 5 de cmd)
+        out_path = cmd[5]
+        with open(out_path, "wb") as f:
+            f.write(b"optimized_draco_webp_bytes")
+        proc = MagicMock()
+        proc.returncode = 0
+        proc.stderr = ""
+        proc.stdout = "info: success"
+        return proc
+
+    with patch("app.services.optimizer_service.httpx.AsyncClient", return_value=mock_client), \
+         patch("app.services.optimizer_service.subprocess.run", side_effect=mock_run):
+        res = await optimize_3d_model("https://example.com/model.glb", base_url="http://testserver:8000")
+        assert "http://testserver:8000/static/models/model_" in res
+        assert res.endswith("_opt.glb")
+
