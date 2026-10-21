@@ -125,6 +125,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
           shadowOpacity: isDark ? 0.25 : 0.08,
         },
         outerStyle,
+        { backgroundColor: 'transparent' }, // El contenedor exterior debe ser siempre 100% transparente para no bloquear el vidrio
       ]}
       {...restProps}
     >

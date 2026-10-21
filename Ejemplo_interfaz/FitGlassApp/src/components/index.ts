@@ -8,3 +8,4 @@ export { SliderControl } from './SliderControl';
 export { TabBar } from './TabBar';
 export { Model3DViewer, preloadGLTF } from './Model3DViewer';
 export { Viewport3DPlaceholder } from './Viewport3DPlaceholder';
+export { VibrantBackground } from './VibrantBackground';

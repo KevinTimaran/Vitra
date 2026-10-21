@@ -13,6 +13,7 @@ import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { GlassCard } from '../components/GlassCard';
+import { VibrantBackground } from '../components/VibrantBackground';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
@@ -71,7 +72,8 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <View style={styles.container}>
+      <VibrantBackground />
       <Header
         title="Estudio de Color"
         subtitle="Armonía Espectral & Colorimetría IA"
