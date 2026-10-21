@@ -1,3 +1,4 @@
+// src/components/GlassCard.tsx
 import React from 'react';
 import {
   View,
@@ -5,21 +6,30 @@ import {
   StyleProp,
   ViewStyle,
   ViewProps,
+  Platform,
 } from 'react-native';
 import { BlurView, BlurTint } from 'expo-blur';
 import { useTheme } from '../contexts/ThemeContext';
+import { Radius, Shadows } from '../theme';
+
+export type GlassCardVariant =
+  | 'default'
+  | 'elevated'
+  | 'subtle'
+  | 'tiffany'
+  | 'accent';
 
 export interface GlassCardProps extends ViewProps {
   /**
-   * Contenido hijo a renderizar dentro de la tarjeta de cristal.
+   * Contenido hijo dentro de la tarjeta de cristal.
    */
   children?: React.ReactNode;
   /**
-   * Estilos de diseño y posicionamiento opcionales.
+   * Estilos de diseño, margen, dimensiones y posicionamiento opcionales.
    */
   style?: StyleProp<ViewStyle>;
   /**
-   * Intensidad del efecto de desenfoque (1 - 100).
+   * Intensidad del efecto de desenfoque de expo-blur (1 - 100).
    * @default 50
    */
   intensity?: number;
@@ -32,11 +42,21 @@ export interface GlassCardProps extends ViewProps {
    * @default 24
    */
   borderRadius?: number;
+  /**
+   * Grosor de borde de refracción.
+   * @default 1
+   */
+  borderWidth?: number;
+  /**
+   * Variante estilística de elevación y tintado perimetral.
+   * @default 'default'
+   */
+  variant?: GlassCardVariant;
 }
 
 /**
  * Propiedades de estilo que corresponden al contenedor exterior para
- * garantizar que sombras y posicionamiento no se corten por el overflow: hidden.
+ * garantizar que sombras y posicionamiento no se corten por el overflow: hidden del BlurView.
  */
 const OUTER_STYLE_KEYS = new Set([
   'margin',
@@ -72,24 +92,28 @@ const OUTER_STYLE_KEYS = new Set([
 ]);
 
 /**
- * Componente reutilizable de superficie Glassmorphism para Vitra / FitGlassApp.
- * Utiliza BlurView de expo-blur, bordes finos de refracción y sombra sutil
- * sincronizado automáticamente con el modo claro y oscuro del tema.
+ * Master GlassCard Component — Pearl & Tiffany Atelier
+ *
+ * Implementa una superficie vítrea de lujo con alta legibilidad,
+ * opacidad translúcida calibrada (88-95%), borde de refracción sutil,
+ * desenfoque nativo con expo-blur y sombra ambiental suave sin opacar el cristal.
  */
 export const GlassCard: React.FC<GlassCardProps> = ({
   children,
   style,
   intensity = 50,
   tint,
-  borderRadius = 24,
+  borderRadius = Radius.md, // 24
+  borderWidth = 1,
+  variant = 'default',
   ...restProps
 }) => {
   const { isDark } = useTheme();
 
-  // Tinte adaptativo según el tema activo si el consumidor no especifica uno
+  // Tinte adaptativo según el tema activo
   const effectiveTint: BlurTint = tint || (isDark ? 'dark' : 'light');
 
-  // Separar estilos de contenedor exterior (layout/sombras) de estilos interiores (relleno/alineación)
+  // Separar estilos de contenedor exterior (layout/sombras) de estilos interiores
   const flattenedStyle = StyleSheet.flatten(style) || {};
   const outerStyle: ViewStyle = {};
   const innerStyle: ViewStyle = {};
@@ -107,25 +131,51 @@ export const GlassCard: React.FC<GlassCardProps> = ({
     }
   });
 
-  // Colores translúcidos según especificación Glassmorphism (adaptados a light/dark)
-  const defaultBg = isDark
-    ? 'rgba(255, 255, 255, 0.05)'
-    : 'rgba(255, 255, 255, 0.10)';
+  // 1. Superficie de color base según especificación canónica
+  let backgroundColor = isDark
+    ? 'rgba(26, 28, 30, 0.88)'
+    : 'rgba(255, 255, 255, 0.92)';
 
-  const defaultBorder = isDark
-    ? 'rgba(255, 255, 255, 0.12)'
-    : 'rgba(255, 255, 255, 0.20)';
+  if (variant === 'subtle') {
+    backgroundColor = isDark
+      ? 'rgba(26, 28, 30, 0.65)'
+      : 'rgba(255, 255, 255, 0.78)';
+  }
+
+  // 2. Borde perimetral de refracción
+  let borderColor = isDark
+    ? 'rgba(113, 120, 124, 0.28)'
+    : 'rgba(226, 232, 237, 0.70)';
+
+  if (variant === 'tiffany') {
+    borderColor = isDark ? 'rgba(142, 182, 199, 0.45)' : 'rgba(142, 182, 199, 0.55)';
+  } else if (variant === 'accent') {
+    borderColor = isDark ? 'rgba(158, 188, 179, 0.40)' : 'rgba(158, 188, 179, 0.50)';
+  }
+
+  // 3. Elevación y sombra ambiental canónica
+  const shadowConfig =
+    variant === 'elevated'
+      ? Shadows.floating
+      : Shadows.ambient;
+
+  const shadowColor = isDark ? '#000000' : shadowConfig.shadowColor;
+  const shadowOpacity = isDark ? 0.20 : shadowConfig.shadowOpacity;
 
   return (
     <View
       style={[
-        styles.outerShadow,
+        styles.outerContainer,
         {
           borderRadius: resolvedBorderRadius,
-          shadowOpacity: isDark ? 0.25 : 0.08,
+          shadowColor,
+          shadowOpacity,
+          shadowRadius: shadowConfig.shadowRadius,
+          shadowOffset: shadowConfig.shadowOffset,
+          elevation: shadowConfig.elevation,
         },
         outerStyle,
-        { backgroundColor: 'transparent' }, // El contenedor exterior debe ser siempre 100% transparente para no bloquear el vidrio
+        { backgroundColor: 'transparent' }, // El contenedor exterior debe ser siempre 100% transparente
       ]}
       {...restProps}
     >
@@ -136,8 +186,9 @@ export const GlassCard: React.FC<GlassCardProps> = ({
           styles.innerSurface,
           {
             borderRadius: resolvedBorderRadius,
-            backgroundColor: defaultBg,
-            borderColor: defaultBorder,
+            backgroundColor,
+            borderColor,
+            borderWidth,
           },
           innerStyle,
         ]}
@@ -149,17 +200,11 @@ export const GlassCard: React.FC<GlassCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  outerShadow: {
-    // Elevación y sombra sutil para separar la tarjeta del fondo sin opacar el cristal
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 3,
+  outerContainer: {
     backgroundColor: 'transparent',
   },
   innerSurface: {
     overflow: 'hidden',
-    borderWidth: 1,
     width: '100%',
   },
 });

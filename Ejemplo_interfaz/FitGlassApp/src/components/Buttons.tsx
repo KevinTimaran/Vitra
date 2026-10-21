@@ -12,6 +12,7 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   icon?: keyof typeof Ionicons.glyphMap;
+  variant?: 'primary' | 'secondary' | 'danger' | 'tiffany';
 }
 
 export const PrimaryButton: React.FC<ButtonProps> = ({
@@ -22,6 +23,7 @@ export const PrimaryButton: React.FC<ButtonProps> = ({
   style,
   textStyle,
   icon,
+  variant = 'primary',
 }) => {
   let colors = DefaultColors;
   try {
@@ -29,11 +31,26 @@ export const PrimaryButton: React.FC<ButtonProps> = ({
     if (themeCtx?.colors) colors = themeCtx.colors;
   } catch (e) {}
 
+  const isDanger = variant === 'danger';
+  const isTiffany = variant === 'tiffany';
+
+  const bgColor = isDanger
+    ? colors.palette.error
+    : isTiffany
+    ? colors.palette.tiffany
+    : colors.cta;
+
+  const textColor = isDanger
+    ? colors.palette.onError
+    : isTiffany
+    ? colors.palette.onPrimaryFixed
+    : colors.ctaText;
+
   return (
     <TouchableOpacity
       style={[
         styles.primary,
-        { backgroundColor: colors.cta },
+        { backgroundColor: bgColor },
         disabled && styles.disabled,
         style,
       ]}
@@ -42,18 +59,18 @@ export const PrimaryButton: React.FC<ButtonProps> = ({
       activeOpacity={0.85}
     >
       {loading ? (
-        <ActivityIndicator color={colors.ctaText} size="small" />
+        <ActivityIndicator color={textColor} size="small" />
       ) : (
         <>
           {icon && (
             <Ionicons
               name={icon}
               size={18}
-              color={colors.ctaText}
+              color={textColor}
               style={{ marginRight: Spacing.sm }}
             />
           )}
-          <Text style={[styles.primaryText, { color: colors.ctaText }, textStyle]}>{label}</Text>
+          <Text style={[styles.primaryText, { color: textColor }, textStyle]}>{label}</Text>
         </>
       )}
     </TouchableOpacity>
@@ -79,7 +96,7 @@ export const SecondaryButton: React.FC<ButtonProps> = ({
     <TouchableOpacity
       style={[
         styles.secondary,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
         disabled && styles.disabledSecondary,
         style,
       ]}
@@ -174,22 +191,29 @@ const styles = StyleSheet.create({
   primary: {
     height: 50,
     backgroundColor: DefaultColors.cta,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     paddingHorizontal: Spacing.xl,
+    shadowColor: '#2E3238',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
   },
   primaryText: {
     ...Typography.headline,
+    fontWeight: '600',
+    letterSpacing: 0.2,
     color: DefaultColors.ctaText,
   },
   secondary: {
     height: 50,
-    backgroundColor: DefaultColors.surface,
+    backgroundColor: DefaultColors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: DefaultColors.border,
-    borderRadius: Radius.md,
+    borderColor: DefaultColors.borderLight,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -197,6 +221,8 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     ...Typography.headline,
+    fontWeight: '500',
+    letterSpacing: 0.1,
     color: DefaultColors.primaryText,
   },
   textButton: {
@@ -210,9 +236,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: Radius.full,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.pill,
     backgroundColor: DefaultColors.surface,
     borderWidth: 1,
     borderColor: DefaultColors.borderLight,
@@ -220,10 +246,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   disabled: {
-    backgroundColor: DefaultColors.disabled,
+    opacity: 0.45,
   },
   disabledSecondary: {
     borderColor: DefaultColors.borderLight,
-    opacity: 0.5,
+    opacity: 0.45,
   },
 });
