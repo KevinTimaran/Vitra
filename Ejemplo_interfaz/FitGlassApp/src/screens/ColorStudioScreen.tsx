@@ -89,7 +89,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* Glassmorphic Season Badge Hero Card */}
-        <View style={[styles.glassHeroCard, glassSurface]}>
+        <GlassCard style={styles.glassHeroCard}>
           <View style={styles.seasonTagRow}>
             <View
               style={[
@@ -163,7 +163,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               ))}
             </View>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Biometric Base Tones: Skin Tone, Hair & Eyes */}
         <View style={styles.sectionWrapper}>
@@ -176,7 +176,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
           <View style={styles.baseTonesGrid}>
             {/* Piel */}
-            <View style={[styles.baseToneCard, glassSurface]}>
+            <GlassCard style={styles.baseToneCard}>
               <View
                 style={[
                   styles.toneCircularSwatch,
@@ -194,10 +194,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   {colorProfile.skin_tone}
                 </Text>
               </View>
-            </View>
+            </GlassCard>
 
             {/* Cabello */}
-            <View style={[styles.baseToneCard, glassSurface]}>
+            <GlassCard style={styles.baseToneCard}>
               <View
                 style={[
                   styles.toneCircularSwatch,
@@ -215,11 +215,11 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   {colorProfile.hair_color}
                 </Text>
               </View>
-            </View>
+            </GlassCard>
 
             {/* Ojos si está disponible */}
             {colorProfile.eye_color ? (
-              <View style={[styles.baseToneCard, glassSurface]}>
+              <GlassCard style={styles.baseToneCard}>
                 <View
                   style={[
                     styles.toneCircularSwatch,
@@ -237,13 +237,13 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                     {colorProfile.eye_color}
                   </Text>
                 </View>
-              </View>
+              </GlassCard>
             ) : null}
           </View>
         </View>
 
         {/* AI Stylist Explanation Card */}
-        <View style={[styles.explanationCard, glassSurface]}>
+        <GlassCard style={styles.explanationCard}>
           <View style={styles.explanationHeader}>
             <Ionicons name="sparkles" size={16} color={colors.primaryText} />
             <Text style={[styles.explanationLabel, { color: colors.primaryText }]}>
@@ -253,7 +253,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           <Text style={[styles.explanationBody, { color: colors.secondaryText }]}>
             "{colorProfile.description}"
           </Text>
-        </View>
+        </GlassCard>
 
         {/* Circular Swatches: Recommended Garment Colors */}
         <View style={styles.sectionWrapper}>
@@ -314,7 +314,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
         {/* Selected Swatch Highlight Card */}
         {activeHex && (
-          <View style={[styles.selectedSwatchCard, glassSurface]}>
+          <GlassCard style={styles.selectedSwatchCard}>
             <View
               style={[
                 styles.largeSwatchBlock,
@@ -335,7 +335,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 Filtro cromático activo para el probador y recomendaciones de prendas.
               </Text>
             </View>
-          </View>
+          </GlassCard>
         )}
 
         {/* Colores a Evitar */}
