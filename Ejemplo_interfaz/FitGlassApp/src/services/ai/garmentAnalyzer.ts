@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import {
   GarmentAnalysisResponse,
   TryOnResponse,
@@ -13,7 +14,7 @@ export const getBaseUrl = (): string => {
     return activeWorkingUrl;
   }
 
-  // En entorno Web, priorizar el host actual del navegador para evitar IPs desactualizadas en .env
+  // 1. En entorno Web, priorizar el host actual del navegador
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
@@ -24,7 +25,29 @@ export const getBaseUrl = (): string => {
     }
   }
 
-  return process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+  // 2. En entorno móvil (iOS / Android), detectar la IP del host de desarrollo automáticamente
+  try {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      (Constants as any).manifest?.debuggerHost ||
+      (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+    if (hostUri) {
+      const ip = hostUri.split(':')[0];
+      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+        return `http://${ip}:8000`;
+      }
+    }
+  } catch {
+    // Ignorar fallo al leer Constants
+  }
+
+  // 3. Variable de entorno configurada
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    return process.env.EXPO_PUBLIC_API_BASE_URL;
+  }
+
+  // 4. IP local en red Wi-Fi
+  return 'http://192.168.1.13:8000';
 };
 
 export interface HealthStatusResponse {
@@ -49,13 +72,27 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
     }
   }
 
-  // 2. URL configurada por variable de entorno
+  // 2. Host detectado automáticamente desde Metro/Expo
+  try {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      (Constants as any).manifest?.debuggerHost ||
+      (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+    if (hostUri) {
+      const ip = hostUri.split(':')[0];
+      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+        candidateUrls.push(`http://${ip}:8000`);
+      }
+    }
+  } catch {}
+
+  // 3. URL configurada por variable de entorno
   if (process.env.EXPO_PUBLIC_API_BASE_URL) {
     candidateUrls.push(process.env.EXPO_PUBLIC_API_BASE_URL);
   }
 
-  // 3. Fallbacks estándares
-  candidateUrls.push('http://127.0.0.1:8000', 'http://localhost:8000');
+  // 4. Fallbacks estándares e IP Wi-Fi
+  candidateUrls.push('http://192.168.1.13:8000', 'http://127.0.0.1:8000', 'http://localhost:8000');
 
   // Eliminar duplicados
   const uniqueUrls = candidateUrls.filter((url, idx, self) => self.indexOf(url) === idx);
