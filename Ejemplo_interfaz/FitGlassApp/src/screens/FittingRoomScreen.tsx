@@ -46,6 +46,13 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const [show2DView, setShow2DView] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<boolean>(false);
 
+  // Precarga del modelo 3D optimizado (useGLTF.preload)
+  useEffect(() => {
+    if (modelUrl) {
+      preloadGLTF(modelUrl);
+    }
+  }, [modelUrl]);
+
   const handleLaunchAddGarment = () => {
     if (props.onOpenAddGarment) {
       props.onOpenAddGarment();
@@ -105,14 +112,28 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             </View>
           </View>
         ) : (
-          /* Visor 3D interactivo */
+          /* Visor 3D interactivo con soporte Draco y WebP */
           <View style={styles.canvasContainer}>
-            <Viewport3DPlaceholder
-              currentGarmentName={metadata?.tipo_prenda || 'Prenda Atelier'}
-              heightRatio={0.52}
-              highlightFit={true}
-              selectedLayer={metadata?.tipo_prenda || 'Capa 3D'}
-            />
+            <Suspense
+              fallback={
+                <View style={styles.loaderFallback}>
+                  <ActivityIndicator size="large" color={colors.cta} />
+                  <Text style={[styles.loaderFallbackText, { color: colors.secondaryText }]}>
+                    Descomprimiendo modelo 3D (Draco / WebP)...
+                  </Text>
+                </View>
+              }
+            >
+              <Model3DViewer
+                modelUrl={modelUrl}
+                currentGarmentName={metadata?.tipo_prenda || 'Prenda Atelier'}
+                selectedLayer={metadata?.tipo_prenda || 'Capa 3D'}
+                onLoadError={(err: any) => {
+                  console.warn('[FittingRoom] Error al cargar modelo 3D:', err);
+                  setLoadError(true);
+                }}
+              />
+            </Suspense>
             {/* Guía táctil superpuesta */}
             <View style={styles.touchHintBadge}>
               <Ionicons name="finger-print-outline" size={16} color="rgba(255,255,255,0.9)" />
@@ -330,5 +351,20 @@ const styles = StyleSheet.create({
     ...Typography.micro,
     marginTop: 2,
     lineHeight: 15,
+  },
+  loaderFallback: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  loaderFallbackText: {
+    ...Typography.caption,
+    marginTop: 8,
+    fontWeight: '600',
   },
 });
