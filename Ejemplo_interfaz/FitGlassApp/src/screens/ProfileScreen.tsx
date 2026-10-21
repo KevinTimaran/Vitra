@@ -14,6 +14,7 @@ import { useUser } from '../contexts/UserContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
+import { GlassCard } from '../components/GlassCard';
 
 export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark, toggleTheme, setTheme } = useTheme();
@@ -40,12 +41,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
         showsVerticalScrollIndicator={false}
       >
         {/* User Identity Card */}
-        <View
-          style={[
-            styles.userCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <GlassCard style={styles.userCard}>
           <View
             style={[
               styles.avatarIconBox,
@@ -65,7 +61,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           <Text style={[styles.userBadge, { color: colors.secondaryText }]}>
             {t('profile.biometricIdentity')}
           </Text>
-        </View>
+        </GlassCard>
 
         {/* 3D Digital Twin Card */}
         <View
