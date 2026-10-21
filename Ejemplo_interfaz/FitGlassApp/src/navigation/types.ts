@@ -32,6 +32,29 @@ export type RootStackParamList = {
     imageUri: string;
     userPhotoUrl?: string;
   };
+  ColorRecommendations: {
+    garments?: any[];
+  } | undefined;
+  FitResult: {
+    garment?: any;
+    fitSettings?: any;
+  } | undefined;
+  Garment3DPreview: {
+    garment?: any;
+  } | undefined;
+  GarmentDetails: {
+    imageUri?: string | null;
+    initialAnalysis?: any;
+  } | undefined;
+  GarmentView: {
+    garment?: any;
+  } | undefined;
+  OutfitBuilder: {
+    allGarments?: any[];
+  } | undefined;
+  SavedLook: {
+    look?: any;
+  } | undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

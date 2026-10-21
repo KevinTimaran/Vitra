@@ -49,7 +49,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
   const viewportHeight = screenHeight * heightRatio;
 
   return (
-    <View style={[styles.container, { height: viewportHeight }]}>
+    <View style={[styles.container, { height: viewportHeight, backgroundColor: colors.surfaceSubtle, borderBottomColor: colors.borderLight }]}>
       {/* 3D Studio Studio Boundary & Lighting */}
       <View style={styles.studioLighting}>
         <View style={styles.overheadKeyLight} />
@@ -315,39 +315,36 @@ const styles = StyleSheet.create({
     left: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E2E8F0',
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
   },
   liveIndicator: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#10B981',
+    backgroundColor: '#9EBCB3', // Powdered mint
     marginRight: 6,
   },
   metaText: {
     ...Typography.micro,
-    color: '#64748B',
+    letterSpacing: 0.8,
   },
   garmentBadge: {
     position: 'absolute',
     top: Spacing.md,
     right: Spacing.lg,
-    maxWidth: 160,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    maxWidth: 180,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
-    borderRadius: Radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
   garmentBadgeCategory: {
     ...Typography.micro,
     fontSize: 9,
+    letterSpacing: 0.6,
   },
   garmentBadgeName: {
     ...Typography.caption,
@@ -358,19 +355,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.md,
     bottom: Spacing.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     padding: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
   },
   floatingButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 4,
+    marginVertical: 3,
   },
   floatingButtonActive: {},
 });
