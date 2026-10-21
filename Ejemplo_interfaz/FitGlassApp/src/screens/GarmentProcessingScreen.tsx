@@ -130,9 +130,10 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
         image2dUrl = tryOnResult.image_2d_url;
       } catch (tryOnErr: any) {
         console.warn('[Processing] TryOn aviso, aplicando modelo de respaldo:', tryOnErr?.message);
-        // Si las API keys de Replicate/Tripo aún no están activadas en el backend,
-        // utilizamos el modelo 3D local de demostración para no bloquear la experiencia
+        // Si las API keys de Replicate/Tripo aún no están activadas o no tienen créditos,
+        // utilizamos el modelo 3D local de demostración y la foto seleccionada para no bloquear la experiencia
         model3dUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf';
+        image2dUrl = imageBase64 || imageUri || userPhotoUrl;
       }
 
       // Paso 5: Finalización
