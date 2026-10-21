@@ -9,12 +9,27 @@ import {
 
 let activeWorkingUrl: string | null = null;
 
+export const getActiveWorkingUrl = (): string | null => activeWorkingUrl;
+
+export const setActiveWorkingUrl = (url: string): void => {
+  activeWorkingUrl = url;
+};
+
+const isIPv4 = (host: string): boolean => {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
+};
+
 export const getBaseUrl = (): string => {
   if (activeWorkingUrl) {
     return activeWorkingUrl;
   }
 
-  // 1. En entorno Web, priorizar el host actual del navegador
+  // 1. Variable de entorno configurada explícitamente (máxima prioridad)
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    return process.env.EXPO_PUBLIC_API_BASE_URL;
+  }
+
+  // 2. En entorno Web, usar el host local o remoto del navegador
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
@@ -25,29 +40,25 @@ export const getBaseUrl = (): string => {
     }
   }
 
-  // 2. En entorno móvil (iOS / Android), detectar la IP del host de desarrollo automáticamente
+  // 3. En entorno móvil (iOS / Android), si Metro nos proporciona una IP LAN real
   try {
     const hostUri =
       Constants.expoConfig?.hostUri ||
       (Constants as any).manifest?.debuggerHost ||
       (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
     if (hostUri) {
-      const ip = hostUri.split(':')[0];
-      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-        return `http://${ip}:8000`;
+      const hostPart = hostUri.split(':')[0];
+      // Solo asignar :8000 si es una IPv4 pura (los dominios exp.direct o tunnels no exponen el puerto 8000)
+      if (hostPart && isIPv4(hostPart) && hostPart !== '127.0.0.1') {
+        return `http://${hostPart}:8000`;
       }
     }
   } catch {
     // Ignorar fallo al leer Constants
   }
 
-  // 3. Variable de entorno configurada
-  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
-    return process.env.EXPO_PUBLIC_API_BASE_URL;
-  }
-
-  // 4. IP local en red Wi-Fi
-  return 'http://192.168.1.13:8000';
+  // 4. Túnel público HTTPS garantizado y fallback local
+  return 'https://fitglass-ai-kevin.loca.lt';
 };
 
 export interface HealthStatusResponse {
@@ -62,7 +73,15 @@ export interface HealthStatusResponse {
 export const checkHealth = async (): Promise<HealthStatusResponse> => {
   const candidateUrls: string[] = [];
 
-  // 1. En Web, siempre intentar localhost / 127.0.0.1 primero si se navega localmente
+  // 1. Variable de entorno
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    candidateUrls.push(process.env.EXPO_PUBLIC_API_BASE_URL);
+  }
+
+  // 2. Túnel público HTTPS
+  candidateUrls.push('https://fitglass-ai-kevin.loca.lt');
+
+  // 3. Web localhost
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
@@ -72,27 +91,22 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
     }
   }
 
-  // 2. Host detectado automáticamente desde Metro/Expo
+  // 4. Host IPv4 de Expo Metro
   try {
     const hostUri =
       Constants.expoConfig?.hostUri ||
       (Constants as any).manifest?.debuggerHost ||
       (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
     if (hostUri) {
-      const ip = hostUri.split(':')[0];
-      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-        candidateUrls.push(`http://${ip}:8000`);
+      const hostPart = hostUri.split(':')[0];
+      if (hostPart && isIPv4(hostPart) && hostPart !== '127.0.0.1') {
+        candidateUrls.push(`http://${hostPart}:8000`);
       }
     }
   } catch {}
 
-  // 3. URL configurada por variable de entorno
-  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
-    candidateUrls.push(process.env.EXPO_PUBLIC_API_BASE_URL);
-  }
-
-  // 4. Fallbacks estándares e IP Wi-Fi
-  candidateUrls.push('http://192.168.1.13:8000', 'http://127.0.0.1:8000', 'http://localhost:8000');
+  // 5. Fallbacks de red local
+  candidateUrls.push('http://192.168.174.72:8000', 'http://127.0.0.1:8000', 'http://localhost:8000');
 
   // Eliminar duplicados
   const uniqueUrls = candidateUrls.filter((url, idx, self) => self.indexOf(url) === idx);
@@ -108,6 +122,7 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
         method: 'GET',
         headers: {
           Accept: 'application/json',
+          'Bypass-Tunnel-Reminder': 'true',
         },
         signal: controller.signal,
       });

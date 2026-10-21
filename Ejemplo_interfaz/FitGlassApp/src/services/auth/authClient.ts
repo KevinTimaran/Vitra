@@ -1,4 +1,4 @@
-import { getBaseUrl } from '../ai/garmentAnalyzer';
+import { getBaseUrl, getActiveWorkingUrl, checkHealth } from '../ai/garmentAnalyzer';
 
 export interface AuthResponse {
   access_token: string;
@@ -17,92 +17,157 @@ export interface UserMeResponse {
 }
 
 /**
+ * Resuelve la URL activa del servidor backend, ejecutando una verificación si aún no se ha detectado.
+ */
+async function resolveServerUrl(): Promise<string> {
+  const active = getActiveWorkingUrl();
+  if (active) {
+    return active;
+  }
+  try {
+    const health = await checkHealth();
+    if (health.detectedUrl) {
+      return health.detectedUrl;
+    }
+  } catch {
+    // Si la verificación rápida de health falla, usar fallback directo
+  }
+  return getBaseUrl();
+}
+
+/**
  * Inicia sesión con email y contraseña en FitGlassAI
  */
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = await resolveServerUrl();
   const url = `${baseUrl}/api/auth/login`;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      email: email.trim(),
-      password,
-    }),
-  });
+  console.log('[authClient] Iniciando sesión en:', url);
 
-  if (!response.ok) {
-    let errorDetail = 'Credenciales inválidas o error de conexión.';
-    try {
-      const errorJson = await response.json();
-      if (errorJson.detail) errorDetail = errorJson.detail;
-    } catch {
-      // Usar mensaje genérico
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      let errorDetail = 'Credenciales inválidas o error de conexión.';
+      try {
+        const errorJson = await response.json();
+        if (errorJson.detail) errorDetail = errorJson.detail;
+      } catch {
+        // Usar mensaje genérico
+      }
+      throw new Error(errorDetail);
     }
-    throw new Error(errorDetail);
-  }
 
-  return await response.json();
+    return await response.json();
+  } catch (err: any) {
+    console.error(`[authClient] Error al iniciar sesión en ${url}:`, err);
+    if (err?.name === 'AbortError') {
+      throw new Error(`Tiempo de espera agotado al conectar con ${url}. Verifica tu conexión a internet o el backend.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
  * Registra una nueva cuenta en FitGlassAI
  */
 export async function registerUser(email: string, password: string, name?: string): Promise<RegisterResponse> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = await resolveServerUrl();
   const url = `${baseUrl}/api/auth/register`;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      email: email.trim(),
-      password,
-      name: name?.trim() || undefined,
-    }),
-  });
+  console.log('[authClient] Registrando usuario en:', url);
 
-  if (!response.ok) {
-    let errorDetail = 'No fue posible registrar el usuario.';
-    try {
-      const errorJson = await response.json();
-      if (errorJson.detail) errorDetail = errorJson.detail;
-    } catch {
-      // Usar mensaje genérico
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        name: name?.trim() || undefined,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      let errorDetail = 'No fue posible registrar el usuario.';
+      try {
+        const errorJson = await response.json();
+        if (errorJson.detail) errorDetail = errorJson.detail;
+      } catch {
+        // Usar mensaje genérico
+      }
+      throw new Error(errorDetail);
     }
-    throw new Error(errorDetail);
-  }
 
-  return await response.json();
+    return await response.json();
+  } catch (err: any) {
+    console.error(`[authClient] Error al registrar usuario en ${url}:`, err);
+    if (err?.name === 'AbortError') {
+      throw new Error(`Tiempo de espera agotado al conectar con ${url}. Verifica tu conexión a internet o el backend.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
  * Valida el token JWT actual y recupera datos del usuario
  */
 export async function fetchCurrentUser(token: string): Promise<UserMeResponse> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = await resolveServerUrl();
   const url = `${baseUrl}/api/auth/me`;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-  if (!response.ok) {
-    throw new Error('Token expirado o sesión inválida');
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error('Token expirado o sesión inválida');
+    }
+
+    return await response.json();
+  } catch (err: any) {
+    console.error(`[authClient] Error al validar sesión en ${url}:`, err);
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return await response.json();
 }
 
 export interface UserProfileSetupPayload {
@@ -126,34 +191,47 @@ export async function setupUserProfile(
   payload: UserProfileSetupPayload,
   token?: string | null
 ): Promise<UserProfileSetupResponse> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = await resolveServerUrl();
   const url = `${baseUrl}/api/users/profile/setup`;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  console.log('[authClient] Enviando configuración de perfil a:', url);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    let errorDetail = 'Error al configurar el perfil de usuario.';
-    try {
-      const errJson = await response.json();
-      if (errJson.detail) errorDetail = errJson.detail;
-    } catch {
-      // Ignorar
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'Bypass-Tunnel-Reminder': 'true',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    throw new Error(errorDetail);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      let errorDetail = 'Error al configurar el perfil de usuario.';
+      try {
+        const errJson = await response.json();
+        if (errJson.detail) errorDetail = errJson.detail;
+      } catch {
+        // Ignorar
+      }
+      throw new Error(errorDetail);
+    }
+
+    return await response.json();
+  } catch (err: any) {
+    console.error(`[authClient] Error al configurar perfil en ${url}:`, err);
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return await response.json();
 }
-

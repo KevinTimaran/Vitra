@@ -73,6 +73,11 @@ Si el proyecto está en otra ruta del portátil, utiliza la ruta real donde teng
 cd ~/Universidad/interfaces/AppMovil/Vitra/Ejemplo_interfaz/FitGlassApp
 
 npx expo start -c
+
+npx expo start --tunnel
+
+npx expo start -c --tunnel
+
 ```
 
 ### Configurar la IP del portátil

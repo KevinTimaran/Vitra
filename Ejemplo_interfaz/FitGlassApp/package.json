@@ -40,7 +40,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "tunnel:backend": "npx localtunnel --port 8000 --subdomain fitglass-ai-kevin"
   },
   "private": true
 }
