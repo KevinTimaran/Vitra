@@ -6,6 +6,8 @@ import { Typography, Spacing, Radius, Shadows } from '../theme';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
+import { GlassCard } from './GlassCard';
+
 interface GarmentCardProps {
   garment: Garment;
   onPress: () => void;
@@ -28,16 +30,14 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
 
   return (
     <TouchableOpacity
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.borderLight,
-        },
-      ]}
       onPress={onPress}
       activeOpacity={0.88}
+      style={{ marginBottom: Spacing.sm }}
     >
+      <GlassCard
+        borderRadius={Radius.default}
+        style={styles.card}
+      >
       {/* Visual Product Object Area */}
       <View style={[styles.imageCanvas, { backgroundColor: colors.surfaceSubtle }]}>
         {garment.imageUrl ? (
@@ -130,16 +130,15 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
           {garment.brand} · {translatedFit}
         </Text>
       </View>
+      </GlassCard>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Radius.md,
-    borderWidth: 1,
+    borderRadius: Radius.default,
     overflow: 'hidden',
-    ...Shadows.subtle,
   },
   imageCanvas: {
     height: 160,
