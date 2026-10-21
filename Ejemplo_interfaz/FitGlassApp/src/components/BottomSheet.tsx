@@ -63,9 +63,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           {/* Sheet Header */}
           <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
             <View style={styles.titleArea}>
-              <Text style={[Typography.title2, { color: colors.primaryText }]}>{title}</Text>
+              <Text style={[Typography.headlineMd, { color: colors.primaryText, fontSize: 20, lineHeight: 26 }]}>
+                {title}
+              </Text>
               {subtitle && (
-                <Text style={[Typography.caption, { color: colors.secondaryText, marginTop: 2 }]}>
+                <Text style={[Typography.bodySm, { color: colors.secondaryText, marginTop: 2 }]}>
                   {subtitle}
                 </Text>
               )}
