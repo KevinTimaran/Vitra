@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
+import { GlassCard } from '../components/GlassCard';
 import { Viewport3DPlaceholder } from '../components/Viewport3DPlaceholder';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { Garment, FitSettings } from '../types';
@@ -54,22 +55,17 @@ export const FitResultScreen: React.FC<FitResultScreenProps> = ({
         </View>
 
         {/* Fit Summary Status Card */}
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: colors.surface, borderColor: colors.borderLight },
-          ]}
-        >
+        <GlassCard style={styles.summaryCard}>
           <View style={styles.summaryTopRow}>
             <View>
               <Text style={[styles.summaryBadge, { color: colors.tertiaryText }]}>
                 {t('fitResult.scoreBadge')}
               </Text>
-              <Text style={[Typography.title1, styles.overallScore, { color: colors.primaryText }]}>
+              <Text style={[styles.overallScore, { color: colors.primaryText }]}>
                 {t('fitResult.scoreValue')}
               </Text>
             </View>
-            <View style={[styles.statusPill, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+            <View style={[styles.statusPill, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}>
               <View style={styles.statusDot} />
               <Text style={[styles.statusText, { color: colors.primaryText }]}>
                 {t('fitResult.scorePercent')}
@@ -79,7 +75,7 @@ export const FitResultScreen: React.FC<FitResultScreenProps> = ({
           <Text style={[styles.summaryDesc, { color: colors.secondaryText }]}>
             {t('fitResult.scoreDesc')}
           </Text>
-        </View>
+        </GlassCard>
 
         {/* Breakdown of Regions */}
         <View style={styles.detailsGroup}>
@@ -87,56 +83,58 @@ export const FitResultScreen: React.FC<FitResultScreenProps> = ({
             {t('fitResult.regionHeader')}
           </Text>
 
-          <View style={[styles.regionRow, { borderBottomColor: colors.borderLight }]}>
-            <View style={[styles.regionIconBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <Ionicons name="git-commit-outline" size={18} color={colors.primaryText} />
-            </View>
-            <View style={styles.regionInfo}>
-              <Text style={[styles.regionName, { color: colors.primaryText }]}>
-                {t('fitResult.chestName')}
+          <GlassCard style={styles.regionsCard}>
+            <View style={[styles.regionRow, { borderBottomColor: colors.borderLight }]}>
+              <View style={[styles.regionIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+                <Ionicons name="git-commit-outline" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.regionInfo}>
+                <Text style={[styles.regionName, { color: colors.primaryText }]}>
+                  {t('fitResult.chestName')}
+                </Text>
+                <Text style={[styles.regionMetric, { color: colors.secondaryText }]}>
+                  {t('fitResult.chestMetric')} ({fitSettings.chest} cm)
+                </Text>
+              </View>
+              <Text style={[styles.regionRating, { color: colors.primaryText }]}>
+                {t('fitResult.chestRating')}
               </Text>
-              <Text style={[styles.regionMetric, { color: colors.secondaryText }]}>
-                {t('fitResult.chestMetric')} ({fitSettings.chest} cm)
-              </Text>
             </View>
-            <Text style={[styles.regionRating, { color: colors.primaryText }]}>
-              {t('fitResult.chestRating')}
-            </Text>
-          </View>
 
-          <View style={[styles.regionRow, { borderBottomColor: colors.borderLight }]}>
-            <View style={[styles.regionIconBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <Ionicons name="git-commit-outline" size={18} color={colors.primaryText} />
-            </View>
-            <View style={styles.regionInfo}>
-              <Text style={[styles.regionName, { color: colors.primaryText }]}>
-                {t('fitResult.waistName')}
+            <View style={[styles.regionRow, { borderBottomColor: colors.borderLight }]}>
+              <View style={[styles.regionIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+                <Ionicons name="git-commit-outline" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.regionInfo}>
+                <Text style={[styles.regionName, { color: colors.primaryText }]}>
+                  {t('fitResult.waistName')}
+                </Text>
+                <Text style={[styles.regionMetric, { color: colors.secondaryText }]}>
+                  {t('fitResult.waistMetric')} ({fitSettings.waist} cm)
+                </Text>
+              </View>
+              <Text style={[styles.regionRating, { color: colors.primaryText }]}>
+                {t('fitResult.waistRating')}
               </Text>
-              <Text style={[styles.regionMetric, { color: colors.secondaryText }]}>
-                {t('fitResult.waistMetric')} ({fitSettings.waist} cm)
-              </Text>
             </View>
-            <Text style={[styles.regionRating, { color: colors.primaryText }]}>
-              {t('fitResult.waistRating')}
-            </Text>
-          </View>
 
-          <View style={[styles.regionRow, { borderBottomColor: colors.borderLight }]}>
-            <View style={[styles.regionIconBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <Ionicons name="git-commit-outline" size={18} color={colors.primaryText} />
-            </View>
-            <View style={styles.regionInfo}>
-              <Text style={[styles.regionName, { color: colors.primaryText }]}>
-                {t('fitResult.shoulderName')}
+            <View style={[styles.regionRow, { borderBottomWidth: 0 }]}>
+              <View style={[styles.regionIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+                <Ionicons name="git-commit-outline" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.regionInfo}>
+                <Text style={[styles.regionName, { color: colors.primaryText }]}>
+                  {t('fitResult.shoulderName')}
+                </Text>
+                <Text style={[styles.regionMetric, { color: colors.secondaryText }]}>
+                  {t('fitResult.shoulderMetric')} ({fitSettings.shoulders} cm)
+                </Text>
+              </View>
+              <Text style={[styles.regionRating, { color: colors.primaryText }]}>
+                {t('fitResult.shoulderRating')}
               </Text>
-              <Text style={[styles.regionMetric, { color: colors.secondaryText }]}>
-                {t('fitResult.shoulderMetric')} ({fitSettings.shoulders} cm)
-              </Text>
             </View>
-            <Text style={[styles.regionRating, { color: colors.primaryText }]}>
-              {t('fitResult.shoulderRating')}
-            </Text>
-          </View>
+          </GlassCard>
         </View>
 
         {/* Action Buttons */}
@@ -176,7 +174,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    borderWidth: 1,
   },
   summaryTopRow: {
     flexDirection: 'row',
@@ -185,34 +182,39 @@ const styles = StyleSheet.create({
   },
   summaryBadge: {
     ...Typography.micro,
+    fontFamily: Typography.outfit.bold,
     letterSpacing: 1.2,
   },
   overallScore: {
+    fontFamily: Typography.bodoni.bold,
     marginTop: 2,
-    fontSize: 22,
+    fontSize: 26,
+    fontWeight: '700',
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    gap: 5,
+    gap: 6,
   },
   statusDot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: '#10B981',
+    backgroundColor: '#8EB6C7',
   },
   statusText: {
     ...Typography.micro,
-    fontSize: 9,
+    fontFamily: Typography.outfit.bold,
+    fontSize: 10,
     fontWeight: '700',
   },
   summaryDesc: {
     ...Typography.body,
+    fontFamily: Typography.outfit.regular,
     fontSize: 13,
     lineHeight: 18,
     marginTop: Spacing.sm,
@@ -223,8 +225,13 @@ const styles = StyleSheet.create({
   },
   groupHeader: {
     ...Typography.micro,
+    fontFamily: Typography.outfit.semiBold,
     letterSpacing: 1,
     marginBottom: Spacing.sm,
+  },
+  regionsCard: {
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
   },
   regionRow: {
     flexDirection: 'row',
@@ -245,14 +252,17 @@ const styles = StyleSheet.create({
   },
   regionName: {
     ...Typography.subhead,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   regionMetric: {
     ...Typography.caption,
+    fontFamily: Typography.outfit.regular,
     marginTop: 2,
   },
   regionRating: {
     ...Typography.caption,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   actionButtons: {

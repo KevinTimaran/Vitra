@@ -250,7 +250,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...Typography.headline,
-    fontWeight: '600',
+    fontFamily: Typography.bodoni.bold,
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -264,6 +265,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...Typography.subhead,
+    fontFamily: Typography.outfit.regular,
   },
   selectionContainer: {
     alignItems: 'center',
@@ -276,26 +278,26 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: Spacing.xxl,
     alignItems: 'center',
-    borderWidth: 1,
     marginBottom: Spacing.xxl,
   },
   iconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(0,0,0,0.04)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
   },
   guidanceTitle: {
     ...Typography.title2,
+    fontFamily: Typography.bodoni.bold,
     fontWeight: '700',
     marginBottom: Spacing.xs,
     textAlign: 'center',
   },
   guidanceSubtitle: {
     ...Typography.body,
+    fontFamily: Typography.outfit.regular,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -308,11 +310,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     gap: Spacing.sm,
   },
   actionOptionText: {
     ...Typography.body,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   actionOptionSecondaryBtn: {
@@ -320,12 +323,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     gap: Spacing.sm,
   },
   actionOptionSecondaryText: {
     ...Typography.body,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   previewContainer: {
@@ -350,16 +354,16 @@ const styles = StyleSheet.create({
   badgeSuccess: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    backgroundColor: 'rgba(142, 182, 199, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: Radius.full,
+    borderRadius: Radius.pill,
     gap: 6,
     marginBottom: Spacing.xl,
   },
   badgeSuccessText: {
     ...Typography.caption,
-    color: '#15803D',
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   actionsRow: {
@@ -373,12 +377,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     gap: Spacing.xs,
   },
   btnSecondaryText: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   btnPrimary: {
@@ -387,11 +392,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     gap: Spacing.xs,
   },
   btnPrimaryText: {
     ...Typography.callout,
+    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
 });
