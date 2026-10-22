@@ -29,7 +29,7 @@ interface FittingRoomScreenProps {
 }
 
 const DEFAULT_SAMPLE_MODEL_URL =
-  'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf';
+  'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
 
 export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const { colors, isDark } = useTheme();

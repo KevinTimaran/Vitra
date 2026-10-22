@@ -56,6 +56,20 @@ async def test_analyze_garment_success():
             assert result["estilo_recomendado"] == "Casual"
 
 
+@pytest.mark.anyio
+async def test_analyze_garment_gemini_error_returns_fallback_mock():
+    mock_generate_content = AsyncMock(side_effect=Exception("503 UNAVAILABLE: Server high load"))
+    mock_client = MagicMock()
+    mock_client.aio.models.generate_content = mock_generate_content
+
+    with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
+        with patch("app.services.gemini_service.genai.Client", return_value=mock_client):
+            result = await analyze_garment("data:image/jpeg;base64,dGVzdA==")
+            assert result["tipo_prenda"] == "Prenda de prueba"
+            assert result["color_dominante"] == "#000000"
+            assert "mock de respaldo" in result["detalles"]
+
+
 # ---------------------------------------------------------
 # Pruebas: Replicate Service
 # ---------------------------------------------------------
