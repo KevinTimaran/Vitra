@@ -133,7 +133,7 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
         console.warn('[Processing] TryOn aviso, aplicando modelo de respaldo:', tryOnErr?.message);
         // Si las API keys de Replicate/Tripo aún no están activadas o no tienen créditos,
         // utilizamos el modelo 3D local de demostración y la foto seleccionada para no bloquear la experiencia
-        model3dUrl = 'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
+        model3dUrl = '';
         image2dUrl = imageBase64 || imageUri || userPhotoUrl;
       }
 
