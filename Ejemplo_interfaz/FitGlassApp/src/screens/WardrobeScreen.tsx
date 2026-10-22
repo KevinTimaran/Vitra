@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius } from '../theme';
@@ -16,6 +17,7 @@ import { useUser } from '../contexts/UserContext';
 import { GlassCard } from '../components/GlassCard';
 import { VibrantBackground } from '../components/VibrantBackground';
 import { Garment } from '../types';
+import { GarmentViewScreen } from './GarmentViewScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
@@ -36,6 +38,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   const { wardrobeItems, toggleFavoriteGarment } = useUser();
 
   const [selectedFilter, setSelectedFilter] = useState<string>('Todas');
+  const [activeGarmentDetail, setActiveGarmentDetail] = useState<Garment | null>(null);
 
   const filteredGarments = useMemo(() => {
     if (!wardrobeItems || wardrobeItems.length === 0) return [];
@@ -84,9 +87,8 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
   };
 
   const handleOpenGarmentDetail = (garment: Garment) => {
-    if (navigation) {
-      navigation.navigate('GarmentView', { garment });
-    }
+    console.log('[WardrobeScreen] Abriendo GarmentView para:', garment.name, garment.id);
+    setActiveGarmentDetail(garment);
   };
 
   // CASO A: Armario vacío (al principio antes de generar el primer modelo)
@@ -334,6 +336,22 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
           );
         }}
       />
+
+      {/* Modal de Detalle con Visor 3D y Opciones */}
+      <Modal
+        visible={Boolean(activeGarmentDetail)}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setActiveGarmentDetail(null)}
+      >
+        {activeGarmentDetail && (
+          <GarmentViewScreen
+            garment={activeGarmentDetail}
+            onBack={() => setActiveGarmentDetail(null)}
+            navigation={navigation}
+          />
+        )}
+      </Modal>
     </View>
   );
 };
