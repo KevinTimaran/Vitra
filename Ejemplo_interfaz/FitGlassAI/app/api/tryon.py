@@ -18,9 +18,7 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
     4. Retorna las URLs resultantes y el estado completado.
     """
     SAMPLE_3D_MODEL_FALLBACK = (
-        f"{settings.EXPO_PUBLIC_API_BASE_URL.rstrip('/')}/static/models/tshirt.glb"
-        if settings.EXPO_PUBLIC_API_BASE_URL
-        else "https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb"
+        "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
     )
 
     image_2d_url = None
