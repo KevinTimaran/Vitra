@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import {
   GarmentAnalysisResponse,
   TryOnResponse,
@@ -24,7 +25,25 @@ const isIPv4 = (host: string): boolean => {
 
 export const ensureBase64DataUri = async (imageUriOrBase64: string): Promise<string> => {
   let img = imageUriOrBase64.trim();
+  if (img.startsWith('http://') || img.startsWith('https://')) {
+    return img;
+  }
+
+  // Si es un archivo local file://, redimensionar y comprimir para reducir el payload de red
   if (img.startsWith('file://')) {
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        img,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      if (manipulated.base64) {
+        return `data:image/jpeg;base64,${manipulated.base64}`;
+      }
+    } catch (manipErr) {
+      console.warn('[ensureBase64DataUri] Error optimizando imagen con ImageManipulator:', manipErr);
+    }
+
     try {
       const localFile = new File(img);
       const b64 = await localFile.base64();
@@ -35,7 +54,8 @@ export const ensureBase64DataUri = async (imageUriOrBase64: string): Promise<str
       console.warn('[ensureBase64DataUri] Error leyendo archivo local con File API:', e);
     }
   }
-  if (!img.startsWith('http://') && !img.startsWith('https://') && !img.startsWith('data:')) {
+
+  if (!img.startsWith('data:')) {
     return `data:image/jpeg;base64,${img}`;
   }
   return img;
