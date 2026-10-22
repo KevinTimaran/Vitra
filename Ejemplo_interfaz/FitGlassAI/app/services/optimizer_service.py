@@ -75,7 +75,7 @@ async def optimize_3d_model(
                 return input_clean
             input_file_path = input_clean
 
-        # 2. Ejecutar @gltf-transform/cli optimize con compresión Draco y WebP
+        # 2. Ejecutar @gltf-transform/cli optimize compatible con React Native (sin Draco/WebP que requieren Web Workers en navegador)
         cmd = [
             "npx",
             "-y",
@@ -84,12 +84,14 @@ async def optimize_3d_model(
             input_file_path,
             output_path,
             "--compress",
-            "draco",
+            "false",
             "--texture-compress",
-            "webp",
+            "false",
+            "--texture-size",
+            "1024",
         ]
 
-        logger.info(f"[Optimizer] Ejecutando optimización Draco + WebP: {' '.join(cmd)}")
+        logger.info(f"[Optimizer] Ejecutando optimización segura para móviles: {' '.join(cmd)}")
 
         def _run_cli():
             return subprocess.run(
