@@ -48,6 +48,7 @@ export const AuthScreen: React.FC = () => {
   const [password, setPassword] = useState<string>('');
   const [fullName, setFullName] = useState<string>('');
   const [age, setAge] = useState<string>('');
+  const [gender, setGender] = useState<'female' | 'male' | 'non-binary'>('female');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
 
@@ -174,6 +175,10 @@ export const AuthScreen: React.FC = () => {
         setErrorMessage('Por favor ingresa una edad válida (entre 10 y 99 años).');
         return;
       }
+      if (!gender) {
+        setErrorMessage('Por favor selecciona tu género para configurar tu silueta base.');
+        return;
+      }
       setRegisterStep(3);
     }
   };
@@ -203,6 +208,7 @@ export const AuthScreen: React.FC = () => {
           {
             full_name: cleanName,
             age: parsedAge,
+            gender: gender,
             face_image: faceImageBase64 || undefined,
             body_image: bodyImageBase64 || undefined,
           },
@@ -216,6 +222,7 @@ export const AuthScreen: React.FC = () => {
       completeOnboarding({
         fullName: cleanName,
         age: parsedAge,
+        gender: gender,
         facePhotoUri: faceImageUri || undefined,
         bodyPhotoUri: bodyImageUri || undefined,
         photoUri: bodyImageUri || undefined,
@@ -727,6 +734,58 @@ export const AuthScreen: React.FC = () => {
                       </View>
                     </View>
 
+                    {/* Selector de Género / Silueta Base (Requerido) */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Género / Silueta Base (Requerido)</Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                        {(
+                          [
+                            { id: 'female', label: 'Femenino', icon: 'female-outline' },
+                            { id: 'male', label: 'Masculino', icon: 'male-outline' },
+                            { id: 'non-binary', label: 'Fluido / Neutro', icon: 'male-female-outline' },
+                          ] as const
+                        ).map((opt) => {
+                          const isSel = gender === opt.id;
+                          return (
+                            <TouchableOpacity
+                              key={opt.id}
+                              style={{
+                                flex: 1,
+                                paddingVertical: 10,
+                                paddingHorizontal: 4,
+                                borderRadius: 9999,
+                                borderWidth: 1.5,
+                                borderColor: isSel ? '#3C6473' : '#E2E8F0',
+                                backgroundColor: isSel ? '#3C6473' : '#FFFFFF',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexDirection: 'row',
+                                gap: 4,
+                              }}
+                              onPress={() => setGender(opt.id)}
+                              activeOpacity={0.75}
+                            >
+                              <Ionicons
+                                name={opt.icon as any}
+                                size={14}
+                                color={isSel ? '#FFFFFF' : '#64748B'}
+                              />
+                              <Text
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: '600',
+                                  color: isSel ? '#FFFFFF' : '#334155',
+                                }}
+                                numberOfLines={1}
+                              >
+                                {opt.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+
                     {/* Botones de Navegación del Paso 2 */}
                     <View style={styles.wizardButtonsRow}>
                       <TouchableOpacity
@@ -762,11 +821,28 @@ export const AuthScreen: React.FC = () => {
                 {/* ====================================================== */}
                 {viewState === 'register' && registerStep === 3 && (
                   <View style={styles.formContainer}>
+                    {/* Nota informativa de fotos opcionales */}
+                    <View style={{
+                      backgroundColor: '#F1F5F9',
+                      padding: 12,
+                      borderRadius: 12,
+                      marginBottom: 12,
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#3C6473',
+                    }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E293B', marginBottom: 2 }}>
+                        Gemelo Digital (Fotografías Opcionales)
+                      </Text>
+                      <Text style={{ fontSize: 11, color: '#64748B', lineHeight: 16 }}>
+                        Puedes subir tus fotos ahora para un gemelo personalizado o continuar directamente para usar la silueta 3D atelier asignada a tu perfil.
+                      </Text>
+                    </View>
+
                     {/* 1. Fotografía Facial */}
                     <View style={styles.biometricSection}>
                       <View style={styles.biometricHeaderRow}>
                         <Ionicons name="color-palette-outline" size={18} color="#3C6473" />
-                        <Text style={styles.biometricSectionTitle}>{t('auth.facialPhoto')}</Text>
+                        <Text style={styles.biometricSectionTitle}>{t('auth.facialPhoto')} (Opcional)</Text>
                       </View>
                       <Text style={styles.biometricSectionDesc}>{t('auth.facialDesc')}</Text>
 
