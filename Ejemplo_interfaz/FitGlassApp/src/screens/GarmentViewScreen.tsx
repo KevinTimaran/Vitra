@@ -457,10 +457,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewer3DContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   photo2DContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     padding: Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
