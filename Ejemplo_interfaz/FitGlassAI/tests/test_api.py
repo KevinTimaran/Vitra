@@ -274,3 +274,62 @@ def test_avatar_generate_failure():
         assert response.status_code == 502
         assert "Tripo3D" in response.json()["detail"]
 
+
+# -------------------------------------------------------------
+# Pruebas: DELETE /api/avatar/current & GET /api/avatar/presets
+# -------------------------------------------------------------
+def test_avatar_delete_endpoint():
+    response = client.delete("/api/avatar/current")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "deleted"
+    assert "reestablecido" in data["message"] or "restablecido" in data["message"] or "eliminado" in data["message"]
+
+
+def test_avatar_presets_endpoint():
+    response = client.get("/api/avatar/presets")
+    assert response.status_code == 200
+    data = response.json()
+    assert "presets" in data
+    assert len(data["presets"]) >= 3
+    genders = [p["gender"] for p in data["presets"]]
+    assert "female" in genders
+    assert "male" in genders
+    assert "non-binary" in genders
+
+
+# -------------------------------------------------------------
+# Pruebas: Multi-Garment Try-On POST /api/tryon/generate
+# -------------------------------------------------------------
+def test_tryon_multi_garment_success():
+    mock_2d_top = "https://mock.com/top_fused.png"
+    mock_2d_pants = "https://mock.com/complete_look_fused.png"
+    mock_3d = "https://mock.com/model3d.glb"
+
+    with patch("app.api.tryon.generate_vton", new_callable=AsyncMock) as mock_vton, \
+         patch("app.api.tryon.generate_3d_model", new_callable=AsyncMock) as mock_3d_fn, \
+         patch("app.api.tryon.optimize_3d_model", new_callable=AsyncMock) as mock_opt:
+
+        mock_vton.side_effect = [mock_2d_top, mock_2d_pants]
+        mock_3d_fn.return_value = mock_3d
+        mock_opt.return_value = "http://testserver/static/models/outfit_opt.glb"
+
+        payload = {
+            "human_image": "https://example.com/person.png",
+            "garments": [
+                {"image": "https://example.com/jacket.png", "category": "upper_body", "name": "Blazer"},
+                {"image": "https://example.com/trousers.png", "category": "lower_body", "name": "Pants"},
+            ],
+            "allow_fallback": False
+        }
+
+        response = client.post("/api/tryon/generate", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["model_3d_url"] == "http://testserver/static/models/outfit_opt.glb"
+        # Tripo3D invocado EXACTAMENTE UNA VEZ por look completado
+        assert mock_3d_fn.call_count == 1
+        # IDM-VTON invocado dos veces (una para chaqueta y una para pantalón)
+        assert mock_vton.call_count == 2
+

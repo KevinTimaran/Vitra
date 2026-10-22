@@ -57,3 +57,18 @@ export interface GarmentAnalysis {
   confidence: number;
 }
 
+export interface GarmentItemInput {
+  image: string;
+  category?: string;
+  name?: string;
+}
+
+export interface AvatarPresetItem {
+  id: string;
+  gender: string;
+  name: string;
+  description: string;
+  image_2d: string;
+  model_3d_url: string;
+}
+
