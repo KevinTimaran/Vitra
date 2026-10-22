@@ -162,6 +162,14 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   const shadowColor = isDark ? '#000000' : shadowConfig.shadowColor;
   const shadowOpacity = isDark ? 0.20 : shadowConfig.shadowOpacity;
 
+  const fillParentStyle: ViewStyle = {};
+  if (outerStyle.height !== undefined || outerStyle.maxHeight !== undefined) {
+    fillParentStyle.height = '100%';
+  }
+  if (outerStyle.flex !== undefined) {
+    fillParentStyle.flex = 1;
+  }
+
   return (
     <View
       style={[
@@ -184,6 +192,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         tint={effectiveTint}
         style={[
           styles.innerSurface,
+          fillParentStyle,
           {
             borderRadius: resolvedBorderRadius,
             backgroundColor,
