@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   summaryCard: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.lg,
+    marginHorizontal: 12,
+    marginTop: Spacing.md,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
   },
@@ -220,8 +220,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   detailsGroup: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.xl,
+    marginHorizontal: 12,
+    marginTop: Spacing.lg,
   },
   groupHeader: {
     ...Typography.micro,
@@ -266,7 +266,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionButtons: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.xl,
+    marginHorizontal: 12,
+    marginTop: Spacing.lg,
+    marginBottom: 80,
   },
 });
