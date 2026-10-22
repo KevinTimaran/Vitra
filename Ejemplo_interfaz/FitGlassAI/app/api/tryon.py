@@ -48,10 +48,7 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
 
         # Paso 2: Generar el modelo 3D a partir de la imagen 2D fusionada
         try:
-            model_3d_url = await generate_3d_model(
-                image_url=image_2d_url,
-                allow_fallback=payload.allow_fallback,
-            )
+            model_3d_url = await generate_3d_model(image_url=image_2d_url)
         except Exception as tripo_err:
             if payload.allow_fallback:
                 # Si Tripo3D no tiene créditos o falla, aplicar modelo de respaldo sin romper la UX

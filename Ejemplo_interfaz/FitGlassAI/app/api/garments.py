@@ -1,7 +1,14 @@
+import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from fastapi.responses import JSONResponse
 from app.schemas.garment import GarmentAnalysisResponse, GarmentAnalysisRequest
-from app.services.gemini_service import analyze_garment_image, analyze_garment
+from app.services.gemini_service import (
+    analyze_garment_image,
+    analyze_garment,
+    DEFAULT_GARMENT_METADATA_MOCK
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -15,6 +22,7 @@ async def analyze_garment_endpoint(request: Request):
     Endpoint para análisis de prendas:
     - Acepta JSON con 'image' o 'image_data' (Base64 o URL) e invoca analyze_garment.
     - Acepta multipart/form-data con archivo 'file' para compatibilidad nativa.
+    - Blindado para retornar metadatos de respaldo si Gemini sufre fallas de cuota, 502 o timeout.
     """
     content_type = request.headers.get("content-type", "")
 
@@ -39,15 +47,16 @@ async def analyze_garment_endpoint(request: Request):
             metadata = await analyze_garment(image_str)
             return GarmentAnalysisResponse(success=True, data=metadata)
         except HTTPException as he:
+            if he.status_code == 502:
+                logger.warning(f"[analyze_garment_endpoint] Error 502 de Gemini: {he.detail}. Retornando mock de respaldo.")
+                return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
             return JSONResponse(
                 status_code=he.status_code,
                 content={"success": False, "error": he.detail}
             )
         except Exception as e:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "error": str(e)}
-            )
+            logger.warning(f"[analyze_garment_endpoint] Excepción al analizar prenda: {e}. Retornando mock de respaldo.")
+            return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
 
     # Caso 2: Multipart/form-data
     if "multipart/form-data" in content_type:
@@ -90,10 +99,8 @@ async def analyze_garment_endpoint(request: Request):
                     content={"success": False, "error": str(ve)}
                 )
             except Exception as e:
-                return JSONResponse(
-                    status_code=500,
-                    content={"success": False, "error": "Error interno del servidor al procesar la imagen."}
-                )
+                logger.warning(f"[analyze_garment_endpoint] Error procesando imagen multipart: {e}. Retornando mock.")
+                return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
 
         image_str = form.get("image") or form.get("image_data")
         if image_str and isinstance(image_str, str):
@@ -101,15 +108,16 @@ async def analyze_garment_endpoint(request: Request):
                 metadata = await analyze_garment(image_str)
                 return GarmentAnalysisResponse(success=True, data=metadata)
             except HTTPException as he:
+                if he.status_code == 502:
+                    logger.warning(f"[analyze_garment_endpoint] Error 502 de Gemini: {he.detail}. Retornando mock de respaldo.")
+                    return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
                 return JSONResponse(
                     status_code=he.status_code,
                     content={"success": False, "error": he.detail}
                 )
             except Exception as e:
-                return JSONResponse(
-                    status_code=500,
-                    content={"success": False, "error": str(e)}
-                )
+                logger.warning(f"[analyze_garment_endpoint] Excepción al analizar prenda multipart: {e}. Retornando mock.")
+                return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
 
         return JSONResponse(
             status_code=400,
