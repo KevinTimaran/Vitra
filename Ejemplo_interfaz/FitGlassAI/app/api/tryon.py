@@ -212,11 +212,11 @@ async def _execute_tryon_pipeline(
     if task_id and task_id in _async_tasks:
         _async_tasks[task_id].update({"step": "tripo3d", "progress": 0.60, "image_2d_url": image_2d_url})
 
-    if garment_image and garment_image.strip():
+    if garment_list and len(garment_list) > 0:
+        # Para look completo terminado, el modelo 3D representa el conjunto fusionado (image_2d_url)
+        image_3d_input = image_2d_url if (image_2d_url and str(image_2d_url).strip()) else garment_list[0].get("image", "").strip()
+    elif garment_image and garment_image.strip():
         image_3d_input = garment_image.strip()
-    elif garment_list and len(garment_list) > 0:
-        # Prenda principal del look para el modelado 3D
-        image_3d_input = garment_list[0].get("image", "").strip()
     else:
         image_3d_input = image_2d_url
 
