@@ -210,9 +210,8 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
         updateAvatarUrl(avatarRes.avatar_url);
       } catch (avatarErr: any) {
         console.warn('[BodyProfileScreen] Avatar aviso (usando modelo 3D fallback):', avatarErr?.message);
-        avatarUrl =
-          'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
-        updateAvatarUrl(avatarUrl);
+        avatarUrl = '';
+        updateAvatarUrl('');
       }
 
       // Paso 5: Finalización y guardado en UserContext
