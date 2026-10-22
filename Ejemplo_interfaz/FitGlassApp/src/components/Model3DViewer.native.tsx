@@ -316,9 +316,12 @@ const Interactive3DScene: React.FC<{
     if (groupRef.current) {
       if (!gestureRef.current.isDragging) {
         // Auto-rotación suave de exhibición
-        groupRef.current.rotation.y += delta * 0.45;
+        groupRef.current.rotation.y += delta * 0.22;
+        // Sincronizar para evitar saltos angulares al volver a interactuar
+        gestureRef.current.y = groupRef.current.rotation.y;
         // Restablecer ángulo de inclinación vertical gradualmente
         groupRef.current.rotation.x += (0 - groupRef.current.rotation.x) * 0.05;
+        gestureRef.current.x = groupRef.current.rotation.x;
       } else {
         // Rotación impulsada por el dedo del usuario
         groupRef.current.rotation.y = gestureRef.current.y;
@@ -388,7 +391,10 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
     zoom: 1.0,
   });
 
-  // PanResponder nativo para rotación 360° fluida sin depender de OrbitControls DOM
+  // Guardar el ángulo base al iniciar el toque para cálculo directo no acumulativo
+  const initialAngle = useRef({ x: 0, y: 0 });
+
+  // PanResponder nativo con sensibilidad calibrada para rotación suave 1:1
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -396,12 +402,19 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: () => {
           gestureState.current.isDragging = true;
+          // Anclar ángulo actual para que el movimiento sea lineal y fluido sin aceleración descontrolada
+          initialAngle.current.y = gestureState.current.y;
+          initialAngle.current.x = gestureState.current.x;
         },
         onPanResponderMove: (_, gesture) => {
-          gestureState.current.y += gesture.dx * 0.015;
+          // Sensibilidad calibrada (0.005 rad/px): arrastrar 100px rota ~28 grados (control milimétrico)
+          const SENSITIVITY_X = 0.005;
+          const SENSITIVITY_Y = 0.0035;
+
+          gestureState.current.y = initialAngle.current.y + gesture.dx * SENSITIVITY_X;
           gestureState.current.x = Math.max(
             -0.5,
-            Math.min(0.5, gestureState.current.x + gesture.dy * 0.012)
+            Math.min(0.5, initialAngle.current.x + gesture.dy * SENSITIVITY_Y)
           );
         },
         onPanResponderRelease: () => {

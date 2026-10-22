@@ -22,6 +22,7 @@ import { generateTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
 import { Garment } from '../types';
 
 interface FittingRoomScreenProps {
+  route?: {
     params?: {
       model_3d_url?: string;
       image_2d_url?: string;
@@ -74,6 +75,21 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   useEffect(() => {
     if (activeModelUrl) {
       preloadGLTF(activeModelUrl);
+    }
+  }, [activeModelUrl]);
+
+  // Si no hay modelo activo, recuperar el último modelo 3D real generado en el servidor
+  useEffect(() => {
+    if (!activeModelUrl) {
+      getLatestModel()
+        .then((latest) => {
+          if (latest?.model_3d_url) {
+            console.log('[FittingRoom] Modelo 3D real recuperado del servidor:', latest.model_3d_url);
+            setActiveModelUrl(latest.model_3d_url);
+            preloadGLTF(latest.model_3d_url);
+          }
+        })
+        .catch(() => {});
     }
   }, [activeModelUrl]);
 
@@ -140,6 +156,14 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
         '[FittingRoom] Aviso en TryOn backend:',
         err?.message
       );
+      try {
+        const latest = await getLatestModel();
+        if (latest?.model_3d_url) {
+          console.log('[FittingRoom] Modelo 3D recuperado con éxito del servidor tras aviso:', latest.model_3d_url);
+          setActiveModelUrl(latest.model_3d_url);
+          preloadGLTF(latest.model_3d_url);
+        }
+      } catch {}
       if (garment.imageUrl) {
         setCurrent2DUrl(garment.imageUrl);
       }
