@@ -38,7 +38,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   };
 
   const handleSkipOrGuest = () => {
-    completeOnboarding({ fullName: 'Invitado Atelier' });
+    completeOnboarding({
+      fullName: 'Invitado Atelier',
+      gender: 'female',
+      avatarType: 'preset',
+    });
     if (onSignIn) {
       onSignIn();
     } else if (navigation) {

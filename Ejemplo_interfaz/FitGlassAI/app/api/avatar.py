@@ -1,17 +1,33 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
+from app.config import settings
 from app.schemas.avatar import AvatarGenerateRequest, AvatarGenerateResponse
 from app.services.tripo_service import generate_3d_model
+from app.services.optimizer_service import optimize_3d_model
 
 router = APIRouter()
+
+
+def _resolve_base_url(request: Request = None) -> str:
+    if request:
+        forwarded_host = request.headers.get("x-forwarded-host")
+        if forwarded_host:
+            scheme = request.headers.get("x-forwarded-proto", "https")
+            return f"{scheme}://{forwarded_host}"
+        if request.base_url:
+            return str(request.base_url).rstrip("/")
+    if settings.EXPO_PUBLIC_API_BASE_URL:
+        return settings.EXPO_PUBLIC_API_BASE_URL.rstrip("/")
+    return "http://127.0.0.1:8000"
 
 
 @router.post("/generate", response_model=AvatarGenerateResponse)
 async def generate_avatar_endpoint(request: Request):
     """
     Genera el avatar base 3D (avatar_base.glb) del usuario a partir de una fotografía de cuerpo entero
-    utilizando el motor de reconstrucción 3D de Tripo3D.
+    utilizando el motor de reconstrucción 3D de Tripo3D y optimizándolo para móvil.
     """
+    base_url = _resolve_base_url(request)
     content_type = request.headers.get("content-type", "")
 
     # Caso 1: JSON
@@ -27,6 +43,10 @@ async def generate_avatar_endpoint(request: Request):
 
         try:
             glb_url = await generate_3d_model(image_str)
+            try:
+                glb_url = await optimize_3d_model(glb_url, base_url=base_url)
+            except Exception:
+                pass
             return AvatarGenerateResponse(avatar_url=glb_url, status="completed")
         except HTTPException as he:
             return JSONResponse(status_code=he.status_code, content={"detail": he.detail})
@@ -55,6 +75,10 @@ async def generate_avatar_endpoint(request: Request):
 
         try:
             glb_url = await generate_3d_model(image_str)
+            try:
+                glb_url = await optimize_3d_model(glb_url, base_url=base_url)
+            except Exception:
+                pass
             return AvatarGenerateResponse(avatar_url=glb_url, status="completed")
         except HTTPException as he:
             return JSONResponse(status_code=he.status_code, content={"detail": he.detail})

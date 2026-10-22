@@ -528,24 +528,83 @@ export const generateOutfitTryOn = async (
     throw new Error('Debes seleccionar al menos una prenda para probar el look.');
   }
 
+  const payload = {
+    human_image: humanImageUrl.trim(),
+    garments: garments.map((g) => ({
+      image: g.image.trim(),
+      category: g.category || 'upper_body',
+      name: g.name || 'clothing',
+    })),
+    allow_fallback: allowFallback,
+  };
+
   console.log(
-    `[generateOutfitTryOn] Iniciando Try-On de look con ${garments.length} prendas en: ${baseUrl}/api/tryon/generate`
+    `[generateOutfitTryOn] Iniciando Try-On de look con ${garments.length} prendas en: ${baseUrl}...`
   );
 
+  // 1. INTENTO PRIMARIO: Pipeline asíncrono con sondeo periódico (inmune a timeouts de red)
+  try {
+    const startRes = await fetch(`${baseUrl}/api/tryon/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (startRes.ok) {
+      const startData = await startRes.json();
+      const taskId = startData.task_id;
+      if (taskId) {
+        console.log(`[generateOutfitTryOn] Look asíncrono iniciado (task_id: ${taskId}). Iniciando sondeo...`);
+        const maxAttempts = 90; // hasta 180s
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          try {
+            const statusRes = await fetch(`${baseUrl}/api/tryon/status/${taskId}`, {
+              method: 'GET',
+              headers: {
+                Accept: 'application/json',
+                'Bypass-Tunnel-Reminder': 'true',
+              },
+            });
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              console.log(
+                `[generateOutfitTryOn Polling] Sondeo ${i + 1} (${(i + 1) * 2}s) -> estado: ${statusData.status}, paso: ${statusData.step}`
+              );
+
+              if (statusData.status === 'completed' && statusData.model_3d_url) {
+                console.log('[generateOutfitTryOn] ¡Look 3D recibido con éxito vía polling!', statusData.model_3d_url);
+                return {
+                  image_2d_url: statusData.image_2d_url || garments[0]?.image || humanImageUrl,
+                  model_3d_url: statusData.model_3d_url,
+                  status: 'completed',
+                };
+              }
+              if (statusData.status === 'failed') {
+                throw new Error(statusData.error || 'La generación 3D del look finalizó con error.');
+              }
+            }
+          } catch (pollErr: any) {
+            if (pollErr?.message?.includes('finalizó con error')) {
+              throw pollErr;
+            }
+          }
+        }
+      }
+    }
+  } catch (asyncErr: any) {
+    console.warn('[generateOutfitTryOn] Aviso en flujo asíncrono:', asyncErr?.message);
+  }
+
+  // 2. INTENTO SECUNDARIO: Petición síncrona directa a /api/tryon/generate
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 120000);
 
   try {
-    const payload = {
-      human_image: humanImageUrl.trim(),
-      garments: garments.map((g) => ({
-        image: g.image.trim(),
-        category: g.category || 'upper_body',
-        name: g.name || 'clothing',
-      })),
-      allow_fallback: allowFallback,
-    };
-
     const response = await fetch(`${baseUrl}/api/tryon/generate`, {
       method: 'POST',
       headers: {
@@ -561,7 +620,7 @@ export const generateOutfitTryOn = async (
 
     if (response.ok) {
       const data: TryOnResponse = await response.json();
-      console.log('[generateOutfitTryOn] Look 3D generado con éxito:', data);
+      console.log('[generateOutfitTryOn] Look 3D generado con éxito directamente:', data);
       return data;
     }
 

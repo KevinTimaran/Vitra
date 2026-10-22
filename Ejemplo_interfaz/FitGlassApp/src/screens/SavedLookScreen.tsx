@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius } from '../theme';
@@ -14,33 +15,100 @@ import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { SavedLookItem, Garment } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
 
 interface SavedLookScreenProps {
-  look: SavedLookItem;
-  onBack: () => void;
-  onTryAgain: (look: SavedLookItem) => void;
-  onEditLook: (look: SavedLookItem) => void;
-  onRemoveLook: (id: string) => void;
-  onSelectGarment: (garment: Garment) => void;
+  route?: {
+    params?: {
+      look?: SavedLookItem;
+    };
+  };
+  navigation?: any;
+  look?: SavedLookItem;
+  onBack?: () => void;
+  onTryAgain?: (look: SavedLookItem) => void;
+  onEditLook?: (look: SavedLookItem) => void;
+  onRemoveLook?: (id: string) => void;
+  onSelectGarment?: (garment: Garment) => void;
 }
 
-export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
-  look,
-  onBack,
-  onTryAgain,
-  onEditLook,
-  onRemoveLook,
-  onSelectGarment,
-}) => {
+export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
+  const { removeLook } = useUser();
+
+  const look = props.look || props.route?.params?.look;
+
+  const handleBack = () => {
+    if (props.onBack) {
+      props.onBack();
+    } else if (props.navigation?.canGoBack()) {
+      props.navigation.goBack();
+    }
+  };
+
+  const handleTryAgain = () => {
+    if (!look) return;
+    if (props.onTryAgain) {
+      props.onTryAgain(look);
+    } else if (props.navigation) {
+      props.navigation.navigate('FittingRoom', {
+        model_3d_url: look.model3dUrl,
+        image_2d_url: look.image2dUrl,
+      });
+    }
+  };
+
+  const handleEditLook = () => {
+    if (!look) return;
+    if (props.onEditLook) {
+      props.onEditLook(look);
+    } else if (props.navigation) {
+      props.navigation.navigate('OutfitBuilder', { look });
+    }
+  };
+
+  const handleRemove = () => {
+    if (!look) return;
+    if (props.onRemoveLook) {
+      props.onRemoveLook(look.id);
+    } else {
+      removeLook(look.id);
+      if (props.navigation?.canGoBack()) {
+        props.navigation.goBack();
+      }
+    }
+  };
+
+  const handleSelectGarment = (garment: Garment) => {
+    if (props.onSelectGarment) {
+      props.onSelectGarment(garment);
+    } else if (props.navigation) {
+      props.navigation.navigate('GarmentDetail', { garment });
+    }
+  };
+
+  if (!look) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+        <Header title="Detalle de Look" onBack={handleBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.secondaryText} />
+          <Text style={{ ...Typography.headline, color: colors.primaryText, marginTop: Spacing.md }}>
+            No se encontró el look
+          </Text>
+          <PrimaryButton label="Volver" onPress={handleBack} style={{ marginTop: Spacing.lg }} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <Header
         title={look.title}
         subtitle={`${t('savedLook.composed')} · ${look.date}`}
-        onBack={onBack}
+        onBack={handleBack}
         rightAction={{
           icon: 'share-outline',
           onPress: () => {},
@@ -58,19 +126,29 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
           intensity={20}
           style={styles.previewCanvas}
         >
-          {/* Subtle architectural vertical axis */}
-          <View style={[styles.centralAxis, { backgroundColor: colors.borderLight }]} />
+          {look.image2dUrl ? (
+            <Image
+              source={{ uri: look.image2dUrl }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : (
+            <>
+              {/* Subtle architectural vertical axis */}
+              <View style={[styles.centralAxis, { backgroundColor: colors.borderLight }]} />
 
-          {/* Abstract stacked garments silhouette */}
-          <View style={styles.stackedFigureContainer}>
-            <View style={[styles.avatarHead, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]} />
-            <View style={styles.avatarTorso}>
-              <Ionicons name="shirt-outline" size={32} color={colors.primary} />
-            </View>
-            <View style={styles.avatarLegs}>
-              <Ionicons name="reorder-two-outline" size={30} color={colors.secondaryText} />
-            </View>
-          </View>
+              {/* Abstract stacked garments silhouette */}
+              <View style={styles.stackedFigureContainer}>
+                <View style={[styles.avatarHead, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]} />
+                <View style={styles.avatarTorso}>
+                  <Ionicons name="shirt-outline" size={32} color={colors.primary} />
+                </View>
+                <View style={styles.avatarLegs}>
+                  <Ionicons name="reorder-two-outline" size={30} color={colors.secondaryText} />
+                </View>
+              </View>
+            </>
+          )}
 
           {/* Palette Swatches Bar */}
           <View
@@ -79,12 +157,12 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
               { backgroundColor: colors.surface, borderColor: colors.borderLight },
             ]}
           >
-            {look.garments.map((g, idx) => (
+            {look.garments?.map((g, idx) => (
               <View
                 key={idx}
                 style={[
                   styles.paletteDot,
-                  { backgroundColor: g.colorHex },
+                  { backgroundColor: g.colorHex || '#8B5CF6' },
                   g.colorHex === '#FFFFFF' && { borderWidth: 1, borderColor: colors.border },
                 ]}
               />
@@ -115,13 +193,13 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
         {/* Garments in this Look */}
         <View style={styles.piecesSection}>
           <Text style={[styles.sectionHeader, { color: colors.tertiaryText }]}>
-            {t('savedLook.piecesSection')} ({look.garments.length})
+            {t('savedLook.piecesSection')} ({look.garments?.length || 0})
           </Text>
 
-          {look.garments.map((garment) => (
+          {look.garments?.map((garment) => (
             <TouchableOpacity
               key={garment.id}
-              onPress={() => onSelectGarment(garment)}
+              onPress={() => handleSelectGarment(garment)}
               activeOpacity={0.7}
             >
               <GlassCard
@@ -129,7 +207,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
                 intensity={12}
                 style={styles.garmentRowItem}
               >
-                <View style={[styles.garmentDot, { backgroundColor: garment.colorHex }]} />
+                <View style={[styles.garmentDot, { backgroundColor: garment.colorHex || '#8B5CF6' }]} />
                 <View style={styles.garmentRowInfo}>
                   <Text style={[styles.garmentRowName, { color: colors.primaryText }]}>{garment.name}</Text>
                   <Text style={[styles.garmentRowMeta, { color: colors.secondaryText }]}>
@@ -146,18 +224,18 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = ({
         <View style={styles.actionButtons}>
           <PrimaryButton
             label={t('savedLook.tryOnOutfit')}
-            onPress={() => onTryAgain(look)}
+            onPress={handleTryAgain}
             icon="cube-outline"
           />
           <SecondaryButton
             label={t('savedLook.editLayers')}
-            onPress={() => onEditLook(look)}
+            onPress={handleEditLook}
             icon="create-outline"
             style={{ marginTop: Spacing.sm }}
           />
           <TouchableOpacity
             style={styles.deleteButton}
-            onPress={() => onRemoveLook(look.id)}
+            onPress={handleRemove}
           >
             <Text style={styles.deleteText}>{t('savedLook.deleteLook')}</Text>
           </TouchableOpacity>
