@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
+from app.config import settings
 from app.schemas.tryon import TryOnRequest, TryOnResponse
 from app.services.replicate_service import generate_vton
 from app.services.tripo_service import generate_3d_model
@@ -13,10 +14,14 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
     Pipeline de orquestación del Probador Virtual (Virtual Try-On):
     1. Fusión 2D (VTON): envía la imagen del usuario y la prenda a Replicate (IDM-VTON).
     2. Extrusión 3D: con la imagen 2D resultante, genera el modelo 3D (.glb) mediante Tripo3D.
-    3. Optimización 3D: comprime la malla con Draco y texturas con WebP para alto rendimiento móvil.
+    3. Optimización 3D: comprime la malla y texturas para alto rendimiento móvil.
     4. Retorna las URLs resultantes y el estado completado.
     """
-    SAMPLE_3D_MODEL_FALLBACK = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
+    SAMPLE_3D_MODEL_FALLBACK = (
+        f"{settings.EXPO_PUBLIC_API_BASE_URL.rstrip('/')}/static/models/tshirt.glb"
+        if settings.EXPO_PUBLIC_API_BASE_URL
+        else "https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb"
+    )
 
     image_2d_url = None
     model_3d_url = None
