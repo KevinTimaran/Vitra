@@ -12,6 +12,7 @@ import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { GlassCard } from '../components/GlassCard';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
 
 interface WelcomeScreenProps {
   navigation?: any;
@@ -26,6 +27,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 }) => {
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
+  const { completeOnboarding } = useUser();
 
   const handleStartOnboarding = () => {
     if (onGetStarted) {
@@ -36,6 +38,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   };
 
   const handleSkipOrGuest = () => {
+    completeOnboarding({ fullName: 'Invitado Atelier' });
     if (onSignIn) {
       onSignIn();
     } else if (navigation) {
