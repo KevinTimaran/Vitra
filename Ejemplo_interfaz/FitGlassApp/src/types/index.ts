@@ -24,14 +24,14 @@ export interface Garment {
   category: 'Tops' | 'Outerwear' | 'Pants' | 'Shoes' | 'Accessories';
   colorName: string;
   colorHex: string;
-  size: 'XS' | 'S' | 'M' | 'L' | 'XL';
+  size: 'XS' | 'S' | 'M' | 'L' | 'XL' | 'U';
   fit: 'Slim' | 'Regular' | 'Relaxed' | 'Oversized';
   brand: string;
   material: string;
   addedDate: string;
   notes?: string;
   imageUrl?: string;
-  silhouetteType: 'tshirt' | 'jacket' | 'trousers' | 'shoes' | 'coat';
+  silhouetteType: 'tshirt' | 'jacket' | 'trousers' | 'shoes' | 'coat' | 'accessory';
   paletteHarmony: boolean;
 }
 
