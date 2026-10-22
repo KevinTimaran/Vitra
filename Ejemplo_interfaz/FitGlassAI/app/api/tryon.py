@@ -151,17 +151,20 @@ async def _execute_tryon_pipeline(
         )
 
     # -------------------------------------------------------------------------
-    # PASO 2: Extrusión 3D con Tripo3D (image_to_model)
+    # PASO 2: Extrusión 3D con Tripo3D (image_to_model) de la PRENDA SOLA
     # -------------------------------------------------------------------------
     if task_id and task_id in _async_tasks:
         _async_tasks[task_id].update({"step": "tripo3d", "progress": 0.60, "image_2d_url": image_2d_url})
 
-    logger.info("[TryOn Pipeline] [PASO 2/3] Conectando con Tripo3D para generar modelo 3D...")
-    logger.info(f"  -> Input para Tripo3D (image_2d_url capturada del VTON): {image_2d_url}")
+    # IMPORTANTE: Enviamos garment_image (la foto de la prenda sola), NO la persona fusionada,
+    # para que Tripo3D genere exclusivamente la prenda 3D sin cabeza, cuello ni cuerpo humano.
+    image_3d_input = garment_image.strip()
+    logger.info("[TryOn Pipeline] [PASO 2/3] Conectando con Tripo3D para generar modelo 3D de la PRENDA SOLA...")
+    logger.info(f"  -> Input para Tripo3D (prenda sola sin persona): {image_3d_input[:80]}...")
 
     try:
-        model_3d_url = await generate_3d_model(image_url=image_2d_url.strip())
-        logger.info(f"[TryOn Pipeline] [PASO 2/3 ÉXITO] Modelo 3D (.glb) obtenido de Tripo3D: {model_3d_url}")
+        model_3d_url = await generate_3d_model(image_url=image_3d_input)
+        logger.info(f"[TryOn Pipeline] [PASO 2/3 ÉXITO] Modelo 3D (.glb) de la PRENDA obtenido de Tripo3D: {model_3d_url}")
 
     except Exception as tripo_err:
         tripo_tb = traceback.format_exc()
