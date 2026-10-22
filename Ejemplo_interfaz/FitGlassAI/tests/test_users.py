@@ -8,6 +8,7 @@ def test_user_profile_setup_success():
     payload = {
         "full_name": "Valerie Dubois",
         "age": 28,
+        "gender": "female",
         "face_image": "data:image/jpeg;base64,samplefaceimage",
         "body_image": "data:image/jpeg;base64,samplebodyimage",
     }
@@ -18,6 +19,7 @@ def test_user_profile_setup_success():
     assert data["message"] == "Perfil configurado correctamente"
     assert data["full_name"] == "Valerie Dubois"
     assert data["age"] == 28
+    assert data["gender"] == "female"
 
 
 def test_user_profile_setup_validation_error():

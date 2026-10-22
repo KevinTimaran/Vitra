@@ -75,14 +75,15 @@ async def get_latest_model(request: Request = None):
 
 async def _execute_tryon_pipeline(
     human_image: str,
-    garment_image: str,
+    garment_image: Optional[str] = None,
     category: str = "upper_body",
     garment_description: str = "clothing",
+    garments: Optional[list] = None,
     allow_fallback: bool = False,
     base_url: Optional[str] = None,
     task_id: Optional[str] = None,
 ) -> tuple[str, str]:
-    """Ejecuta el pipeline completo VTON -> Tripo3D -> Optimización."""
+    """Ejecuta el pipeline completo VTON -> Tripo3D -> Optimización (soporta prenda única y look multi-prenda)."""
     # Validación de entradas obligatorias
     if not human_image or not human_image.strip():
         logger.error("[TryOn Pipeline] ERROR: human_image está vacía o nula.")
@@ -91,11 +92,19 @@ async def _execute_tryon_pipeline(
             detail="La imagen de la persona (human_image) es obligatoria."
         )
 
-    if not garment_image or not garment_image.strip():
-        logger.error("[TryOn Pipeline] ERROR: garment_image está vacía o nula.")
+    # Normalizar prendas
+    garment_list = []
+    if garments and len(garments) > 0:
+        for g in garments:
+            g_dict = g if isinstance(g, dict) else (g.model_dump() if hasattr(g, "model_dump") else g.__dict__)
+            if g_dict.get("image"):
+                garment_list.append(g_dict)
+
+    if (not garment_image or not garment_image.strip()) and not garment_list:
+        logger.error("[TryOn Pipeline] ERROR: garment_image o garments están vacíos.")
         raise HTTPException(
             status_code=400,
-            detail="La imagen de la prenda (garment_image) es obligatoria."
+            detail="La imagen de la prenda (garment_image) o lista de prendas (garments) es obligatoria."
         )
 
     # -------------------------------------------------------------------------
@@ -104,43 +113,90 @@ async def _execute_tryon_pipeline(
     if task_id and task_id in _async_tasks:
         _async_tasks[task_id].update({"step": "vton", "progress": 0.25})
 
-    logger.info("[TryOn Pipeline] [PASO 1/3] Iniciando fusión 2D con Replicate IDM-VTON...")
     image_2d_url = None
-    try:
-        image_2d_url = await generate_vton(
-            human_image_url=human_image.strip(),
-            garment_image_url=garment_image.strip(),
-            category=category or "upper_body",
-            garment_description=garment_description or "clothing",
-        )
-        logger.info(f"[TryOn Pipeline] [PASO 1/3 ÉXITO] URL 2D fusionada de Replicate: {image_2d_url}")
 
-    except Exception as vton_err:
-        vton_tb = traceback.format_exc()
-        status_code = vton_err.status_code if isinstance(vton_err, HTTPException) else 502
-        err_msg = vton_err.detail if isinstance(vton_err, HTTPException) else str(vton_err)
+    if garment_list and len(garment_list) > 0:
+        logger.info(f"[TryOn Pipeline] [PASO 1/3] Iniciando fusión 2D secuencial de look multi-prenda ({len(garment_list)} piezas)...")
+        current_canvas = human_image.strip()
+        last_success_url = None
 
-        logger.error(
-            f"\n{'!' * 70}\n"
-            f"[TryOn Pipeline - PASO 1 FALLÓ: REPLICATE VTON ERROR]\n"
-            f"Tipo de excepción: {type(vton_err).__name__}\n"
-            f"Código HTTP original: {status_code}\n"
-            f"Mensaje original de la API: {err_msg}\n"
-            f"Traceback completo:\n{vton_tb}"
-            f"{'!' * 70}\n"
-        )
+        for idx, g_item in enumerate(garment_list):
+            g_img = str(g_item.get("image", "")).strip()
+            g_cat = str(g_item.get("category", "upper_body"))
+            g_name = str(g_item.get("name", "clothing"))
 
-        if allow_fallback:
-            image_2d_url = garment_image or human_image
-            logger.warning(
-                f"[TryOn Pipeline] [PASO 1 FALLBACK ACTIVO] allow_fallback=True. "
-                f"Continuando con imagen de respaldo hacia 3D: {image_2d_url[:80]}..."
+            if not g_img:
+                continue
+
+            vton_category = "upper_body"
+            if g_cat in ("lower_body", "Pants"):
+                vton_category = "lower_body"
+            elif g_cat in ("dresses", "Dress"):
+                vton_category = "dresses"
+            elif g_cat in ("shoes", "Shoes", "accessories", "Accessories"):
+                # Omitir categorías sin endpoint en IDM-VTON
+                continue
+
+            if task_id and task_id in _async_tasks:
+                prog = 0.2 + (0.35 * ((idx + 1) / len(garment_list)))
+                _async_tasks[task_id].update({"step": f"vton_{idx+1}", "progress": prog})
+
+            try:
+                logger.info(f"[TryOn Pipeline] Fusionando pieza {idx+1}/{len(garment_list)}: {g_name} ({vton_category})...")
+                fused_url = await generate_vton(
+                    human_image_url=current_canvas,
+                    garment_image_url=g_img,
+                    category=vton_category,
+                    garment_description=g_name,
+                )
+                if fused_url and str(fused_url).strip():
+                    current_canvas = fused_url.strip()
+                    last_success_url = current_canvas
+                    logger.info(f"[TryOn Pipeline] Pieza {idx+1} fusionada con éxito: {fused_url[:70]}...")
+            except Exception as part_err:
+                logger.warning(f"[TryOn Pipeline] Advertencia en fusión de {g_name}: {part_err}")
+                if not allow_fallback and not last_success_url:
+                    status_code = part_err.status_code if isinstance(part_err, HTTPException) else 502
+                    err_msg = part_err.detail if isinstance(part_err, HTTPException) else str(part_err)
+                    raise HTTPException(status_code=status_code, detail=f"[Replicate VTON Error] {err_msg}")
+
+        image_2d_url = last_success_url or current_canvas
+    else:
+        logger.info("[TryOn Pipeline] [PASO 1/3] Iniciando fusión 2D con Replicate IDM-VTON...")
+        try:
+            image_2d_url = await generate_vton(
+                human_image_url=human_image.strip(),
+                garment_image_url=garment_image.strip(),
+                category=category or "upper_body",
+                garment_description=garment_description or "clothing",
             )
-        else:
-            raise HTTPException(
-                status_code=status_code,
-                detail=f"[Replicate VTON Error] {err_msg}"
+            logger.info(f"[TryOn Pipeline] [PASO 1/3 ÉXITO] URL 2D fusionada de Replicate: {image_2d_url}")
+        except Exception as vton_err:
+            vton_tb = traceback.format_exc()
+            status_code = vton_err.status_code if isinstance(vton_err, HTTPException) else 502
+            err_msg = vton_err.detail if isinstance(vton_err, HTTPException) else str(vton_err)
+
+            logger.error(
+                f"\n{'!' * 70}\n"
+                f"[TryOn Pipeline - PASO 1 FALLÓ: REPLICATE VTON ERROR]\n"
+                f"Tipo de excepción: {type(vton_err).__name__}\n"
+                f"Código HTTP original: {status_code}\n"
+                f"Mensaje original de la API: {err_msg}\n"
+                f"Traceback completo:\n{vton_tb}"
+                f"{'!' * 70}\n"
             )
+
+            if allow_fallback:
+                image_2d_url = garment_image or human_image
+                logger.warning(
+                    f"[TryOn Pipeline] [PASO 1 FALLBACK ACTIVO] allow_fallback=True. "
+                    f"Continuando con imagen de respaldo hacia 3D: {image_2d_url[:80]}..."
+                )
+            else:
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=f"[Replicate VTON Error] {err_msg}"
+                )
 
     if not image_2d_url or not str(image_2d_url).strip():
         err_msg = "[Replicate VTON Error] El servicio VTON no generó una URL de imagen válida."
@@ -151,21 +207,25 @@ async def _execute_tryon_pipeline(
         )
 
     # -------------------------------------------------------------------------
-    # PASO 2: Extrusión 3D con Tripo3D (image_to_model) de la PRENDA SOLA
+    # PASO 2: Extrusión 3D con Tripo3D (image_to_model) - 1 SOLA VEZ POR LOOK
     # -------------------------------------------------------------------------
     if task_id and task_id in _async_tasks:
         _async_tasks[task_id].update({"step": "tripo3d", "progress": 0.60, "image_2d_url": image_2d_url})
 
-    # IMPORTANTE: Enviamos garment_image (la foto de la prenda sola), NO la persona fusionada,
-    # para que Tripo3D genere exclusivamente la prenda 3D sin cabeza, cuello ni cuerpo humano.
-    image_3d_input = garment_image.strip()
-    logger.info("[TryOn Pipeline] [PASO 2/3] Conectando con Tripo3D para generar modelo 3D de la PRENDA SOLA...")
-    logger.info(f"  -> Input para Tripo3D (prenda sola sin persona): {image_3d_input[:80]}...")
+    if garment_image and garment_image.strip():
+        image_3d_input = garment_image.strip()
+    elif garment_list and len(garment_list) > 0:
+        # Prenda principal del look para el modelado 3D
+        image_3d_input = garment_list[0].get("image", "").strip()
+    else:
+        image_3d_input = image_2d_url
+
+    logger.info("[TryOn Pipeline] [PASO 2/3] Conectando con Tripo3D (1 sola invocación por look completado)...")
+    logger.info(f"  -> Input para Tripo3D: {image_3d_input[:80]}...")
 
     try:
         model_3d_url = await generate_3d_model(image_url=image_3d_input)
-        logger.info(f"[TryOn Pipeline] [PASO 2/3 ÉXITO] Modelo 3D (.glb) de la PRENDA obtenido de Tripo3D: {model_3d_url}")
-
+        logger.info(f"[TryOn Pipeline] [PASO 2/3 ÉXITO] Modelo 3D (.glb) obtenido de Tripo3D: {model_3d_url}")
     except Exception as tripo_err:
         tripo_tb = traceback.format_exc()
         status_code = tripo_err.status_code if isinstance(tripo_err, HTTPException) else 502
@@ -216,21 +276,16 @@ async def _execute_tryon_pipeline(
 async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryOnResponse:
     """
     Pipeline síncrono del Probador Virtual (Virtual Try-On):
-    1. Auditoría de entrada (human_image, garment_image).
-    2. Fusión 2D (VTON): envía human_image y garment_image a Replicate (IDM-VTON).
-    3. Extrusión 3D (Tripo3D): toma la image_2d_url resultante del VTON y genera el .glb.
-    4. Optimización 3D: comprime malla y texturas.
-    5. Retorna las URLs resultantes con trazabilidad completa.
+    Soporta tanto una prenda individual como un look multi-prenda completo.
+    Invoca Tripo3D exactamente una vez por look completado.
     """
     base_url = _resolve_base_url(request)
 
     logger.info("=" * 70)
     logger.info("[TryOn Pipeline] >>> NUEVA SOLICITUD DE PROBADOR VIRTUAL RECIBIDA <<<")
-    logger.info(f"  • Categoría: {payload.category}")
-    logger.info(f"  • Descripción prenda: {payload.garment_description}")
+    logger.info(f"  • Prenda individual: {payload.garment_image[:60] if payload.garment_image else 'None'}")
+    logger.info(f"  • Multi-prendas: {len(payload.garments) if payload.garments else 0} prendas")
     logger.info(f"  • allow_fallback: {payload.allow_fallback}")
-    logger.info(f"  • human_image: {type(payload.human_image).__name__} (len={len(payload.human_image or '')}) -> {str(payload.human_image)[:80]}...")
-    logger.info(f"  • garment_image: {type(payload.garment_image).__name__} (len={len(payload.garment_image or '')}) -> {str(payload.garment_image)[:80]}...")
     logger.info("=" * 70)
 
     image_2d_url, model_3d_url = await _execute_tryon_pipeline(
@@ -238,6 +293,7 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
         garment_image=payload.garment_image,
         category=payload.category,
         garment_description=payload.garment_description,
+        garments=payload.garments,
         allow_fallback=payload.allow_fallback,
         base_url=base_url,
     )
@@ -282,6 +338,7 @@ async def start_tryon_job(payload: TryOnRequest, request: Request = None):
                 garment_image=payload.garment_image,
                 category=payload.category,
                 garment_description=payload.garment_description,
+                garments=payload.garments,
                 allow_fallback=payload.allow_fallback,
                 base_url=base_url,
                 task_id=task_id,
