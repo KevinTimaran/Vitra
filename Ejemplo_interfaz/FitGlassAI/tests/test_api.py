@@ -154,7 +154,7 @@ def test_tryon_generate_success():
             category="upper_body",
             garment_description="black t-shirt",
         )
-        mock_3d.assert_called_once_with(image_url=expected_2d)
+        mock_3d.assert_called_once_with(image_url="https://example.com/shirt.jpg")
 
 
 def test_tryon_generate_missing_fields():
