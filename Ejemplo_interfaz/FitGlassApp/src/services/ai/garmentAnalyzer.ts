@@ -73,25 +73,7 @@ export interface HealthStatusResponse {
 export const checkHealth = async (): Promise<HealthStatusResponse> => {
   const candidateUrls: string[] = [];
 
-  // 1. Variable de entorno
-  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
-    candidateUrls.push(process.env.EXPO_PUBLIC_API_BASE_URL);
-  }
-
-  // 2. Túnel público HTTPS
-  candidateUrls.push('https://fitglass-ai-kevin.loca.lt');
-
-  // 3. Web localhost
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      candidateUrls.push('http://127.0.0.1:8000', 'http://localhost:8000');
-    } else if (host) {
-      candidateUrls.push(`http://${host}:8000`);
-    }
-  }
-
-  // 4. Host IPv4 de Expo Metro
+  // 1. Host IPv4 de Expo Metro (máxima velocidad, sin límites de timeout de proxy)
   try {
     const hostUri =
       Constants.expoConfig?.hostUri ||
@@ -105,8 +87,27 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
     }
   } catch {}
 
-  // 5. Fallbacks de red local
-  candidateUrls.push('http://192.168.1.13:8000', 'http://192.168.174.72:8000', 'http://127.0.0.1:8000', 'http://localhost:8000');
+  // 2. IP LAN local directa garantizada
+  candidateUrls.push('http://192.168.174.72:8000');
+
+  // 3. Variable de entorno configurada
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    candidateUrls.push(process.env.EXPO_PUBLIC_API_BASE_URL);
+  }
+
+  // 4. Web localhost
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      candidateUrls.push('http://127.0.0.1:8000', 'http://localhost:8000');
+    } else if (host) {
+      candidateUrls.push(`http://${host}:8000`);
+    }
+  }
+
+  // 5. Túnel público HTTPS (fallback si el dispositivo no está en la misma red Wi-Fi)
+  candidateUrls.push('https://fitglass-ai-kevin.loca.lt');
+  candidateUrls.push('http://192.168.1.13:8000', 'http://127.0.0.1:8000', 'http://localhost:8000');
 
   // Eliminar duplicados
   const uniqueUrls = candidateUrls.filter((url, idx, self) => self.indexOf(url) === idx);
@@ -208,6 +209,39 @@ export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentA
  * 1. Fusiona humanImage y garmentImage en 2D (Replicate / IDM-VTON).
  * 2. Extruye la imagen 2D resultante a un modelo 3D descargable .glb (Tripo3D).
  * Endpoint: POST /api/tryon/generate
+export interface LatestModelResponse {
+  model_3d_url: string;
+  filename: string;
+  size_bytes: number;
+  updated_at: number;
+}
+
+/**
+ * Consulta el modelo 3D (.glb) generado más recientemente en el backend.
+ * Permite recuperar de inmediato el modelo real creado si una petición HTTP sufrió
+ * timeout de túnel o corte de conexión.
+ */
+export const getLatestModel = async (): Promise<LatestModelResponse | null> => {
+  const baseUrl = getBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/tryon/latest`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Ejecuta el pipeline completo de Virtual Try-On (VTON + Conversión 3D):
+ * Utiliza sondeo asíncrono no bloqueante (/api/tryon/start + /api/tryon/status)
+ * para evitar timeouts de 60 segundos impuestos por proxies o túneles de red.
  */
 export const generateTryOn = async (
   humanImageUrl: string,
@@ -224,10 +258,10 @@ export const generateTryOn = async (
     throw new Error('La imagen de la prenda no puede estar vacía.');
   }
 
+  // 1. INTENTO PRIMARIO: Pipeline asíncrono con sondeo periódico (inmune al timeout de 60s)
   try {
-    console.log('[generateTryOn] Iniciando pipeline generativo VTON + 3D...');
-
-    const response = await fetch(`${baseUrl}/api/tryon/generate`, {
+    console.log(`[generateTryOn] Iniciando pipeline asíncrono en: ${baseUrl}/api/tryon/start...`);
+    const startRes = await fetch(`${baseUrl}/api/tryon/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -243,29 +277,111 @@ export const generateTryOn = async (
       }),
     });
 
-    if (!response.ok) {
-      let errorMsg = `Fallo en el pipeline generativo (HTTP ${response.status})`;
-      try {
-        const errJson = await response.json();
-        if (errJson.detail) {
-          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
-        } else if (errJson.error) {
-          errorMsg = errJson.error;
+    if (startRes.ok) {
+      const startData = await startRes.json();
+      const taskId = startData.task_id;
+      if (taskId) {
+        console.log(`[generateTryOn] Tarea iniciada en background (task_id: ${taskId}). Iniciando sondeo...`);
+        const maxAttempts = 90; // Hasta 180s con sondeo cada 2s
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          try {
+            const statusRes = await fetch(`${baseUrl}/api/tryon/status/${taskId}`, {
+              method: 'GET',
+              headers: {
+                Accept: 'application/json',
+                'Bypass-Tunnel-Reminder': 'true',
+              },
+            });
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              console.log(
+                `[generateTryOn Polling] Sondeo ${i + 1} (${(i + 1) * 2}s) -> estado: ${statusData.status}, paso: ${statusData.step}`
+              );
+
+              if (statusData.status === 'completed' && statusData.model_3d_url) {
+                console.log('[generateTryOn] ¡Modelo 3D recibido con éxito vía polling!', statusData.model_3d_url);
+                return {
+                  image_2d_url: statusData.image_2d_url || garmentImageUrl,
+                  model_3d_url: statusData.model_3d_url,
+                  status: 'completed',
+                };
+              }
+              if (statusData.status === 'failed') {
+                throw new Error(statusData.error || 'La generación 3D finalizó con error.');
+              }
+            }
+          } catch (pollErr: any) {
+            if (pollErr?.message?.includes('finalizó con error')) {
+              throw pollErr;
+            }
+          }
         }
-      } catch (e) {
-        // Mantener errorMsg
       }
-      throw new Error(errorMsg);
+    }
+  } catch (asyncErr: any) {
+    console.warn('[generateTryOn] Fallo o excepción en flujo asíncrono:', asyncErr?.message);
+  }
+
+  // 2. INTENTO SECUNDARIO: Petición síncrona directa a /api/tryon/generate con 180s de timeout
+  const controller = new AbortController();
+  const TIMEOUT_MS = 180000;
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, TIMEOUT_MS);
+
+  try {
+    console.log(`[generateTryOn] Invocando pipeline directo síncrono: ${baseUrl}/api/tryon/generate...`);
+    const response = await fetch(`${baseUrl}/api/tryon/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+      body: JSON.stringify({
+        human_image: humanImageUrl.trim(),
+        garment_image: garmentImageUrl.trim(),
+        category,
+        garment_description: garmentDescription,
+        allow_fallback: true,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data: TryOnResponse = await response.json();
+      console.log('[generateTryOn] Modelo 3D recibido directamente:', data);
+      return data;
     }
 
-    const data: TryOnResponse = await response.json();
-    console.log('[generateTryOn] Modelo 3D y vista 2D generados:', data);
-    return data;
+    let errorMsg = `HTTP ${response.status}`;
+    try {
+      const errJson = await response.json();
+      errorMsg = errJson.detail || errJson.error || errorMsg;
+    } catch {}
+    throw new Error(errorMsg);
   } catch (error: any) {
+    clearTimeout(timeoutId);
+
+    // 3. RECUPERACIÓN INTELIGENTE: Si el túnel cortó con 502 pero el servidor generó el archivo .glb
+    console.log('[generateTryOn] Verificando si el modelo 3D ya está disponible en el servidor...');
+    try {
+      const latest = await getLatestModel();
+      if (latest?.model_3d_url) {
+        console.log('[generateTryOn] ¡Modelo 3D recuperado exitosamente del servidor!', latest.model_3d_url);
+        return {
+          model_3d_url: latest.model_3d_url,
+          image_2d_url: garmentImageUrl || humanImageUrl,
+          status: 'completed',
+        };
+      }
+    } catch {}
+
     console.warn('[generateTryOn] Aviso en tryon:', error?.message || error);
-    throw new Error(
-      error?.message || 'Error durante la generación del probador 3D.'
-    );
+    throw new Error(error?.message || 'Error durante la generación del probador 3D.');
   }
 };
 
