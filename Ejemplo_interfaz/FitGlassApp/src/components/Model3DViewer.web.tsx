@@ -12,7 +12,8 @@ export interface Model3DViewerProps {
   garmentColorHex?: string;
 }
 
-const LOCAL_SAMPLE_URL = 'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
+// Asset 3D local empaquetado directamente por el bundler de Metro
+const LOCAL_TSHIRT_ASSET = require('../../assets/models/tshirt.glb');
 
 export const StylizedGarmentMannequin: React.FC<{
   colorHex?: string;
@@ -133,10 +134,9 @@ const DynamicGarmentModel: React.FC<{
 };
 
 const PlaceholderTShirt: React.FC<{
-  modelUrl: string;
   colorHex?: string;
-}> = ({ modelUrl, colorHex }) => {
-  const gltf = useGLTF(modelUrl, false);
+}> = ({ colorHex }) => {
+  const gltf = useGLTF(LOCAL_TSHIRT_ASSET as any, false);
   const meshRef = useRef<any>(null);
 
   useFrame((_, delta) => {
@@ -222,7 +222,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
           </Suspense>
         ) : (
           <Suspense fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} isRotating={true} />}>
-            <PlaceholderTShirt modelUrl={LOCAL_SAMPLE_URL} colorHex={garmentColorHex} />
+            <PlaceholderTShirt colorHex={garmentColorHex} />
           </Suspense>
         )}
 
