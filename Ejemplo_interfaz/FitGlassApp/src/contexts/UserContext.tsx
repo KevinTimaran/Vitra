@@ -63,7 +63,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [colorProfile, setColorProfile] = useState<ColorProfile>(DEFAULT_COLOR_PROFILE);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
-    'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf'
+    'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb'
   );
   const [userPhotoUri, setUserPhotoUri] = useState<string | undefined>(undefined);
   const [bodyProfile, setBodyProfile] = useState<BodyProfile>(INITIAL_BODY_PROFILE);
@@ -141,7 +141,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBodyPhotoUri(undefined);
     setColorProfile(DEFAULT_COLOR_PROFILE);
     setAvatarUrl(
-      'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf'
+      'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb'
     );
     setUserPhotoUri(undefined);
     setCompletedOnboarding(false);
