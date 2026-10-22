@@ -373,6 +373,8 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
   );
 };
 
+const SCREEN_GUTTER = 10;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -381,14 +383,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.huge + 40,
+    paddingTop: Spacing.md,
+    paddingBottom: 95,
   },
   glassHeroCard: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.md,
+    marginHorizontal: SCREEN_GUTTER,
+    marginTop: Spacing.xs,
     borderRadius: Radius.xl,
-    padding: Spacing.xl,
+    padding: Spacing.lg,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -472,8 +474,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   sectionWrapper: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.xl,
+    marginHorizontal: SCREEN_GUTTER,
+    marginTop: Spacing.lg,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -526,8 +528,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   explanationCard: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.lg,
+    marginHorizontal: SCREEN_GUTTER,
+    marginTop: Spacing.md,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
@@ -555,7 +557,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   swatchCard: {
-    width: (Dimensions.get('window').width - Spacing.xl * 2 - Spacing.sm * 3) / 4,
+    width: (Dimensions.get('window').width - SCREEN_GUTTER * 2 - Spacing.sm * 3) / 4,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.sm,
     paddingHorizontal: 4,
@@ -579,7 +581,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   selectedSwatchCard: {
-    marginHorizontal: Spacing.xl,
+    marginHorizontal: SCREEN_GUTTER,
     marginTop: Spacing.md,
     borderRadius: Radius.lg,
     padding: Spacing.md,
@@ -639,7 +641,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionButtonsCol: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.xl,
+    marginHorizontal: SCREEN_GUTTER,
+    marginTop: Spacing.lg,
   },
 });
