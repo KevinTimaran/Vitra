@@ -490,8 +490,33 @@ export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<Colo
 };
 
 /**
+ * Consulta la URL del modelo 3D de avatar generado más recientemente en el servidor.
+ * Permite recuperarlo instantáneamente si la conexión se interrumpió por timeout del túnel.
+ */
+export const getLatestAvatarModel = async (): Promise<{ avatar_url: string; filename: string } | null> => {
+  const baseUrl = getBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/avatar/latest`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+        'bypass-tunnel-reminder': 'true',
+      },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('[getLatestAvatarModel] No se pudo consultar el avatar más reciente:', e);
+  }
+  return null;
+};
+
+/**
  * Genera el Avatar 3D Base (.glb) del usuario usando Tripo3D a partir de una foto de cuerpo entero.
- * Endpoint: POST /api/avatar/generate
+ * Utiliza sondeo asíncrono (/api/avatar/start + /api/avatar/status/{task_id}) inmune al timeout de 60s
+ * de túneles y proxies, con recuperación inteligente.
  */
 export const generateAvatar = async (imageBase64OrUrl: string): Promise<AvatarGenerateResponse> => {
   if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
@@ -501,71 +526,134 @@ export const generateAvatar = async (imageBase64OrUrl: string): Promise<AvatarGe
   const formattedImage = await ensureBase64DataUri(imageBase64OrUrl);
   const baseUrl = getBaseUrl();
 
-  const executePost = async (targetBaseUrl: string): Promise<AvatarGenerateResponse> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutos para reconstrucción 3D
+  // 1. INTENTO PRIMARIO: Pipeline asíncrono con sondeo periódico (inmune al timeout de 60s)
+  try {
+    console.log(`[generateAvatar] Iniciando pipeline asíncrono en: ${baseUrl}/api/avatar/start...`);
+    const startRes = await fetch(`${baseUrl}/api/avatar/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+        'bypass-tunnel-reminder': 'true',
+      },
+      body: JSON.stringify({
+        image: formattedImage,
+      }),
+    });
 
-    try {
-      console.log('[generateAvatar] Solicitando generación 3D en:', `${targetBaseUrl}/api/avatar/generate`);
+    if (startRes.ok) {
+      const startData = await startRes.json();
+      const taskId = startData.task_id;
+      if (taskId) {
+        console.log(`[generateAvatar] Tarea iniciada en backend (task_id: ${taskId}). Polling cada 2.5s...`);
+        const maxAttempts = 90; // Hasta 225s
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          try {
+            const statusRes = await fetch(`${baseUrl}/api/avatar/status/${taskId}`, {
+              method: 'GET',
+              headers: {
+                Accept: 'application/json',
+                'Bypass-Tunnel-Reminder': 'true',
+                'bypass-tunnel-reminder': 'true',
+              },
+            });
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              console.log(
+                `[generateAvatar Polling] Sondeo ${i + 1} (${(i + 1) * 2.5}s) -> estado: ${statusData.status}, progreso: ${Math.round((statusData.progress || 0) * 100)}%`
+              );
 
-      const response = await fetch(`${targetBaseUrl}/api/avatar/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'Bypass-Tunnel-Reminder': 'true',
-          'bypass-tunnel-reminder': 'true',
-        },
-        body: JSON.stringify({
-          image: formattedImage,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let errorMsg = `Error al generar avatar 3D (HTTP ${response.status})`;
-        try {
-          const errJson = await response.json();
-          if (errJson.detail) {
-            errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
-          } else if (errJson.error) {
-            errorMsg = errJson.error;
+              if (statusData.status === 'completed' && statusData.avatar_url) {
+                console.log('[generateAvatar] ¡Avatar 3D generado con éxito vía polling!', statusData.avatar_url);
+                return {
+                  avatar_url: statusData.avatar_url,
+                  status: 'completed',
+                };
+              }
+              if (statusData.status === 'failed') {
+                throw new Error(statusData.error || 'La generación 3D del avatar finalizó con error.');
+              }
+            }
+          } catch (pollErr: any) {
+            if (pollErr?.message?.includes('finalizó con error')) {
+              throw pollErr;
+            }
           }
-        } catch {
-          // Fallback
         }
-        const customErr: any = new Error(errorMsg);
-        customErr.status = response.status;
-        throw customErr;
       }
-
-      const result: AvatarGenerateResponse = await response.json();
-      console.log('[generateAvatar] Avatar 3D generado con éxito:', result);
-      return result;
-    } catch (err: any) {
-      clearTimeout(timeoutId);
-      throw err;
     }
-  };
+  } catch (asyncErr: any) {
+    console.warn('[generateAvatar] Aviso en flujo asíncrono:', asyncErr?.message);
+    if (asyncErr?.message?.includes('finalizó con error')) {
+      throw asyncErr;
+    }
+  }
+
+  // 2. INTENTO SECUNDARIO: Petición síncrona directa a /api/avatar/generate
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutos
 
   try {
-    return await executePost(baseUrl);
-  } catch (initialErr: any) {
-    console.warn(
-      `[generateAvatar] Falló intento en ${baseUrl} (${initialErr?.message}). Reintentando con checkHealth...`
-    );
-    try {
-      const health = await checkHealth();
-      if (health.detectedUrl && health.detectedUrl !== baseUrl) {
-        console.log(`[generateAvatar] Reintentando en endpoint detectado: ${health.detectedUrl}`);
-        return await executePost(health.detectedUrl);
-      }
-    } catch (healthErr) {
-      console.warn('[generateAvatar] Falló verificación de endpoints alternativos:', healthErr);
+    console.log('[generateAvatar] Intentando conexión directa en:', `${baseUrl}/api/avatar/generate`);
+    const response = await fetch(`${baseUrl}/api/avatar/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+        'bypass-tunnel-reminder': 'true',
+      },
+      body: JSON.stringify({
+        image: formattedImage,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const result: AvatarGenerateResponse = await response.json();
+      console.log('[generateAvatar] Avatar 3D generado con éxito (síncrono):', result);
+      return result;
     }
-    throw new Error(initialErr?.message || 'Error al generar el modelo 3D del avatar.');
+
+    let errorMsg = `Error al generar avatar 3D (HTTP ${response.status})`;
+    try {
+      const errJson = await response.json();
+      if (errJson.detail) {
+        errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+      } else if (errJson.error) {
+        errorMsg = errJson.error;
+      }
+    } catch {
+      // Si la respuesta fue HTML (502 de proxy), intentar texto crudo
+      try {
+        const textResp = await response.text();
+        if (textResp && textResp.length < 200) {
+          errorMsg = textResp;
+        }
+      } catch {}
+    }
+    throw new Error(errorMsg);
+  } catch (syncErr: any) {
+    clearTimeout(timeoutId);
+
+    // 3. RECUPERACIÓN INTELIGENTE: Si el túnel cortó por 502/504 pero el backend completó el modelo
+    console.log('[generateAvatar] Comprobando si el modelo 3D ya se completó en el servidor...');
+    try {
+      const latest = await getLatestAvatarModel();
+      if (latest?.avatar_url) {
+        console.log('[generateAvatar] ¡Avatar 3D recuperado exitosamente del servidor!', latest.avatar_url);
+        return {
+          avatar_url: latest.avatar_url,
+          status: 'completed',
+        };
+      }
+    } catch {}
+
+    throw new Error(syncErr?.message || 'Error al generar el avatar 3D en Tripo3D.');
   }
 };
 

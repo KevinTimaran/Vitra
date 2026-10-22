@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
@@ -62,14 +63,31 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
       }
 
       const res = source === 'camera'
-        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8, base64: true })
-        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8, base64: true });
+        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8 });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
         setAvatarLoading(true);
         const asset = res.assets[0];
-        const payload = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        await replaceAvatar(payload);
+
+        // Redimensionar y comprimir la fotografía para reducir el payload y evitar caídas de red
+        let imagePayload = asset.uri;
+        try {
+          const manipulated = await ImageManipulator.manipulateAsync(
+            asset.uri,
+            [{ resize: { width: 1024 } }],
+            { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          if (manipulated.base64) {
+            imagePayload = `data:image/jpeg;base64,${manipulated.base64}`;
+          } else if (manipulated.uri) {
+            imagePayload = manipulated.uri;
+          }
+        } catch (manipErr) {
+          console.warn('[ProfileScreen] Aviso optimizando imagen:', manipErr);
+        }
+
+        await replaceAvatar(imagePayload);
         Alert.alert('Gemelo Digital Actualizado', 'Tu avatar 3D ha sido generado y vinculado a tu probador.');
       }
     } catch (e: any) {
