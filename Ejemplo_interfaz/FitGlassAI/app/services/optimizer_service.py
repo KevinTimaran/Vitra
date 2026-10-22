@@ -44,7 +44,9 @@ async def optimize_3d_model(
     )
 
     temp_input_file = None
-    output_filename = f"model_{uuid.uuid4().hex[:12]}_opt.glb"
+    raw_name = os.path.splitext(os.path.basename(input_clean.split("?")[0]))[0]
+    safe_base_name = "".join(c for c in raw_name if c.isalnum() or c in ("-", "_"))[:30] or "model"
+    output_filename = f"{safe_base_name}_{uuid.uuid4().hex[:8]}_opt.glb"
     output_path = os.path.join(STATIC_MODELS_DIR, output_filename)
 
     try:

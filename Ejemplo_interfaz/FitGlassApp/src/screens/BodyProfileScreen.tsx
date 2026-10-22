@@ -211,7 +211,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
       } catch (avatarErr: any) {
         console.warn('[BodyProfileScreen] Avatar aviso (usando modelo 3D fallback):', avatarErr?.message);
         avatarUrl =
-          'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf';
+          'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
         updateAvatarUrl(avatarUrl);
       }
 
