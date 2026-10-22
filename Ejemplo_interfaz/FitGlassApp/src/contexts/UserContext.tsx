@@ -1,10 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { UserProfile, ColorProfile, BodyProfile } from '../types';
-import { INITIAL_BODY_PROFILE } from '../data/mockData';
+import { UserProfile, ColorProfile, BodyProfile, Garment } from '../types';
+import { INITIAL_BODY_PROFILE, MOCK_GARMENTS } from '../data/mockData';
 
 const ONBOARDING_KEY = 'vitra_user_onboarding_v2';
+
+const DEFAULT_SAMPLE_MODEL_URL =
+  'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
+
+const DEFAULT_HUMAN_AVATAR_2D =
+  'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
 
 const DEFAULT_COLOR_PROFILE: ColorProfile = {
   skin_tone: '#E2D3C4',
@@ -45,6 +51,14 @@ interface UserContextValue {
   facePhotoUri?: string;
   bodyPhotoUri?: string;
   completedOnboarding: boolean;
+  // Propiedades VTON + Colorimetría globales
+  avatar_2d_image: string;
+  avatar_3d_base_url: string;
+  colorimetry_profile: ColorProfile;
+  wardrobe_items: Garment[];
+  wardrobeItems: Garment[];
+  addGarmentToWardrobe: (garment: Garment) => void;
+  setWardrobeItems: React.Dispatch<React.SetStateAction<Garment[]>>;
   updateColorProfile: (profile: Partial<ColorProfile> & { season: string; recommended_colors: string[] }) => void;
   updateAvatarUrl: (url: string) => void;
   setUserPhotoUri: (uri: string) => void;
@@ -134,16 +148,29 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const [wardrobeItems, setWardrobeItems] = useState<Garment[]>(MOCK_GARMENTS);
+
+  const addGarmentToWardrobe = (garment: Garment) => {
+    setWardrobeItems((prev) => {
+      const idx = prev.findIndex((g) => g.id === garment.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = garment;
+        return copy;
+      }
+      return [garment, ...prev];
+    });
+  };
+
   const resetProfile = () => {
     setUserName('Atelier User');
     setUserAge(undefined);
     setFacePhotoUri(undefined);
     setBodyPhotoUri(undefined);
     setColorProfile(DEFAULT_COLOR_PROFILE);
-    setAvatarUrl(
-      'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb'
-    );
+    setAvatarUrl(DEFAULT_SAMPLE_MODEL_URL);
     setUserPhotoUri(undefined);
+    setWardrobeItems(MOCK_GARMENTS);
     setCompletedOnboarding(false);
 
     try {
@@ -156,6 +183,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ignorar
     }
   };
+
+  const avatar_2d_image =
+    bodyPhotoUri || userPhotoUri || DEFAULT_HUMAN_AVATAR_2D;
+  const avatar_3d_base_url = avatarUrl || DEFAULT_SAMPLE_MODEL_URL;
+  const colorimetry_profile = colorProfile;
 
   const userProfile: UserProfile & { age?: number; facePhotoUri?: string; bodyPhotoUri?: string } = {
     id: 'user-default',
@@ -179,6 +211,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         facePhotoUri,
         bodyPhotoUri,
         completedOnboarding,
+        avatar_2d_image,
+        avatar_3d_base_url,
+        colorimetry_profile,
+        wardrobe_items: wardrobeItems,
+        wardrobeItems,
+        addGarmentToWardrobe,
+        setWardrobeItems,
         updateColorProfile,
         updateAvatarUrl,
         setUserPhotoUri,
