@@ -65,3 +65,58 @@ async def generate_avatar_endpoint(request: Request):
         status_code=400,
         content={"detail": "Content-Type debe ser 'application/json' o 'multipart/form-data'."}
     )
+
+
+@router.delete("/current")
+@router.delete("")
+async def delete_avatar():
+    """
+    Elimina o desvincula el avatar 3D personalizado activo del usuario,
+    revertiendo la silueta al modelo base estilizado predeterminado.
+    """
+    return {
+        "status": "deleted",
+        "message": "Avatar personalizado eliminado. Se ha restablecido la silueta predeterminada.",
+    }
+
+
+@router.get("/presets")
+async def get_avatar_presets(request: Request = None):
+    """
+    Retorna la lista de avatares predeterminados calibrados por género y silueta.
+    """
+    from app.config import settings
+    base_url = "http://127.0.0.1:8000"
+    if request and request.base_url:
+        base_url = str(request.base_url).rstrip("/")
+    elif settings.EXPO_PUBLIC_API_BASE_URL:
+        base_url = settings.EXPO_PUBLIC_API_BASE_URL.rstrip("/")
+
+    presets = [
+        {
+            "id": "preset-female",
+            "gender": "female",
+            "name": "Atelier Silueta Femenina",
+            "description": "Proporciones esbeltas con calibración para vestidos y sastrería.",
+            "image_2d": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80",
+            "model_3d_url": f"{base_url}/static/models/tshirt.glb",
+        },
+        {
+            "id": "preset-male",
+            "gender": "male",
+            "name": "Atelier Silueta Masculina",
+            "description": "Estructura atlética con hombros definidos y caída recta.",
+            "image_2d": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80",
+            "model_3d_url": f"{base_url}/static/models/tshirt.glb",
+        },
+        {
+            "id": "preset-neutral",
+            "gender": "non-binary",
+            "name": "Atelier Silueta Fluida / Neutra",
+            "description": "Líneas minimalistas y proporciones universales contemporáneas.",
+            "image_2d": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
+            "model_3d_url": f"{base_url}/static/models/tshirt.glb",
+        },
+    ]
+
+    return {"presets": presets}

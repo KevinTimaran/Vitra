@@ -70,9 +70,12 @@ export interface UserProfile {
   name: string;
   age?: number;
   email?: string;
+  gender?: 'female' | 'male' | 'non-binary' | string;
   facePhotoUri?: string;
   bodyPhotoUri?: string;
   avatar_url?: string;
+  avatar_type?: 'preset' | 'custom_3d' | 'none';
+  avatar_created_at?: string;
   color_profile?: ColorProfile;
   body_profile?: BodyProfile;
   completedOnboarding: boolean;
@@ -85,6 +88,7 @@ export interface RegistrationWizardData {
   // Paso 2: Datos Personales
   fullName: string;
   age: string;
+  gender?: string;
   // Paso 3: Biometría
   faceImageUri?: string | null;
   faceImageBase64?: string | null;
@@ -106,6 +110,7 @@ export interface OutfitLayer {
   outerwear?: Garment;
   bottom?: Garment;
   shoes?: Garment;
+  accessory?: Garment;
 }
 
 export interface SavedLookItem {
@@ -115,4 +120,6 @@ export interface SavedLookItem {
   garments: Garment[];
   fitScore: string;
   paletteTheme: string;
+  model3dUrl?: string;
+  image2dUrl?: string;
 }
