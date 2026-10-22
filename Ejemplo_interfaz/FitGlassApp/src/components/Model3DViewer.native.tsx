@@ -4,6 +4,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, Center } from '@react-three/drei';
 import { Asset } from 'expo-asset';
 import { File, Paths } from 'expo-file-system';
+import { getBaseUrl } from '../services/ai/garmentAnalyzer';
 
 export interface Model3DViewerProps {
   activeModelUrl?: string | null;
@@ -269,15 +270,25 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
           }
         }
 
-        console.log('[Model3DViewer] Descargando modelo con Bypass-Tunnel-Reminder:', remoteUrl);
+        let targetDownloadUrl = remoteUrl;
+        if (
+          Platform.OS !== 'web' &&
+          (targetDownloadUrl.includes('127.0.0.1:8000') || targetDownloadUrl.includes('localhost:8000'))
+        ) {
+          const currentBase = getBaseUrl();
+          targetDownloadUrl = targetDownloadUrl.replace(/^http:\/\/(127\.0\.0\.1|localhost):8000/, currentBase);
+        }
+
+        console.log('[Model3DViewer] Descargando modelo con Bypass-Tunnel-Reminder:', targetDownloadUrl);
         let downloadedFile: any = null;
         let lastErr: any = null;
 
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            downloadedFile = await File.downloadFileAsync(remoteUrl, targetFile, {
+            downloadedFile = await File.downloadFileAsync(targetDownloadUrl, targetFile, {
               headers: {
                 'Bypass-Tunnel-Reminder': 'true',
+                'bypass-tunnel-reminder': 'true',
               },
               idempotent: true,
             });
@@ -329,10 +340,17 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
 
 /**
  * Contenedor del grupo 3D que orquesta la rotación interactiva táctil
- * y la auto-rotación continua fluida.
+ * con física de inercia y auto-rotación continua fluida.
  */
 const Interactive3DScene: React.FC<{
-  gestureRef: React.MutableRefObject<{ x: number; y: number; isDragging: boolean; zoom: number }>;
+  gestureRef: React.MutableRefObject<{
+    x: number;
+    y: number;
+    isDragging: boolean;
+    zoom: number;
+    angularVelocityY: number;
+    angularVelocityX: number;
+  }>;
   activeModelUrl?: string | null;
   garmentColorHex?: string;
   onError?: (err: any) => void;
@@ -348,19 +366,34 @@ const Interactive3DScene: React.FC<{
 
   useFrame((_, delta) => {
     if (groupRef.current) {
-      if (!gestureRef.current.isDragging) {
-        // Auto-rotación suave de exhibición
-        groupRef.current.rotation.y += delta * 0.22;
-        // Sincronizar para evitar saltos angulares al volver a interactuar
-        gestureRef.current.y = groupRef.current.rotation.y;
-        // Restablecer ángulo de inclinación vertical gradualmente
-        groupRef.current.rotation.x += (0 - groupRef.current.rotation.x) * 0.05;
-        gestureRef.current.x = groupRef.current.rotation.x;
-      } else {
-        // Rotación impulsada por el dedo del usuario
+      if (gestureRef.current.isDragging) {
+        // Rotación inmediata 1:1 impulsada por el dedo del usuario
         groupRef.current.rotation.y = gestureRef.current.y;
         groupRef.current.rotation.x = gestureRef.current.x;
+      } else {
+        // Si hay velocidad residual de inercia tras soltar el dedo (momentum)
+        if (Math.abs(gestureRef.current.angularVelocityY) > 0.0008) {
+          groupRef.current.rotation.y += gestureRef.current.angularVelocityY;
+          // Fricción suave para desaceleración natural
+          gestureRef.current.angularVelocityY *= 0.94;
+          gestureRef.current.y = groupRef.current.rotation.y;
+        } else {
+          // Auto-rotación suave de exhibición cuando el objeto está en reposo
+          gestureRef.current.angularVelocityY = 0;
+          groupRef.current.rotation.y += delta * 0.25;
+          gestureRef.current.y = groupRef.current.rotation.y;
+        }
+
+        // Restablecer ángulo de inclinación vertical gradualmente hacia nivelado
+        if (Math.abs(gestureRef.current.angularVelocityX) > 0.0008) {
+          groupRef.current.rotation.x += gestureRef.current.angularVelocityX;
+          gestureRef.current.angularVelocityX *= 0.90;
+        } else {
+          groupRef.current.rotation.x += (0 - groupRef.current.rotation.x) * 0.06;
+        }
+        gestureRef.current.x = groupRef.current.rotation.x;
       }
+
       const scale = gestureRef.current.zoom;
       groupRef.current.scale.set(scale, scale, scale);
     }
@@ -417,42 +450,69 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   garmentColorHex = '#8B5CF6',
   onLoadError,
 }) => {
-  // Estado compartido para gestos táctiles directos con PanResponder
+  // Estado compartido para gestos táctiles directos con PanResponder y física de velocidad
   const gestureState = useRef({
     x: 0,
     y: 0,
     isDragging: false,
     zoom: 1.0,
+    angularVelocityY: 0,
+    angularVelocityX: 0,
   });
 
-  // Guardar el ángulo base al iniciar el toque para cálculo directo no acumulativo
+  // Guardar el ángulo base y tracking de posición para velocidad instantánea
   const initialAngle = useRef({ x: 0, y: 0 });
+  const lastTouch = useRef({ x: 0, y: 0, time: 0 });
 
-  // PanResponder nativo con sensibilidad calibrada para rotación suave 1:1
+  // PanResponder nativo con sensibilidad calibrada según velocidad y desplazamiento
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
+        onPanResponderGrant: (evt) => {
           gestureState.current.isDragging = true;
-          // Anclar ángulo actual para que el movimiento sea lineal y fluido sin aceleración descontrolada
+          gestureState.current.angularVelocityY = 0;
+          gestureState.current.angularVelocityX = 0;
           initialAngle.current.y = gestureState.current.y;
           initialAngle.current.x = gestureState.current.x;
+          lastTouch.current = {
+            x: evt.nativeEvent.pageX,
+            y: evt.nativeEvent.pageY,
+            time: Date.now(),
+          };
         },
-        onPanResponderMove: (_, gesture) => {
-          // Sensibilidad calibrada (0.005 rad/px): arrastrar 100px rota ~28 grados (control milimétrico)
-          const SENSITIVITY_X = 0.005;
-          const SENSITIVITY_Y = 0.0035;
+        onPanResponderMove: (evt, gesture) => {
+          // Sensibilidad dinámica: responde 1:1 a la pantalla táctil (~0.013 rad/px)
+          const SENSITIVITY_X = 0.013;
+          const SENSITIVITY_Y = 0.006;
 
           gestureState.current.y = initialAngle.current.y + gesture.dx * SENSITIVITY_X;
           gestureState.current.x = Math.max(
-            -0.5,
-            Math.min(0.5, initialAngle.current.x + gesture.dy * SENSITIVITY_Y)
+            -0.6,
+            Math.min(0.6, initialAngle.current.x + gesture.dy * SENSITIVITY_Y)
           );
+
+          // Medir velocidad instantánea para inercia natural
+          const now = Date.now();
+          const dt = Math.max(1, now - lastTouch.current.time);
+          const dx = evt.nativeEvent.pageX - lastTouch.current.x;
+          const dy = evt.nativeEvent.pageY - lastTouch.current.y;
+          gestureState.current.angularVelocityY = (dx / dt) * 0.28;
+          gestureState.current.angularVelocityX = (dy / dt) * 0.12;
+
+          lastTouch.current = {
+            x: evt.nativeEvent.pageX,
+            y: evt.nativeEvent.pageY,
+            time: now,
+          };
         },
-        onPanResponderRelease: () => {
+        onPanResponderRelease: (_, gesture) => {
           gestureState.current.isDragging = false;
+          // Si el usuario hizo un swipe rápido (flick), usar gesture.vx como impulso
+          if (Math.abs(gesture.vx) > 0.15) {
+            gestureState.current.angularVelocityY = Math.max(-0.14, Math.min(0.14, gesture.vx * 0.045));
+          }
         },
         onPanResponderTerminate: () => {
           gestureState.current.isDragging = false;
