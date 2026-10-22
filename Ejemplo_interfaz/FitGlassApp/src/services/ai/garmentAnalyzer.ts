@@ -106,7 +106,7 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
   } catch {}
 
   // 5. Fallbacks de red local
-  candidateUrls.push('http://192.168.174.72:8000', 'http://127.0.0.1:8000', 'http://localhost:8000');
+  candidateUrls.push('http://192.168.1.13:8000', 'http://192.168.174.72:8000', 'http://127.0.0.1:8000', 'http://localhost:8000');
 
   // Eliminar duplicados
   const uniqueUrls = candidateUrls.filter((url, idx, self) => self.indexOf(url) === idx);
