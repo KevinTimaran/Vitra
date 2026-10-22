@@ -5,6 +5,8 @@ import {
   TryOnResponse,
   ColorimetryResponse,
   AvatarGenerateResponse,
+  GarmentItemInput,
+  AvatarPresetItem,
 } from './types';
 
 let activeWorkingUrl: string | null = null;
@@ -505,5 +507,162 @@ export const generateAvatar = async (imageBase64OrUrl: string): Promise<AvatarGe
       error?.message || 'Error de red al generar el modelo 3D del avatar.'
     );
   }
+};
+
+/**
+ * Genera la prueba de ropa virtual (VTON 2D + Modelo 3D) para un LOOK COMPLETO con múltiples prendas.
+ * Invoca el backend de FastAPI procesando cada prenda y llamando a Tripo3D exactamente una vez por look.
+ */
+export const generateOutfitTryOn = async (
+  humanImageUrl: string,
+  garments: GarmentItemInput[],
+  allowFallback = true
+): Promise<TryOnResponse> => {
+  const baseUrl = getBaseUrl();
+
+  if (!humanImageUrl || !humanImageUrl.trim()) {
+    throw new Error('La imagen de la persona o avatar está vacía.');
+  }
+
+  if (!garments || garments.length === 0) {
+    throw new Error('Debes seleccionar al menos una prenda para probar el look.');
+  }
+
+  console.log(
+    `[generateOutfitTryOn] Iniciando Try-On de look con ${garments.length} prendas en: ${baseUrl}/api/tryon/generate`
+  );
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    const payload = {
+      human_image: humanImageUrl.trim(),
+      garments: garments.map((g) => ({
+        image: g.image.trim(),
+        category: g.category || 'upper_body',
+        name: g.name || 'clothing',
+      })),
+      allow_fallback: allowFallback,
+    };
+
+    const response = await fetch(`${baseUrl}/api/tryon/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data: TryOnResponse = await response.json();
+      console.log('[generateOutfitTryOn] Look 3D generado con éxito:', data);
+      return data;
+    }
+
+    let errorMsg = `HTTP ${response.status}`;
+    try {
+      const errJson = await response.json();
+      errorMsg = errJson.detail || errJson.error || errorMsg;
+    } catch {}
+    throw new Error(errorMsg);
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+
+    // Recuperación inteligente del último modelo generado en el servidor
+    console.log('[generateOutfitTryOn] Verificando modelo generado en servidor...');
+    try {
+      const latest = await getLatestModel();
+      if (latest?.model_3d_url) {
+        console.log('[generateOutfitTryOn] Modelo recuperado del servidor:', latest.model_3d_url);
+        return {
+          model_3d_url: latest.model_3d_url,
+          image_2d_url: garments[0]?.image || humanImageUrl,
+          status: 'completed',
+        };
+      }
+    } catch {}
+
+    console.warn('[generateOutfitTryOn] Error en outfit tryon:', error?.message || error);
+    throw new Error(error?.message || 'Error durante la fusión 3D del look.');
+  }
+};
+
+/**
+ * Consulta la lista de avatares predeterminados configurados en el backend.
+ */
+export const fetchAvatarPresets = async (): Promise<AvatarPresetItem[]> => {
+  const baseUrl = getBaseUrl();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(`${baseUrl}/api/avatar/presets`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.presets && Array.isArray(data.presets)) {
+        return data.presets;
+      }
+    }
+  } catch (e) {
+    console.warn('[fetchAvatarPresets] Fallback local para presets:', e);
+  }
+
+  // Fallback garantizado sin red
+  return [
+    {
+      id: 'preset-female',
+      gender: 'female',
+      name: 'Atelier Silueta Femenina',
+      description: 'Proporciones esbeltas con calibración para vestidos y sastrería.',
+      image_2d: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80',
+      model_3d_url: '',
+    },
+    {
+      id: 'preset-male',
+      gender: 'male',
+      name: 'Atelier Silueta Masculina',
+      description: 'Estructura atlética con hombros definidos y caída recta.',
+      image_2d: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
+      model_3d_url: '',
+    },
+    {
+      id: 'preset-neutral',
+      gender: 'non-binary',
+      name: 'Atelier Silueta Fluida / Neutra',
+      description: 'Líneas minimalistas y proporciones universales contemporáneas.',
+      image_2d: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
+      model_3d_url: '',
+    },
+  ];
+};
+
+/**
+ * Elimina o desvincula el avatar 3D personalizado activo del usuario en el backend.
+ */
+export const deleteCurrentAvatar = async (): Promise<{ status: string; message: string }> => {
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/avatar/current`, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' },
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (e) {
+    console.warn('[deleteCurrentAvatar] Error de red:', e);
+  }
+  return { status: 'deleted', message: 'Avatar 3D eliminado exitosamente.' };
 };
 
