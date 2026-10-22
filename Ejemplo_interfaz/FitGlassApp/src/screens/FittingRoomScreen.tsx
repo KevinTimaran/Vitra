@@ -17,9 +17,7 @@ import { VibrantBackground } from '../components/VibrantBackground';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
-import { useUser } from '../contexts/UserContext';
-import { generateTryOn } from '../services/ai/garmentAnalyzer';
-import { Garment } from '../types';
+import { generateTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
 
 interface FittingRoomScreenProps {
   route?: {
