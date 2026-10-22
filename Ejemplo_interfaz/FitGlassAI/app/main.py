@@ -1,7 +1,17 @@
+import logging
+import os
 from dotenv import load_dotenv
+
 load_dotenv()
 
-import os
+# Configurar logging centralizado para trazabilidad completa de servicios y pipelines
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("FitGlassAI")
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
