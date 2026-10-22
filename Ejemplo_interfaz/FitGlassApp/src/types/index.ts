@@ -31,6 +31,13 @@ export interface Garment {
   addedDate: string;
   notes?: string;
   imageUrl?: string;
+  model3dUrl?: string;
+  image2dUrl?: string;
+  isFavorite?: boolean;
+  details?: string;
+  style?: string;
+  occasion?: string;
+  rawAnalysis?: any;
   silhouetteType: 'tshirt' | 'jacket' | 'trousers' | 'shoes' | 'coat' | 'accessory';
   paletteHarmony: boolean;
 }
