@@ -43,107 +43,26 @@ import { GarmentDetailsScreen } from './src/screens/GarmentDetailsScreen';
 import { GarmentViewScreen } from './src/screens/GarmentViewScreen';
 import { OutfitBuilderScreen } from './src/screens/OutfitBuilderScreen';
 import { SavedLookScreen } from './src/screens/SavedLookScreen';
+import { FloatingGlassTabBar } from './src/components/FloatingGlassTabBar';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AppTabs() {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      screenOptions={({ route }) => ({
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: colors.surface,
-          shadowColor: 'transparent',
-          elevation: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.borderLight,
-        },
-        headerTitleStyle: {
-          fontFamily: 'BodoniModa_600SemiBold',
-          fontSize: 18,
-          color: colors.primaryText,
-          letterSpacing: -0.2,
-        },
-        headerTitleAlign: 'center',
-        tabBarActiveTintColor: colors.cta,
-        tabBarInactiveTintColor: colors.tertiaryText,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.borderLight,
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: {
-          fontFamily: 'Outfit_500Medium',
-          fontSize: 11,
-        },
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
-
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Wardrobe') {
-            iconName = focused ? 'shirt' : 'shirt-outline';
-          } else if (route.name === 'FittingRoom') {
-            iconName = focused ? 'sparkles' : 'sparkles-outline';
-          } else if (route.name === 'ColorStudio') {
-            iconName = focused ? 'color-palette' : 'color-palette-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
-
-          return <Ionicons name={iconName} size={size || 22} color={color} />;
-        },
-      })}
+      tabBar={(props) => <FloatingGlassTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+      }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          title: t('tabs.home'),
-          headerTitle: `Vitra · ${t('tabs.home')}`,
-        }}
-      />
-      <Tab.Screen
-        name="Wardrobe"
-        component={WardrobeScreen}
-        options={{
-          title: t('tabs.wardrobe'),
-          headerTitle: `Vitra · ${t('tabs.wardrobe')}`,
-        }}
-      />
-      <Tab.Screen
-        name="FittingRoom"
-        component={FittingRoomScreen}
-        options={{
-          title: t('tabs.fittingRoom'),
-          headerTitle: `Vitra · ${t('tabs.fittingRoom')}`,
-        }}
-      />
-      <Tab.Screen
-        name="ColorStudio"
-        component={ColorStudioScreen}
-        options={{
-          title: t('tabs.colorStudio'),
-          headerTitle: `Vitra · ${t('tabs.colorStudio')}`,
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          title: t('tabs.profile'),
-          headerTitle: `Vitra · ${t('tabs.profile')}`,
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Wardrobe" component={WardrobeScreen} />
+      <Tab.Screen name="FittingRoom" component={FittingRoomScreen} />
+      <Tab.Screen name="ColorStudio" component={ColorStudioScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
