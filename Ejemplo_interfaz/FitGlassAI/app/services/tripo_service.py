@@ -99,139 +99,139 @@ async def generate_3d_model(
         upload_url = f"{TRIPO_API_BASE_URL}/upload"
         task_url = f"{TRIPO_API_BASE_URL}/task"
 
-    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-        try:
-            upload_files = {
-                "file": (filename, image_bytes, mime_type)
-            }
-            upload_res = await client.post(upload_url, headers=auth_headers, files=upload_files)
-            
-            if upload_res.status_code != 200:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Fallo al subir imagen a Tripo3D (HTTP {upload_res.status_code}): {upload_res.text}"
-                )
-
-            upload_json = upload_res.json()
-            if upload_json.get("code") != 0:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Error en la API de subida de Tripo3D: {upload_json.get('message')}"
-                )
-
-            file_token = (
-                upload_json.get("data", {}).get("file_token") or
-                upload_json.get("data", {}).get("image_token")
-            )
-            if not file_token:
-                raise HTTPException(
-                    status_code=502,
-                    detail="Tripo3D no devolvió un file_token válido tras la subida."
-                )
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Error de red al conectar con el endpoint de subida de Tripo3D: {str(e)}"
-            )
-
-        # Paso 2: Crear la tarea de generación 3D (image_to_model)
-        ext = "png" if "png" in mime_type else "jpg"
-        task_payload = {
-            "type": "image_to_model",
-            "file": {
-                "type": ext,
-                "file_token": file_token,
-            },
-        }
-
-        try:
-            task_headers = {
-                **auth_headers,
-                "Content-Type": "application/json",
-            }
-            task_res = await client.post(task_url, headers=task_headers, json=task_payload)
-
-            if task_res.status_code != 200:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Fallo al crear la tarea en Tripo3D (HTTP {task_res.status_code}): {task_res.text}"
-                )
-
-            task_json = task_res.json()
-            if task_json.get("code") != 0:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Error al iniciar la tarea de Tripo3D: {task_json.get('message')}"
-                )
-
-            task_id = task_json.get("data", {}).get("task_id")
-            if not task_id:
-                raise HTTPException(
-                    status_code=502,
-                    detail="Tripo3D no devolvió un task_id para el proceso de generación."
-                )
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Error de comunicación al solicitar tarea a Tripo3D: {str(e)}"
-            )
-
-        # Paso 3: Polling periódico no bloqueante hasta que el task termine
-        poll_url = f"{task_url}/{task_id}"
-        elapsed = 0.0
-
-        while elapsed < timeout_seconds:
-            await asyncio.sleep(polling_interval)
-            elapsed += polling_interval
-
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
             try:
-                poll_res = await client.get(poll_url, headers=auth_headers)
-                if poll_res.status_code != 200:
-                    continue
-
-                poll_json = poll_res.json()
-                task_data = poll_json.get("data", {})
-                status = task_data.get("status")
-
-                if status == "success":
-                    output = task_data.get("output", {})
-                    # Paso 4: Retornar la URL de descarga del .glb
-                    glb_url = (
-                        output.get("pbr_model") or
-                        output.get("model") or
-                        output.get("pbr_model_url") or
-                        output.get("model_url")
-                    )
-                    if not glb_url:
-                        raise HTTPException(
-                            status_code=502,
-                            detail="Tripo3D reportó éxito pero no proporcionó la URL del archivo .glb."
-                        )
-                    return str(glb_url)
-
-                if status in ("failed", "cancelled"):
-                    message = task_data.get("message") or task_data.get("error") or "Sin detalles"
+                upload_files = {
+                    "file": (filename, image_bytes, mime_type)
+                }
+                upload_res = await client.post(upload_url, headers=auth_headers, files=upload_files)
+                
+                if upload_res.status_code != 200:
                     raise HTTPException(
                         status_code=502,
-                        detail=f"La generación 3D en Tripo3D finalizó con error '{status}': {message}"
+                        detail=f"Fallo al subir imagen a Tripo3D (HTTP {upload_res.status_code}): {upload_res.text}"
+                    )
+
+                upload_json = upload_res.json()
+                if upload_json.get("code") != 0:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Error en la API de subida de Tripo3D: {upload_json.get('message')}"
+                    )
+
+                file_token = (
+                    upload_json.get("data", {}).get("file_token") or
+                    upload_json.get("data", {}).get("image_token")
+                )
+                if not file_token:
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Tripo3D no devolvió un file_token válido tras la subida."
                     )
 
             except HTTPException:
                 raise
-            except Exception:
-                # Continuar reintentando dentro del margen de timeout
-                pass
+            except Exception as e:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Error de red al conectar con el endpoint de subida de Tripo3D: {str(e)}"
+                )
 
-        raise HTTPException(
-            status_code=504,
-            detail=f"Tiempo de espera agotado ({timeout_seconds}s) esperando la generación 3D de Tripo3D."
-        )
+            # Paso 2: Crear la tarea de generación 3D (image_to_model)
+            ext = "png" if "png" in mime_type else "jpg"
+            task_payload = {
+                "type": "image_to_model",
+                "file": {
+                    "type": ext,
+                    "file_token": file_token,
+                },
+            }
+
+            try:
+                task_headers = {
+                    **auth_headers,
+                    "Content-Type": "application/json",
+                }
+                task_res = await client.post(task_url, headers=task_headers, json=task_payload)
+
+                if task_res.status_code != 200:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Fallo al crear la tarea en Tripo3D (HTTP {task_res.status_code}): {task_res.text}"
+                    )
+
+                task_json = task_res.json()
+                if task_json.get("code") != 0:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Error al iniciar la tarea de Tripo3D: {task_json.get('message')}"
+                    )
+
+                task_id = task_json.get("data", {}).get("task_id")
+                if not task_id:
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Tripo3D no devolvió un task_id para el proceso de generación."
+                    )
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Error de comunicación al solicitar tarea a Tripo3D: {str(e)}"
+                )
+
+            # Paso 3: Polling periódico no bloqueante hasta que el task termine
+            poll_url = f"{task_url}/{task_id}"
+            elapsed = 0.0
+
+            while elapsed < timeout_seconds:
+                await asyncio.sleep(polling_interval)
+                elapsed += polling_interval
+
+                try:
+                    poll_res = await client.get(poll_url, headers=auth_headers)
+                    if poll_res.status_code != 200:
+                        continue
+
+                    poll_json = poll_res.json()
+                    task_data = poll_json.get("data", {})
+                    status = task_data.get("status")
+
+                    if status == "success":
+                        output = task_data.get("output", {})
+                        # Paso 4: Retornar la URL de descarga del .glb
+                        glb_url = (
+                            output.get("pbr_model") or
+                            output.get("model") or
+                            output.get("pbr_model_url") or
+                            output.get("model_url")
+                        )
+                        if not glb_url:
+                            raise HTTPException(
+                                status_code=502,
+                                detail="Tripo3D reportó éxito pero no proporcionó la URL del archivo .glb."
+                            )
+                        return str(glb_url)
+
+                    if status in ("failed", "cancelled"):
+                        message = task_data.get("message") or task_data.get("error") or "Sin detalles"
+                        raise HTTPException(
+                            status_code=502,
+                            detail=f"La generación 3D en Tripo3D finalizó con error '{status}': {message}"
+                        )
+
+                except HTTPException:
+                    raise
+                except Exception:
+                    # Continuar reintentando dentro del margen de timeout
+                    pass
+
+            raise HTTPException(
+                status_code=504,
+                detail=f"Tiempo de espera agotado ({timeout_seconds}s) esperando la generación 3D de Tripo3D."
+            )
     except Exception as e:
         if allow_fallback:
             logger.warning(f"[generate_3d_model] Error en generación Tripo3D ({type(e).__name__}: {e}). Retornando modelo de respaldo.")

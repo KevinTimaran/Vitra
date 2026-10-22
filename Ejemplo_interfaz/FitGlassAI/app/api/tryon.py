@@ -16,7 +16,7 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
     3. Optimización 3D: comprime la malla con Draco y texturas con WebP para alto rendimiento móvil.
     4. Retorna las URLs resultantes y el estado completado.
     """
-    SAMPLE_3D_MODEL_FALLBACK = "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf"
+    SAMPLE_3D_MODEL_FALLBACK = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
 
     image_2d_url = None
     model_3d_url = None
@@ -48,7 +48,10 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
 
         # Paso 2: Generar el modelo 3D a partir de la imagen 2D fusionada
         try:
-            model_3d_url = await generate_3d_model(image_url=image_2d_url)
+            model_3d_url = await generate_3d_model(
+                image_url=image_2d_url,
+                allow_fallback=payload.allow_fallback,
+            )
         except Exception as tripo_err:
             if payload.allow_fallback:
                 # Si Tripo3D no tiene créditos o falla, aplicar modelo de respaldo sin romper la UX

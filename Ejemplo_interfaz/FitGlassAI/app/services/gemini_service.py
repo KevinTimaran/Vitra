@@ -1,6 +1,7 @@
 import os
 import json
 import base64
+import logging
 import httpx
 from fastapi import HTTPException
 from google import genai
@@ -8,6 +9,18 @@ from google.genai import types
 
 from app.config import settings
 from app.schemas.garment import GarmentAnalysis
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_GARMENT_METADATA_MOCK = {
+    "tipo_prenda": "Prenda de prueba",
+    "color_dominante": "#000000",
+    "colores_secundarios": ["#FFFFFF"],
+    "estilo_recomendado": "Casual",
+    "corte": "Regular",
+    "ocasion_recomendada": "Diario",
+    "detalles": "Metadatos generados por el mock de respaldo debido a un fallo en Gemini."
+}
 
 
 def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis:
@@ -164,6 +177,7 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
     """
     Analiza una prenda de ropa utilizando Google Gemini de forma asíncrona.
     Extrae metadatos estructurados: tipo de prenda, color dominante y estilo recomendado.
+    Si Gemini falla (por cuota, 503, timeout o error de red), retorna metadatos simulados de respaldo.
     """
     if not settings.has_gemini:
         raise HTTPException(
@@ -177,26 +191,32 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
             detail="La imagen (Base64 o URL) no puede estar vacía."
         )
 
-    image_bytes, mime_type = await _resolve_image_bytes(image_base64_or_url)
-
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-    prompt = """
-    Eres el motor analítico de moda de FitGlassAI / Vitra.
-    Analiza la fotografía de la prenda adjunta y extrae sus metadatos principales.
-    Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura exacta:
-    {
-      "tipo_prenda": "Tipo de prenda (ej. Camiseta, Camisa, Pantalón, Vestido, Chaqueta, Abrigo, Zapatos, Accesorio)",
-      "color_dominante": "Código HEX (#RRGGBB) y nombre común en español",
-      "colores_secundarios": ["#HEX1", "#HEX2"],
-      "estilo_recomendado": "Estilo de moda (ej. Casual, Formal, Streetwear, Minimalista, Deportivo, Elegante, Urbano)",
-      "corte": "Ajuste o corte (ej. Slim, Regular, Oversized, Recto)",
-      "ocasion_recomendada": "Ocasión de uso (ej. Diario, Noche, Trabajo, Deporte, Fiesta)",
-      "detalles": "Breve descripción visual de textura, patrón o acabados"
-    }
-    """
+    try:
+        image_bytes, mime_type = await _resolve_image_bytes(image_base64_or_url)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"[analyze_garment] Error al decodificar la imagen: {e}. Retornando mock de respaldo.")
+        return DEFAULT_GARMENT_METADATA_MOCK
 
     try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+        prompt = """
+        Eres el motor analítico de moda de FitGlassAI / Vitra.
+        Analiza la fotografía de la prenda adjunta y extrae sus metadatos principales.
+        Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura exacta:
+        {
+          "tipo_prenda": "Tipo de prenda (ej. Camiseta, Camisa, Pantalón, Vestido, Chaqueta, Abrigo, Zapatos, Accesorio)",
+          "color_dominante": "Código HEX (#RRGGBB) y nombre común en español",
+          "colores_secundarios": ["#HEX1", "#HEX2"],
+          "estilo_recomendado": "Estilo de moda (ej. Casual, Formal, Streetwear, Minimalista, Deportivo, Elegante, Urbano)",
+          "corte": "Ajuste o corte (ej. Slim, Regular, Oversized, Recto)",
+          "ocasion_recomendada": "Ocasión de uso (ej. Diario, Noche, Trabajo, Deporte, Fiesta)",
+          "detalles": "Breve descripción visual de textura, patrón o acabados"
+        }
+        """
+
         raw_text = await _generate_content_with_fallback(
             client=client,
             contents=[
@@ -207,13 +227,7 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
                 response_mime_type="application/json",
             )
         )
-    except Exception as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Error en la comunicación con el servicio de Gemini: {str(e)}"
-        )
 
-    try:
         raw_text = raw_text.strip()
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:-3]
@@ -223,10 +237,10 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
         data = json.loads(raw_text.strip())
         return data
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al procesar la respuesta estructurada de Gemini: {str(e)}"
+        logger.warning(
+            f"[analyze_garment] Fallo en servicio Gemini ({type(e).__name__}: {e}). Retornando metadatos simulados de respaldo."
         )
+        return DEFAULT_GARMENT_METADATA_MOCK
 
 
 async def analyze_colorimetry(image_base64_or_url: str) -> dict:
