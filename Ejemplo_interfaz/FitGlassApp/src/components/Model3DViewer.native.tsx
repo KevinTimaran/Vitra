@@ -1,8 +1,9 @@
-import React, { Suspense, useMemo, useRef } from 'react';
-import { View, StyleSheet, PanResponder } from 'react-native';
+import React, { Suspense, useMemo, useRef, useState, useEffect } from 'react';
+import { View, StyleSheet, PanResponder, Platform } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, Center } from '@react-three/drei';
 import { Asset } from 'expo-asset';
+import { File, Paths } from 'expo-file-system';
 
 export interface Model3DViewerProps {
   activeModelUrl?: string | null;
@@ -217,6 +218,82 @@ const PlaceholderTShirt: React.FC<{
 };
 
 /**
+ * Hook para descargar y almacenar en caché local los modelos .glb remotos.
+ * Utiliza File.downloadFileAsync con el header 'Bypass-Tunnel-Reminder'
+ * para evitar el bloqueo del tunnel (localtunnel) y obtener una URI file:// local,
+ * lo cual evita el fallo UnableToDownloadAssetException en iOS AssetModule.swift.
+ */
+const useResolvedModelUri = (remoteUrl: string | null) => {
+  const [localUri, setLocalUri] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [downloadError, setDownloadError] = useState<any>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!remoteUrl) {
+      setLocalUri(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // En web o si ya es una URI local file://
+    if (Platform.OS === 'web' || remoteUrl.startsWith('file:')) {
+      setLocalUri(remoteUrl);
+      setIsLoading(false);
+      return;
+    }
+
+    const downloadModel = async () => {
+      try {
+        setIsLoading(true);
+        setDownloadError(null);
+
+        // Generar archivo destino en el directorio de caché usando la API moderna de Expo SDK 57
+        const cleanName = remoteUrl.split('/').pop()?.split('?')[0] || 'model.glb';
+        const targetFile = new File(Paths.cache, `fitglass_${cleanName}`);
+
+        if (targetFile.exists && targetFile.size > 1000) {
+          if (!isCancelled) {
+            setLocalUri(targetFile.uri);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        console.log('[Model3DViewer] Descargando modelo con Bypass-Tunnel-Reminder:', remoteUrl);
+        const downloadedFile = await File.downloadFileAsync(remoteUrl, targetFile, {
+          headers: {
+            'Bypass-Tunnel-Reminder': 'true',
+          },
+          idempotent: true,
+        });
+
+        if (!isCancelled) {
+          console.log('[Model3DViewer] Modelo guardado en caché local con éxito:', downloadedFile.uri);
+          setLocalUri(downloadedFile.uri);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.warn('[Model3DViewer] Error al descargar modelo a caché local:', err);
+        if (!isCancelled) {
+          setDownloadError(err);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    downloadModel();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [remoteUrl]);
+
+  return { localUri, isLoading, downloadError };
+};
+
+/**
  * Contenedor del grupo 3D que orquesta la rotación interactiva táctil
  * y la auto-rotación continua fluida.
  */
@@ -227,6 +304,13 @@ const Interactive3DScene: React.FC<{
   onError?: (err: any) => void;
 }> = ({ gestureRef, activeModelUrl, garmentColorHex, onError }) => {
   const groupRef = useRef<any>(null);
+  const { localUri, isLoading, downloadError } = useResolvedModelUri(activeModelUrl || null);
+
+  useEffect(() => {
+    if (downloadError) {
+      onError?.(downloadError);
+    }
+  }, [downloadError, onError]);
 
   useFrame((_, delta) => {
     if (groupRef.current) {
@@ -248,18 +332,22 @@ const Interactive3DScene: React.FC<{
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
       {activeModelUrl ? (
-        // Caso 1: Hay un modelo 3D dinámico generado por la API vía HTTP
-        <InnerModelErrorBoundary
-          key={activeModelUrl}
-          fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
-          onError={onError}
-        >
-          <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
-            <DynamicGarmentModel modelUrl={activeModelUrl} />
-          </Suspense>
-        </InnerModelErrorBoundary>
+        isLoading ? (
+          <Loader3D colorHex={garmentColorHex} />
+        ) : localUri ? (
+          <InnerModelErrorBoundary
+            key={localUri}
+            fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
+            onError={onError}
+          >
+            <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
+              <DynamicGarmentModel modelUrl={localUri} />
+            </Suspense>
+          </InnerModelErrorBoundary>
+        ) : (
+          <StylizedGarmentMannequin colorHex={garmentColorHex} />
+        )
       ) : (
-        // Caso 2: El usuario aún no ha probado una prenda -> Camiseta genérica local instantánea
         <InnerModelErrorBoundary
           fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
           onError={onError}
@@ -274,7 +362,7 @@ const Interactive3DScene: React.FC<{
 };
 
 export const preloadGLTF = (source: string | number) => {
-  if (source && typeof source === 'string') {
+  if (Platform.OS === 'web' && source && typeof source === 'string') {
     try {
       useGLTF.preload(source, false);
     } catch {
