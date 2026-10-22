@@ -6,22 +6,9 @@ import { useGLTF, OrbitControls } from '@react-three/drei';
 interface Model3DViewerProps {
   modelUrl: string;
   onLoadError?: (error: any) => void;
+  currentGarmentName?: string;
+  selectedLayer?: string;
 }
-
-/**
- * Componente que carga y renderiza el modelo 3D con compresión Draco y texturas WebP.
- * useGLTF inyecta por defecto DRACOLoader descargando los binarios decodificadores
- * del CDN oficial de Google (https://www.gstatic.com/draco/versioned/decoders/).
- */
-const DracoModel: React.FC<{ url: string; onError?: (error: any) => void }> = ({ url, onError }) => {
-  try {
-    const gltf = useGLTF(url);
-    return <primitive object={gltf.scene} scale={1.8} position={[0, -1, 0]} />;
-  } catch (err) {
-    onError?.(err);
-    return <Fallback3DMesh />;
-  }
-};
 
 /**
  * Malla 3D geométrica de respaldo si la descarga o decodificación falla.
@@ -33,6 +20,23 @@ const Fallback3DMesh: React.FC = () => {
       <meshStandardMaterial color="#8B5CF6" metalness={0.2} roughness={0.5} wireframe={true} />
     </mesh>
   );
+};
+
+/**
+ * Componente que carga y renderiza el modelo 3D con compresión Draco y texturas WebP.
+ */
+const DracoModel: React.FC<{ url: string; onError?: (error: any) => void }> = ({ url, onError }) => {
+  try {
+    const gltf = useGLTF(url);
+    return <primitive object={gltf.scene} scale={1.8} position={[0, -1, 0]} />;
+  } catch (err: any) {
+    if (err instanceof Promise || (err && typeof err.then === 'function')) {
+      throw err;
+    }
+    console.warn('[DracoModel Web] Error al cargar GLTF:', err);
+    onError?.(err);
+    return <Fallback3DMesh />;
+  }
 };
 
 /**
@@ -60,7 +64,10 @@ export const preloadGLTF = (url: string) => {
   }
 };
 
-export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, onLoadError }) => {
+export const Model3DViewer: React.FC<Model3DViewerProps> = ({
+  modelUrl,
+  onLoadError,
+}) => {
   useEffect(() => {
     if (modelUrl) {
       preloadGLTF(modelUrl);
