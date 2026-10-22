@@ -109,6 +109,38 @@ export const MOCK_GARMENTS: Garment[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=800&q=80',
   },
+  {
+    id: 'g-7',
+    name: 'Atelier Minimalist Cap',
+    category: 'Accessories',
+    colorName: 'Midnight Charcoal',
+    colorHex: '#18181B',
+    size: 'U',
+    fit: 'Standard',
+    brand: 'Studio Glass',
+    material: 'Technical Cotton Twill',
+    addedDate: '10 Oct 2026',
+    silhouetteType: 'accessory',
+    paletteHarmony: true,
+    imageUrl:
+      'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'g-8',
+    name: 'Structured Fedora Hat',
+    category: 'Accessories',
+    colorName: 'Slate Charcoal',
+    colorHex: '#27272A',
+    size: 'M',
+    fit: 'Classic',
+    brand: 'Vitra Lab',
+    material: '100% Wool Felt',
+    addedDate: '05 Oct 2026',
+    silhouetteType: 'accessory',
+    paletteHarmony: true,
+    imageUrl:
+      'https://images.unsplash.com/photo-1514327605112-b887c0e61c0a?auto=format&fit=crop&w=800&q=80',
+  },
 ];
 
 export const MOCK_SAVED_LOOKS: SavedLookItem[] = [
