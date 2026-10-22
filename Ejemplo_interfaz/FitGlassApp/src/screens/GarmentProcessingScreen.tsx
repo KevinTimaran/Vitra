@@ -12,9 +12,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { Typography, Spacing, Radius } from '../theme';
+import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
 import { analyzeGarment, generateTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
 import { GarmentMetadata } from '../services/ai/types';
+ 
+interface GarmentProcessingScreenProps {
   route?: {
     params?: {
       imageBase64?: string;
