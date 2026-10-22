@@ -1,12 +1,12 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, PanResponder, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, PanResponder } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, Center } from '@react-three/drei';
 import { Asset } from 'expo-asset';
-import { Ionicons } from '@expo/vector-icons';
 
 export interface Model3DViewerProps {
-  modelUrl?: string | number;
+  activeModelUrl?: string | null;
+  modelUrl?: string | number | null;
   onLoadError?: (error: any) => void;
   currentGarmentName?: string;
   selectedLayer?: string;
@@ -18,7 +18,6 @@ const LOCAL_TSHIRT_ASSET = require('../../assets/models/tshirt.glb');
 /**
  * Maniquí 3D interactivo y estilizado para respaldo inmediato.
  * Se construye con geometrías nativas de Three.js (0 dependencias externas).
- * Garantiza que la pantalla NUNCA se muestre vacía o negra.
  */
 export const StylizedGarmentMannequin: React.FC<{
   colorHex?: string;
@@ -75,6 +74,42 @@ export const StylizedGarmentMannequin: React.FC<{
 };
 
 /**
+ * Loader 3D inmersivo que se visualiza mientras el modelo .glb remoto
+ * se descarga y optimiza desde FastAPI hacia el dispositivo móvil.
+ */
+export const Loader3D: React.FC<{ colorHex?: string }> = ({ colorHex = '#8B5CF6' }) => {
+  const ringRef1 = useRef<any>(null);
+  const ringRef2 = useRef<any>(null);
+
+  useFrame((_, delta) => {
+    if (ringRef1.current) {
+      ringRef1.current.rotation.y += delta * 1.8;
+      ringRef1.current.rotation.x += delta * 0.9;
+    }
+    if (ringRef2.current) {
+      ringRef2.current.rotation.y -= delta * 1.4;
+      ringRef2.current.rotation.z += delta * 0.7;
+    }
+  });
+
+  return (
+    <group position={[0, 0, 0]}>
+      <StylizedGarmentMannequin colorHex={colorHex} />
+
+      {/* Anillos orbitales holográficos giratorios */}
+      <mesh ref={ringRef1} position={[0, 0.2, 0]}>
+        <torusGeometry args={[0.95, 0.02, 16, 64]} />
+        <meshBasicMaterial color="#38BDF8" transparent={true} opacity={0.85} />
+      </mesh>
+      <mesh ref={ringRef2} position={[0, 0.2, 0]}>
+        <torusGeometry args={[1.15, 0.015, 16, 64]} />
+        <meshBasicMaterial color="#C084FC" transparent={true} opacity={0.65} />
+      </mesh>
+    </group>
+  );
+};
+
+/**
  * Error boundary interno dentro del Canvas de Three.js para capturar fallos
  * de carga del GLTF sin desmontar el contexto WebGL.
  */
@@ -108,86 +143,65 @@ class InnerModelErrorBoundary extends React.Component<
 }
 
 /**
- * Componente que renderiza el modelo GLTF descargado/cargado.
+ * Renderizador del modelo 3D real generado dinámicamente por la API (Tripo3D / FastAPI).
+ * Preserva las texturas, materiales y geometrías auténticas generadas por IA.
  */
-const GarmentMesh: React.FC<{
-  modelSource: string;
-  garmentColorHex?: string;
-}> = ({ modelSource, garmentColorHex }) => {
-  // useGLTF con useDraco = false para no depender de Web Workers de navegador
-  const gltf = useGLTF(modelSource, false);
+const DynamicGarmentModel: React.FC<{
+  modelUrl: string;
+}> = ({ modelUrl }) => {
+  const gltf = useGLTF(modelUrl, false);
 
-  const clonedScene = useMemo(() => {
+  const scene = useMemo(() => {
     const rawScene = (gltf as any)?.scene;
     if (!rawScene) return null;
-    const scene = rawScene.clone(true);
+    return rawScene.clone(true);
+  }, [gltf]);
 
-    if (garmentColorHex) {
-      scene.traverse((node: any) => {
+  if (!scene) return null;
+
+  return (
+    <Center>
+      <primitive object={scene} scale={2.0} />
+    </Center>
+  );
+};
+
+/**
+ * Renderizador del placeholder estático local (camiseta genérica decorativa).
+ * Se muestra únicamente cuando el usuario aún no ha ejecutado o seleccionado un Try-On.
+ */
+const PlaceholderTShirt: React.FC<{
+  localUri: string;
+  colorHex?: string;
+}> = ({ localUri, colorHex }) => {
+  const gltf = useGLTF(localUri, false);
+
+  const scene = useMemo(() => {
+    const rawScene = (gltf as any)?.scene;
+    if (!rawScene) return null;
+    const cloned = rawScene.clone(true);
+
+    if (colorHex) {
+      cloned.traverse((node: any) => {
         if (node.isMesh && node.material) {
           if (node.material.name === 'ShirtFabric' || !node.material.map) {
             node.material = node.material.clone();
-            node.material.color.set(garmentColorHex);
+            node.material.color.set(colorHex);
             node.material.needsUpdate = true;
           }
         }
       });
     }
 
-    return scene;
-  }, [gltf, garmentColorHex]);
+    return cloned;
+  }, [gltf, colorHex]);
 
-  if (!clonedScene) {
-    return <StylizedGarmentMannequin colorHex={garmentColorHex} />;
-  }
+  if (!scene) return null;
 
   return (
     <Center>
-      <primitive object={clonedScene} scale={1.9} />
+      <primitive object={scene} scale={1.9} />
     </Center>
-  );
-};
-
-/**
- * Renderizador seguro de prenda con fallback de doble capa
- */
-const SafeGarmentRenderer: React.FC<{
-  modelUrl?: string;
-  localFallbackUri?: string | null;
-  garmentColorHex?: string;
-  onError?: (err: any) => void;
-}> = ({ modelUrl, localFallbackUri, garmentColorHex, onError }) => {
-  const [loadError, setLoadError] = useState(false);
-
-  useEffect(() => {
-    setLoadError(false);
-  }, [modelUrl]);
-
-  const effectiveSource = useMemo(() => {
-    if (loadError || !modelUrl) {
-      return localFallbackUri || undefined;
-    }
-    return modelUrl;
-  }, [loadError, modelUrl, localFallbackUri]);
-
-  if (!effectiveSource) {
-    // Si aún no se resolvió la URI local o remota, mostrar el maniquí estilizado
-    return <StylizedGarmentMannequin colorHex={garmentColorHex} />;
-  }
-
-  return (
-    <InnerModelErrorBoundary
-      fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
-      onError={(err) => {
-        console.warn('[SafeGarmentRenderer] Fallo al cargar modelo:', err?.message || err);
-        setLoadError(true);
-        onError?.(err);
-      }}
-    >
-      <Suspense fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}>
-        <GarmentMesh modelSource={effectiveSource} garmentColorHex={garmentColorHex} />
-      </Suspense>
-    </InnerModelErrorBoundary>
   );
 };
 
@@ -197,11 +211,11 @@ const SafeGarmentRenderer: React.FC<{
  */
 const Interactive3DScene: React.FC<{
   gestureRef: React.MutableRefObject<{ x: number; y: number; isDragging: boolean; zoom: number }>;
-  modelUrl?: string;
+  activeModelUrl?: string | null;
   localFallbackUri?: string | null;
   garmentColorHex?: string;
   onError?: (err: any) => void;
-}> = ({ gestureRef, modelUrl, localFallbackUri, garmentColorHex, onError }) => {
+}> = ({ gestureRef, activeModelUrl, localFallbackUri, garmentColorHex, onError }) => {
   const groupRef = useRef<any>(null);
 
   useFrame((_, delta) => {
@@ -223,12 +237,31 @@ const Interactive3DScene: React.FC<{
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
-      <SafeGarmentRenderer
-        modelUrl={modelUrl}
-        localFallbackUri={localFallbackUri}
-        garmentColorHex={garmentColorHex}
-        onError={onError}
-      />
+      {activeModelUrl ? (
+        // Caso 1: Hay un modelo 3D dinámico generado por la API
+        <InnerModelErrorBoundary
+          key={activeModelUrl}
+          fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
+          onError={onError}
+        >
+          <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
+            <DynamicGarmentModel modelUrl={activeModelUrl} />
+          </Suspense>
+        </InnerModelErrorBoundary>
+      ) : localFallbackUri ? (
+        // Caso 2: El usuario aún no ha probado una prenda -> Camiseta genérica decorativa
+        <InnerModelErrorBoundary
+          fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
+          onError={onError}
+        >
+          <Suspense fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}>
+            <PlaceholderTShirt localUri={localFallbackUri} colorHex={garmentColorHex} />
+          </Suspense>
+        </InnerModelErrorBoundary>
+      ) : (
+        // Caso 3: Cargando asset local
+        <StylizedGarmentMannequin colorHex={garmentColorHex} />
+      )}
     </group>
   );
 };
@@ -247,6 +280,7 @@ export const preloadGLTF = (source: string | number) => {
  * Visor 3D nativo ultra-resiliente para iOS y Android
  */
 export const Model3DViewer: React.FC<Model3DViewerProps> = ({
+  activeModelUrl,
   modelUrl,
   garmentColorHex = '#8B5CF6',
   onLoadError,
@@ -310,7 +344,14 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
     []
   );
 
-  const effectiveRemoteUrl = typeof modelUrl === 'string' ? modelUrl : undefined;
+  // Priorizamos activeModelUrl; si se provee modelUrl como string HTTP, también es válida
+  const resolvedDynamicUrl = useMemo(() => {
+    const candidate = activeModelUrl !== undefined ? activeModelUrl : modelUrl;
+    if (typeof candidate === 'string' && (candidate.startsWith('http://') || candidate.startsWith('https://'))) {
+      return candidate;
+    }
+    return null;
+  }, [activeModelUrl, modelUrl]);
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
@@ -325,7 +366,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
 
         <Interactive3DScene
           gestureRef={gestureState}
-          modelUrl={effectiveRemoteUrl}
+          activeModelUrl={resolvedDynamicUrl}
           localFallbackUri={localAssetUri}
           garmentColorHex={garmentColorHex}
           onError={onLoadError}
