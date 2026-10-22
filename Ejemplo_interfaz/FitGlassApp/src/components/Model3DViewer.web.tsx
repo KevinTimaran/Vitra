@@ -1,17 +1,20 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, OrbitControls, Center } from '@react-three/drei';
 
 export interface Model3DViewerProps {
-  modelUrl?: string | number;
+  activeModelUrl?: string | null;
+  modelUrl?: string | number | null;
   onLoadError?: (error: any) => void;
   currentGarmentName?: string;
   selectedLayer?: string;
   garmentColorHex?: string;
 }
 
-const StylizedGarmentMannequin: React.FC<{
+const LOCAL_SAMPLE_URL = 'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
+
+export const StylizedGarmentMannequin: React.FC<{
   colorHex?: string;
   isRotating?: boolean;
 }> = ({ colorHex = '#8B5CF6', isRotating = true }) => {
@@ -70,11 +73,40 @@ const StylizedGarmentMannequin: React.FC<{
   );
 };
 
-const GarmentMesh: React.FC<{
-  modelSource: string;
-  garmentColorHex?: string;
-}> = ({ modelSource, garmentColorHex }) => {
-  const gltf = useGLTF(modelSource, false);
+export const Loader3D: React.FC<{ colorHex?: string }> = ({ colorHex = '#8B5CF6' }) => {
+  const ringRef1 = useRef<any>(null);
+  const ringRef2 = useRef<any>(null);
+
+  useFrame((_, delta) => {
+    if (ringRef1.current) {
+      ringRef1.current.rotation.y += delta * 1.8;
+      ringRef1.current.rotation.x += delta * 0.9;
+    }
+    if (ringRef2.current) {
+      ringRef2.current.rotation.y -= delta * 1.4;
+      ringRef2.current.rotation.z += delta * 0.7;
+    }
+  });
+
+  return (
+    <group position={[0, 0, 0]}>
+      <StylizedGarmentMannequin colorHex={colorHex} isRotating={true} />
+      <mesh ref={ringRef1} position={[0, 0.2, 0]}>
+        <torusGeometry args={[0.95, 0.02, 16, 64]} />
+        <meshBasicMaterial color="#38BDF8" transparent={true} opacity={0.85} />
+      </mesh>
+      <mesh ref={ringRef2} position={[0, 0.2, 0]}>
+        <torusGeometry args={[1.15, 0.015, 16, 64]} />
+        <meshBasicMaterial color="#C084FC" transparent={true} opacity={0.65} />
+      </mesh>
+    </group>
+  );
+};
+
+const DynamicGarmentModel: React.FC<{
+  modelUrl: string;
+}> = ({ modelUrl }) => {
+  const gltf = useGLTF(modelUrl, false);
   const meshRef = useRef<any>(null);
 
   useFrame((_, delta) => {
@@ -83,34 +115,62 @@ const GarmentMesh: React.FC<{
     }
   });
 
-  const clonedScene = useMemo(() => {
+  const scene = useMemo(() => {
     const rawScene = (gltf as any)?.scene;
     if (!rawScene) return null;
-    const scene = rawScene.clone(true);
+    return rawScene.clone(true);
+  }, [gltf]);
 
-    if (garmentColorHex) {
-      scene.traverse((node: any) => {
+  if (!scene) return null;
+
+  return (
+    <group ref={meshRef}>
+      <Center>
+        <primitive object={scene} scale={2.0} />
+      </Center>
+    </group>
+  );
+};
+
+const PlaceholderTShirt: React.FC<{
+  modelUrl: string;
+  colorHex?: string;
+}> = ({ modelUrl, colorHex }) => {
+  const gltf = useGLTF(modelUrl, false);
+  const meshRef = useRef<any>(null);
+
+  useFrame((_, delta) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += delta * 0.45;
+    }
+  });
+
+  const scene = useMemo(() => {
+    const rawScene = (gltf as any)?.scene;
+    if (!rawScene) return null;
+    const cloned = rawScene.clone(true);
+
+    if (colorHex) {
+      cloned.traverse((node: any) => {
         if (node.isMesh && node.material) {
           if (node.material.name === 'ShirtFabric' || !node.material.map) {
             node.material = node.material.clone();
-            node.material.color.set(garmentColorHex);
+            node.material.color.set(colorHex);
             node.material.needsUpdate = true;
           }
         }
       });
     }
 
-    return scene;
-  }, [gltf, garmentColorHex]);
+    return cloned;
+  }, [gltf, colorHex]);
 
-  if (!clonedScene) {
-    return <StylizedGarmentMannequin colorHex={garmentColorHex} isRotating={true} />;
-  }
+  if (!scene) return null;
 
   return (
     <group ref={meshRef}>
       <Center>
-        <primitive object={clonedScene} scale={2.4} />
+        <primitive object={scene} scale={2.4} />
       </Center>
     </group>
   );
@@ -127,17 +187,24 @@ export const preloadGLTF = (source: string | number) => {
 };
 
 export const Model3DViewer: React.FC<Model3DViewerProps> = ({
+  activeModelUrl,
   modelUrl,
   garmentColorHex,
   onLoadError,
 }) => {
-  const urlToUse = typeof modelUrl === 'string' && modelUrl ? modelUrl : 'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
+  const resolvedDynamicUrl = useMemo(() => {
+    const candidate = activeModelUrl !== undefined ? activeModelUrl : modelUrl;
+    if (typeof candidate === 'string' && (candidate.startsWith('http://') || candidate.startsWith('https://'))) {
+      return candidate;
+    }
+    return null;
+  }, [activeModelUrl, modelUrl]);
 
   useEffect(() => {
-    if (urlToUse) {
-      preloadGLTF(urlToUse);
+    if (resolvedDynamicUrl) {
+      preloadGLTF(resolvedDynamicUrl);
     }
-  }, [urlToUse]);
+  }, [resolvedDynamicUrl]);
 
   return (
     <View style={styles.container}>
@@ -149,9 +216,15 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
         <directionalLight position={[10, 15, 10]} intensity={2.0} />
         <directionalLight position={[-10, -10, -10]} intensity={0.8} />
 
-        <Suspense fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} isRotating={true} />}>
-          <GarmentMesh modelSource={urlToUse} garmentColorHex={garmentColorHex} />
-        </Suspense>
+        {resolvedDynamicUrl ? (
+          <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
+            <DynamicGarmentModel key={resolvedDynamicUrl} modelUrl={resolvedDynamicUrl} />
+          </Suspense>
+        ) : (
+          <Suspense fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} isRotating={true} />}>
+            <PlaceholderTShirt modelUrl={LOCAL_SAMPLE_URL} colorHex={garmentColorHex} />
+          </Suspense>
+        )}
 
         <OrbitControls
           enableZoom={true}
