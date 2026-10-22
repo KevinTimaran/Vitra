@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: 12,
     marginBottom: Spacing.sm,
   },
   catalogTitle: {
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-Medium',
   },
   catalogScroll: {
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: 12,
     gap: Spacing.sm,
     paddingBottom: Spacing.sm,
   },
@@ -378,8 +378,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnArea: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: 12,
+    paddingBottom: 85,
     paddingTop: Spacing.sm,
   },
 });
