@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useMemo, useRef } from 'react';
 import { View, StyleSheet, PanResponder } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, Center } from '@react-three/drei';
@@ -13,7 +13,18 @@ export interface Model3DViewerProps {
   garmentColorHex?: string;
 }
 
+// Asset 3D local empaquetado directamente por el bundler de Metro
 const LOCAL_TSHIRT_ASSET = require('../../assets/models/tshirt.glb');
+
+// Resuelve de forma síncrona la URI local sin disparar descargas de red
+const getResolvedLocalAsset = (): string | number => {
+  try {
+    const asset = Asset.fromModule(LOCAL_TSHIRT_ASSET);
+    return asset.localUri || asset.uri || LOCAL_TSHIRT_ASSET;
+  } catch {
+    return LOCAL_TSHIRT_ASSET;
+  }
+};
 
 /**
  * Maniquí 3D interactivo y estilizado para respaldo inmediato.
@@ -144,7 +155,7 @@ class InnerModelErrorBoundary extends React.Component<
 
 /**
  * Renderizador del modelo 3D real generado dinámicamente por la API (Tripo3D / FastAPI).
- * Preserva las texturas, materiales y geometrías auténticas generadas por IA.
+ * Procesa directamente la URL HTTP de internet.
  */
 const DynamicGarmentModel: React.FC<{
   modelUrl: string;
@@ -168,13 +179,13 @@ const DynamicGarmentModel: React.FC<{
 
 /**
  * Renderizador del placeholder estático local (camiseta genérica decorativa).
- * Se muestra únicamente cuando el usuario aún no ha ejecutado o seleccionado un Try-On.
+ * Utiliza el módulo local resuelto sin hacer peticiones de red HTTP.
  */
 const PlaceholderTShirt: React.FC<{
-  localUri: string;
   colorHex?: string;
-}> = ({ localUri, colorHex }) => {
-  const gltf = useGLTF(localUri, false);
+}> = ({ colorHex }) => {
+  const localSource = useMemo(() => getResolvedLocalAsset(), []);
+  const gltf = useGLTF(localSource as any, false);
 
   const scene = useMemo(() => {
     const rawScene = (gltf as any)?.scene;
@@ -212,10 +223,9 @@ const PlaceholderTShirt: React.FC<{
 const Interactive3DScene: React.FC<{
   gestureRef: React.MutableRefObject<{ x: number; y: number; isDragging: boolean; zoom: number }>;
   activeModelUrl?: string | null;
-  localFallbackUri?: string | null;
   garmentColorHex?: string;
   onError?: (err: any) => void;
-}> = ({ gestureRef, activeModelUrl, localFallbackUri, garmentColorHex, onError }) => {
+}> = ({ gestureRef, activeModelUrl, garmentColorHex, onError }) => {
   const groupRef = useRef<any>(null);
 
   useFrame((_, delta) => {
@@ -238,7 +248,7 @@ const Interactive3DScene: React.FC<{
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
       {activeModelUrl ? (
-        // Caso 1: Hay un modelo 3D dinámico generado por la API
+        // Caso 1: Hay un modelo 3D dinámico generado por la API vía HTTP
         <InnerModelErrorBoundary
           key={activeModelUrl}
           fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
@@ -248,19 +258,16 @@ const Interactive3DScene: React.FC<{
             <DynamicGarmentModel modelUrl={activeModelUrl} />
           </Suspense>
         </InnerModelErrorBoundary>
-      ) : localFallbackUri ? (
-        // Caso 2: El usuario aún no ha probado una prenda -> Camiseta genérica decorativa
+      ) : (
+        // Caso 2: El usuario aún no ha probado una prenda -> Camiseta genérica local instantánea
         <InnerModelErrorBoundary
           fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
           onError={onError}
         >
           <Suspense fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}>
-            <PlaceholderTShirt localUri={localFallbackUri} colorHex={garmentColorHex} />
+            <PlaceholderTShirt colorHex={garmentColorHex} />
           </Suspense>
         </InnerModelErrorBoundary>
-      ) : (
-        // Caso 3: Cargando asset local
-        <StylizedGarmentMannequin colorHex={garmentColorHex} />
       )}
     </group>
   );
@@ -285,8 +292,6 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   garmentColorHex = '#8B5CF6',
   onLoadError,
 }) => {
-  const [localAssetUri, setLocalAssetUri] = useState<string | null>(null);
-
   // Estado compartido para gestos táctiles directos con PanResponder
   const gestureState = useRef({
     x: 0,
@@ -294,29 +299,6 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
     isDragging: false,
     zoom: 1.0,
   });
-
-  // Precargar y resolver URI del modelo local empaquetado (tshirt.glb)
-  useEffect(() => {
-    let isMounted = true;
-    Asset.fromModule(LOCAL_TSHIRT_ASSET)
-      .downloadAsync()
-      .then((asset) => {
-        if (isMounted) {
-          const uri = asset.localUri || asset.uri;
-          setLocalAssetUri(uri);
-          if (uri) {
-            preloadGLTF(uri);
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('[Model3DViewer] Error resolviendo asset local:', err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // PanResponder nativo para rotación 360° fluida sin depender de OrbitControls DOM
   const panResponder = useMemo(
@@ -367,7 +349,6 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
         <Interactive3DScene
           gestureRef={gestureState}
           activeModelUrl={resolvedDynamicUrl}
-          localFallbackUri={localAssetUri}
           garmentColorHex={garmentColorHex}
           onError={onLoadError}
         />
