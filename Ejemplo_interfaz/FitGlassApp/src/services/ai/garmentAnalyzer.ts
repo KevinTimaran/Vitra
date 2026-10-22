@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { File } from 'expo-file-system';
 import {
   GarmentAnalysisResponse,
   TryOnResponse,
@@ -19,6 +20,25 @@ export const setActiveWorkingUrl = (url: string): void => {
 
 const isIPv4 = (host: string): boolean => {
   return /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
+};
+
+export const ensureBase64DataUri = async (imageUriOrBase64: string): Promise<string> => {
+  let img = imageUriOrBase64.trim();
+  if (img.startsWith('file://')) {
+    try {
+      const localFile = new File(img);
+      const b64 = await localFile.base64();
+      if (b64) {
+        return `data:image/jpeg;base64,${b64}`;
+      }
+    } catch (e) {
+      console.warn('[ensureBase64DataUri] Error leyendo archivo local con File API:', e);
+    }
+  }
+  if (!img.startsWith('http://') && !img.startsWith('https://') && !img.startsWith('data:')) {
+    return `data:image/jpeg;base64,${img}`;
+  }
+  return img;
 };
 
 export const getBaseUrl = (): string => {
@@ -454,58 +474,78 @@ export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<Colo
  * Endpoint: POST /api/avatar/generate
  */
 export const generateAvatar = async (imageBase64OrUrl: string): Promise<AvatarGenerateResponse> => {
-  const baseUrl = getBaseUrl();
-
   if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
     throw new Error('La fotografía de cuerpo entero está vacía.');
   }
 
-  let formattedImage = imageBase64OrUrl.trim();
-  if (
-    !formattedImage.startsWith('http://') &&
-    !formattedImage.startsWith('https://') &&
-    !formattedImage.startsWith('data:')
-  ) {
-    formattedImage = `data:image/jpeg;base64,${formattedImage}`;
-  }
+  const formattedImage = await ensureBase64DataUri(imageBase64OrUrl);
+  const baseUrl = getBaseUrl();
+
+  const executePost = async (targetBaseUrl: string): Promise<AvatarGenerateResponse> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutos para reconstrucción 3D
+
+    try {
+      console.log('[generateAvatar] Solicitando generación 3D en:', `${targetBaseUrl}/api/avatar/generate`);
+
+      const response = await fetch(`${targetBaseUrl}/api/avatar/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'Bypass-Tunnel-Reminder': 'true',
+          'bypass-tunnel-reminder': 'true',
+        },
+        body: JSON.stringify({
+          image: formattedImage,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        let errorMsg = `Error al generar avatar 3D (HTTP ${response.status})`;
+        try {
+          const errJson = await response.json();
+          if (errJson.detail) {
+            errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+          } else if (errJson.error) {
+            errorMsg = errJson.error;
+          }
+        } catch {
+          // Fallback
+        }
+        const customErr: any = new Error(errorMsg);
+        customErr.status = response.status;
+        throw customErr;
+      }
+
+      const result: AvatarGenerateResponse = await response.json();
+      console.log('[generateAvatar] Avatar 3D generado con éxito:', result);
+      return result;
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  };
 
   try {
-    console.log('[generateAvatar] Solicitando generación 3D en:', `${baseUrl}/api/avatar/generate`);
-
-    const response = await fetch(`${baseUrl}/api/avatar/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        image: formattedImage,
-      }),
-    });
-
-    if (!response.ok) {
-      let errorMsg = `Error al generar avatar 3D (HTTP ${response.status})`;
-      try {
-        const errJson = await response.json();
-        if (errJson.detail) {
-          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
-        } else if (errJson.error) {
-          errorMsg = errJson.error;
-        }
-      } catch (e) {
-        // Fallback
-      }
-      throw new Error(errorMsg);
-    }
-
-    const result: AvatarGenerateResponse = await response.json();
-    console.log('[generateAvatar] Avatar 3D generado con éxito:', result);
-    return result;
-  } catch (error: any) {
-    console.error('[generateAvatar] Error:', error);
-    throw new Error(
-      error?.message || 'Error de red al generar el modelo 3D del avatar.'
+    return await executePost(baseUrl);
+  } catch (initialErr: any) {
+    console.warn(
+      `[generateAvatar] Falló intento en ${baseUrl} (${initialErr?.message}). Reintentando con checkHealth...`
     );
+    try {
+      const health = await checkHealth();
+      if (health.detectedUrl && health.detectedUrl !== baseUrl) {
+        console.log(`[generateAvatar] Reintentando en endpoint detectado: ${health.detectedUrl}`);
+        return await executePost(health.detectedUrl);
+      }
+    } catch (healthErr) {
+      console.warn('[generateAvatar] Falló verificación de endpoints alternativos:', healthErr);
+    }
+    throw new Error(initialErr?.message || 'Error al generar el modelo 3D del avatar.');
   }
 };
 
@@ -662,7 +702,10 @@ export const fetchAvatarPresets = async (): Promise<AvatarPresetItem[]> => {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     const response = await fetch(`${baseUrl}/api/avatar/presets`, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -714,7 +757,10 @@ export const deleteCurrentAvatar = async (): Promise<{ status: string; message: 
   try {
     const response = await fetch(`${baseUrl}/api/avatar/current`, {
       method: 'DELETE',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
     });
     if (response.ok) {
       return await response.json();
