@@ -30,6 +30,7 @@ async def setup_user_profile(
                 users_db[user_email.lower()].update({
                     "name": payload.full_name,
                     "age": payload.age,
+                    "gender": payload.gender,
                     "face_image": payload.face_image[:50] + "..." if payload.face_image and len(payload.face_image) > 50 else payload.face_image,
                     "body_image": payload.body_image[:50] + "..." if payload.body_image and len(payload.body_image) > 50 else payload.body_image,
                 })
@@ -42,4 +43,5 @@ async def setup_user_profile(
         message="Perfil configurado correctamente",
         full_name=payload.full_name,
         age=payload.age,
+        gender=payload.gender,
     )

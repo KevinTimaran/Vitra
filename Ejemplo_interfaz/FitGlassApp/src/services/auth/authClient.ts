@@ -173,6 +173,7 @@ export async function fetchCurrentUser(token: string): Promise<UserMeResponse> {
 export interface UserProfileSetupPayload {
   full_name: string;
   age: number;
+  gender?: string;
   face_image?: string;
   body_image?: string;
 }
@@ -182,6 +183,7 @@ export interface UserProfileSetupResponse {
   message: string;
   full_name?: string;
   age?: number;
+  gender?: string;
 }
 
 /**
