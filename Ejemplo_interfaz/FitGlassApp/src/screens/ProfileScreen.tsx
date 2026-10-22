@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,14 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
-import { useUser } from '../contexts/UserContext';
+import { useUser, PRESET_AVATARS } from '../contexts/UserContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
@@ -18,9 +21,102 @@ import { GlassCard } from '../components/GlassCard';
 
 export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark, toggleTheme, setTheme } = useTheme();
-  const { userProfile, colorProfile, avatarUrl, resetProfile } = useUser();
+  const {
+    userProfile,
+    colorProfile,
+    avatarUrl,
+    avatarType,
+    avatarCreatedAt,
+    gender,
+    setPresetAvatar,
+    replaceAvatar,
+    deleteAvatar,
+    resetProfile,
+  } = useUser();
   const { userEmail, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+  const [avatarLoading, setAvatarLoading] = useState<boolean>(false);
+
+  const handlePickAndUploadAvatar = async (source: 'camera' | 'gallery' | 'demo') => {
+    try {
+      if (source === 'demo') {
+        setAvatarLoading(true);
+        const demoImg = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+        await replaceAvatar(demoImg);
+        Alert.alert('Éxito', 'Gemelo digital 3D generado a partir de la silueta demo.');
+        return;
+      }
+
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permiso Requerido', 'Se requiere acceso a la cámara.');
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permiso Requerido', 'Se requiere acceso a la galería.');
+          return;
+        }
+      }
+
+      const res = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8, base64: true });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setAvatarLoading(true);
+        const asset = res.assets[0];
+        const payload = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        await replaceAvatar(payload);
+        Alert.alert('Gemelo Digital Actualizado', 'Tu avatar 3D ha sido generado y vinculado a tu probador.');
+      }
+    } catch (e: any) {
+      console.error('[ProfileScreen] Error al actualizar avatar:', e);
+      Alert.alert('Error', e?.message || 'No se pudo generar el gemelo digital.');
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const handlePromptAvatarUpload = () => {
+    Alert.alert(
+      'Gemelo Digital 3D',
+      'Elige el origen de la fotografía de cuerpo completo para reconstruir tu avatar 3D:',
+      [
+        { text: 'Cámara', onPress: () => handlePickAndUploadAvatar('camera') },
+        { text: 'Galería', onPress: () => handlePickAndUploadAvatar('gallery') },
+        { text: 'Muestra Demo', onPress: () => handlePickAndUploadAvatar('demo') },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleDeleteAvatar = () => {
+    Alert.alert(
+      '¿Eliminar Gemelo Digital?',
+      'Se restablecerá la silueta predeterminada del atelier según tu género.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setAvatarLoading(true);
+              await deleteAvatar();
+              Alert.alert('Eliminado', 'Se ha restablecido la silueta base.');
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Error al eliminar el avatar.');
+            } finally {
+              setAvatarLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleStartScan = () => {
     if (navigation) {
@@ -63,34 +159,143 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           </Text>
         </GlassCard>
 
-        {/* 3D Digital Twin Card */}
+        {/* 3D Digital Twin Management Card (Fase 2) */}
         <GlassCard style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="cube-outline" size={20} color={colors.primaryText} />
             <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              {t('profile.avatarTitle')}
+              Gestión de Gemelo Digital 3D
             </Text>
-            <View style={styles.statusPillActive}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusPillText}>{language === 'es' ? 'Activo' : 'Active'}</Text>
+            <View
+              style={[
+                styles.statusPillActive,
+                avatarType === 'custom_3d' && { backgroundColor: 'rgba(59, 130, 246, 0.15)' },
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  avatarType === 'custom_3d' && { backgroundColor: '#3B82F6' },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusPillText,
+                  avatarType === 'custom_3d' && { color: '#2563EB' },
+                ]}
+              >
+                {avatarType === 'custom_3d' ? '3D Personalizado' : 'Silueta Preset'}
+              </Text>
             </View>
           </View>
+
           <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
-            {t('profile.avatarDesc')}
+            {avatarType === 'custom_3d'
+              ? `Tu avatar tridimensional generado por Tripo3D está activo${avatarCreatedAt ? ` desde el ${avatarCreatedAt}` : ''}. Puedes reemplazarlo con una nueva captura o restablecer la silueta base.`
+              : `Estás utilizando la ${PRESET_AVATARS[gender]?.label || 'Silueta Atelier'}. Puedes alternar la silueta o crear tu gemelo digital 3D a partir de una foto de cuerpo completo.`}
           </Text>
-          <TouchableOpacity
-            style={[
-              styles.inlineBtn,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-            ]}
-            onPress={() => navigation?.navigate('FittingRoom')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="sparkles-outline" size={16} color={colors.primaryText} />
-            <Text style={[styles.inlineBtnText, { color: colors.primaryText }]}>
-              {t('profile.viewInFittingRoom')}
+
+          {/* Selector de Siluetas Base Preset */}
+          <View style={styles.presetSelectorSection}>
+            <Text style={[styles.sectionMiniLabel, { color: colors.tertiaryText }]}>
+              SILUETAS ATELIER DISPONIBLES
             </Text>
-          </TouchableOpacity>
+            <View style={styles.presetButtonsRow}>
+              {[
+                { key: 'female', label: 'Femenina', icon: 'woman-outline' },
+                { key: 'male', label: 'Masculina', icon: 'man-outline' },
+                { key: 'non-binary', label: 'Fluida', icon: 'people-outline' },
+              ].map((p) => {
+                const isActive = gender === p.key;
+                return (
+                  <TouchableOpacity
+                    key={p.key}
+                    style={[
+                      styles.presetPillBtn,
+                      {
+                        backgroundColor: isActive ? colors.primaryText : colors.surfaceSubtle,
+                        borderColor: isActive ? colors.primaryText : colors.borderLight,
+                      },
+                    ]}
+                    onPress={() => setPresetAvatar(p.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={p.icon as any}
+                      size={14}
+                      color={isActive ? colors.bg : colors.primaryText}
+                    />
+                    <Text
+                      style={[
+                        styles.presetPillBtnText,
+                        { color: isActive ? colors.bg : colors.primaryText, fontWeight: isActive ? '700' : '500' },
+                      ]}
+                    >
+                      {p.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Acciones del Gemelo Digital */}
+          <View style={styles.avatarActionsCol}>
+            {avatarLoading ? (
+              <View style={[styles.avatarLoadingBox, { backgroundColor: colors.surfaceSubtle }]}>
+                <ActivityIndicator size="small" color={colors.primaryText} />
+                <Text style={[styles.avatarLoadingText, { color: colors.primaryText }]}>
+                  Procesando gemelo digital con Tripo3D...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.primaryAvatarBtn,
+                    { backgroundColor: colors.primaryText },
+                  ]}
+                  onPress={handlePromptAvatarUpload}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera-outline" size={17} color={colors.bg} />
+                  <Text style={[styles.primaryAvatarBtnText, { color: colors.bg }]}>
+                    {avatarType === 'custom_3d' ? 'Reemplazar Gemelo 3D' : 'Crear Gemelo 3D con Foto'}
+                  </Text>
+                </TouchableOpacity>
+
+                {avatarType === 'custom_3d' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.deleteAvatarBtn,
+                      { borderColor: 'rgba(239, 68, 68, 0.4)' },
+                    ]}
+                    onPress={handleDeleteAvatar}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                    <Text style={styles.deleteAvatarBtnText}>
+                      Restablecer Silueta Predeterminada
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.inlineBtn,
+                    { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight, marginTop: 4 },
+                  ]}
+                  onPress={() => navigation?.navigate('FittingRoom')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="cube-outline" size={16} color={colors.primaryText} />
+                  <Text style={[styles.inlineBtnText, { color: colors.primaryText }]}>
+                    Ver en Probador Virtual 3D
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </GlassCard>
 
         {/* Seasonal Colorimetry Card */}
@@ -553,5 +758,80 @@ const styles = StyleSheet.create({
   switchSubtitle: {
     fontSize: 11,
     marginTop: 2,
+  },
+  presetSelectorSection: {
+    marginBottom: Spacing.md,
+  },
+  sectionMiniLabel: {
+    ...Typography.micro,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  presetButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  presetPillBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    gap: 5,
+  },
+  presetPillBtnText: {
+    ...Typography.micro,
+    fontSize: 11,
+  },
+  avatarActionsCol: {
+    gap: 8,
+    marginTop: Spacing.xs,
+  },
+  primaryAvatarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: Radius.pill,
+    gap: 8,
+  },
+  primaryAvatarBtnText: {
+    ...Typography.callout,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  deleteAvatarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    gap: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+  },
+  deleteAvatarBtnText: {
+    ...Typography.caption,
+    color: '#EF4444',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  avatarLoadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+    gap: 10,
+  },
+  avatarLoadingText: {
+    ...Typography.caption,
+    fontWeight: '600',
+    fontSize: 12,
   },
 });
