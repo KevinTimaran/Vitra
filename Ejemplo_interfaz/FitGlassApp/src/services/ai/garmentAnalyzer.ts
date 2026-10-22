@@ -209,6 +209,7 @@ export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentA
  * 1. Fusiona humanImage y garmentImage en 2D (Replicate / IDM-VTON).
  * 2. Extruye la imagen 2D resultante a un modelo 3D descargable .glb (Tripo3D).
  * Endpoint: POST /api/tryon/generate
+ */
 export interface LatestModelResponse {
   model_3d_url: string;
   filename: string;
