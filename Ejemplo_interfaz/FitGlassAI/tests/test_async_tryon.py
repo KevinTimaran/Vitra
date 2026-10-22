@@ -63,3 +63,5 @@ def test_tryon_async_pipeline_without_tripo():
             time.sleep(0.1)
 
         assert completed is True, "La tarea asíncrona debió completarse con éxito"
+        # Verificar explícitamente que Tripo3D fue invocado ÚNICAMENTE con la imagen de la prenda aislada, NO con el avatar/persona
+        mock_3d_fn.assert_called_once_with(image_url="https://example.com/jacket.jpg")
