@@ -729,23 +729,23 @@ const styles = StyleSheet.create({
   bottomSection: {
     flex: 4,
     width: '100%',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 6,
     paddingTop: Spacing.xs,
-    paddingBottom: 85, // Espacio para evitar superposición con el FloatingGlassTabBar
+    paddingBottom: 68, // Espacio calibrado para que no lo tape la barra inferior
   },
   wardrobeCarouselCard: {
     flex: 1,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    paddingHorizontal: 6,
     borderWidth: 1,
   },
   carouselHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     marginBottom: Spacing.xs,
   },
   carouselTitle: {
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
   categoriesFilterRow: {
     flexDirection: 'row',
     gap: 6,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     marginBottom: Spacing.xs,
     marginTop: 2,
   },
@@ -789,14 +789,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   garmentsListContent: {
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 4,
     paddingVertical: Spacing.xs,
     gap: Spacing.sm,
     alignItems: 'center',
   },
   garmentCard: {
-    width: 120,
-    height: 145,
+    width: 130,
+    height: 154,
     borderRadius: Radius.lg,
     padding: 6,
     alignItems: 'center',
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
   },
   thumbnailFrame: {
     width: '100%',
-    height: 88,
+    height: 96,
     borderRadius: Radius.md,
     overflow: 'hidden',
     position: 'relative',
