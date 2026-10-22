@@ -18,9 +18,10 @@ import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
-import { generateTryOn } from '../services/ai/garmentAnalyzer';
-import { Garment } from '../types';
+import { generateTryOn, generateOutfitTryOn } from '../services/ai/garmentAnalyzer';
+import { Garment, SavedLookItem } from '../types';
 import { GarmentViewScreen } from './GarmentViewScreen';
+import { SavedLookScreen } from './SavedLookScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -41,6 +42,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     colorimetry_profile,
     wardrobe_items,
     completedOnboarding,
+    savedLooks,
+    removeLook,
+    saveLook,
+    gender,
   } = useUser();
 
   // Consumir del estado global la URL del avatar del usuario (avatar_3d_url)
@@ -63,19 +68,97 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [hasAvatarOrPhotos, navigation]);
 
-  // Estado dinámico del modelo 3D activo en el visor (Avatar / Try-On)
+  // Estado dinámico del modelo 3D activo en el visor (Avatar / Try-On / Look Guardado)
   const [activeModelUrl, setActiveModelUrl] = useState<string | null>(avatar_3d_url);
   const [selectedGarment, setSelectedGarment] = useState<Garment | null>(null);
+  const [activeSavedLook, setActiveSavedLook] = useState<SavedLookItem | null>(null);
+  const [selectedSavedLookDetail, setSelectedSavedLookDetail] = useState<SavedLookItem | null>(null);
+  const [homeTab, setHomeTab] = useState<'saved_looks' | 'wardrobe'>('saved_looks');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeGarmentDetail, setActiveGarmentDetail] = useState<Garment | null>(null);
 
   // Sincronizar si cambia el avatar global
   useEffect(() => {
-    if (avatar_3d_url && !selectedGarment) {
+    if (avatar_3d_url && !selectedGarment && !activeSavedLook) {
       setActiveModelUrl(avatar_3d_url);
       preloadGLTF(avatar_3d_url);
     }
-  }, [avatar_3d_url, selectedGarment]);
+  }, [avatar_3d_url, selectedGarment, activeSavedLook]);
+
+  const handleTryOnOutfit = async (garments: Garment[]) => {
+    if (isGenerating || !garments || garments.length === 0) return;
+    setIsGenerating(true);
+
+    const humanImage =
+      avatar_2d_image ||
+      userProfile?.bodyPhotoUri ||
+      userProfile?.facePhotoUri ||
+      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+
+    const garmentInputs = garments.map((g) => {
+      let cat = 'upper_body';
+      if (g.category === 'Pants') cat = 'lower_body';
+      else if (g.category === 'Shoes') cat = 'shoes';
+      else if (g.category === 'Accessories') cat = 'accessories';
+      else cat = 'upper_body';
+
+      return {
+        image:
+          g.imageUrl ||
+          'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80',
+        category: cat,
+        name: g.name,
+      };
+    });
+
+    try {
+      console.log(
+        '[HomeScreen] Generando Try-On para look completo con',
+        garmentInputs.length,
+        'prendas'
+      );
+      const result = await generateOutfitTryOn(humanImage, garmentInputs, true);
+      if (result.model_3d_url) {
+        setActiveModelUrl(result.model_3d_url);
+        preloadGLTF(result.model_3d_url);
+      }
+    } catch (err: any) {
+      console.warn('[HomeScreen] Aviso en TryOn de look completo:', err?.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleTryOnSavedLook = (look: SavedLookItem) => {
+    setActiveSavedLook(look);
+    setSelectedGarment(null);
+    if (look.model3dUrl) {
+      setActiveModelUrl(look.model3dUrl);
+      preloadGLTF(look.model3dUrl);
+    } else if (look.garments && look.garments.length > 0) {
+      if (look.garments.length === 1) {
+        const primary = look.garments[0];
+        setSelectedGarment(primary);
+        handleQuickTryOn(primary);
+      } else {
+        handleTryOnOutfit(look.garments);
+      }
+    }
+  };
+
+  const handleRemoveSavedLook = (lookId: string) => {
+    if (activeSavedLook?.id === lookId) {
+      handleResetAvatar();
+    }
+    removeLook(lookId);
+  };
+
+  const handleResetAvatar = () => {
+    setActiveSavedLook(null);
+    setSelectedGarment(null);
+    setActiveModelUrl(avatar_3d_url);
+    if (avatar_3d_url) preloadGLTF(avatar_3d_url);
+  };
 
   // 5. Interactividad Core: Disparar generateTryOn al tocar cualquier prenda
   const handleQuickTryOn = async (garment: Garment) => {
@@ -238,9 +321,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <Model3DViewer
           activeModelUrl={activeModelUrl}
           modelUrl={activeModelUrl}
-          currentGarmentName={selectedGarment?.name || 'Silueta Avatar'}
-          selectedLayer={selectedGarment?.category || 'Avatar 3D'}
-          garmentColorHex={selectedGarment?.colorHex || '#8B5CF6'}
+          currentGarmentName={
+            selectedGarment?.name ||
+            (activeSavedLook ? activeSavedLook.title : 'Silueta Avatar')
+          }
+          selectedLayer={
+            selectedGarment?.category ||
+            (activeSavedLook ? 'Look Completo' : 'Avatar 3D')
+          }
+          garmentColorHex={
+            selectedGarment?.colorHex ||
+            activeSavedLook?.garments?.[0]?.colorHex ||
+            '#8B5CF6'
+          }
+          isAvatarMode={!selectedGarment && !activeSavedLook}
+          avatarGender={userProfile?.gender || gender || 'female'}
           onLoadError={(err) => {
             console.warn('[HomeScreen] Error al cargar modelo 3D:', err);
           }}
@@ -263,7 +358,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           >
             <View style={styles.onlineDot} />
             <Text style={[styles.avatarStatusText, { color: colors.primaryText }]}>
-              {userProfile?.name ? userProfile.name.split(' ')[0] : 'Avatar'} · Silueta 3D
+              {userProfile?.name ? userProfile.name.split(' ')[0] : 'Avatar'} ·{' '}
+              {avatar_3d_url
+                ? '3D Personalizado'
+                : (userProfile?.gender || gender) === 'male'
+                ? 'Silueta Masculina'
+                : (userProfile?.gender || gender) === 'non-binary'
+                ? 'Silueta Fluida'
+                : 'Silueta Femenina'}
             </Text>
           </View>
 
@@ -313,8 +415,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Tag Flotante de Prenda Activa */}
-        {selectedGarment && (
+        {/* Tag Flotante de Look Guardado o Prenda Activa */}
+        {activeSavedLook ? (
+          <GlassCard style={styles.floatingActiveGarmentCard} intensity={75}>
+            <View style={styles.activeGarmentRow}>
+              <View style={styles.lookSwatchesMiniRow}>
+                {activeSavedLook.garments.slice(0, 3).map((g, i) => (
+                  <View
+                    key={i}
+                    style={[styles.activeGarmentColorDot, { backgroundColor: g.colorHex }]}
+                  />
+                ))}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.activeGarmentName, { color: colors.primaryText }]}
+                  numberOfLines={1}
+                >
+                  {activeSavedLook.title}
+                </Text>
+                <Text
+                  style={[styles.activeGarmentCategory, { color: colors.secondaryText }]}
+                  numberOfLines={1}
+                >
+                  {activeSavedLook.garments.length} piezas · Look en Avatar
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.resetAvatarIconBtn}
+                onPress={handleResetAvatar}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.secondaryText} />
+              </TouchableOpacity>
+            </View>
+          </GlassCard>
+        ) : selectedGarment ? (
           <GlassCard style={styles.floatingActiveGarmentCard} intensity={65}>
             <View style={styles.activeGarmentRow}>
               <View
@@ -337,9 +473,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   {selectedGarment.category} · {selectedGarment.colorName}
                 </Text>
               </View>
+              <TouchableOpacity
+                style={styles.resetAvatarIconBtn}
+                onPress={handleResetAvatar}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.secondaryText} />
+              </TouchableOpacity>
             </View>
           </GlassCard>
-        )}
+        ) : null}
 
         {/* Guía táctil 360 */}
         <View style={styles.touchHintBadge}>
@@ -379,18 +522,69 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         )}
       </View>
 
-      {/* SECCIÓN INFERIOR (45%): Inventario por Filas Categorizadas estilo GlassCard */}
+      {/* SECCIÓN INFERIOR (45%): Looks Guardados Persistentes y Armario */}
       <View style={styles.bottomInventorySection}>
         <GlassCard style={styles.inventoryGlassCard} intensity={65}>
-          {/* Cabecera del Inventario */}
+          {/* Cabecera con selector de pestaña y botón Nuevo Look */}
           <View style={styles.inventoryHeaderRow}>
-            <View>
-              <Text style={[styles.inventoryTitle, { color: colors.primaryText }]}>
-                Tu Armario Inteligente
-              </Text>
-              <Text style={[styles.inventorySubtitle, { color: colors.secondaryText }]}>
-                Toca cualquier prenda para probar al instante sobre tu silueta
-              </Text>
+            <View style={styles.homeTabSelectorRow}>
+              <TouchableOpacity
+                style={[
+                  styles.homeTabPill,
+                  homeTab === 'saved_looks' && {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
+                    borderColor: colors.primaryText,
+                  },
+                ]}
+                onPress={() => setHomeTab('saved_looks')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="bookmark"
+                  size={13}
+                  color={homeTab === 'saved_looks' ? colors.primaryText : colors.secondaryText}
+                />
+                <Text
+                  style={[
+                    styles.homeTabPillText,
+                    {
+                      color: homeTab === 'saved_looks' ? colors.primaryText : colors.secondaryText,
+                      fontWeight: homeTab === 'saved_looks' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Looks Guardados ({savedLooks.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.homeTabPill,
+                  homeTab === 'wardrobe' && {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
+                    borderColor: colors.primaryText,
+                  },
+                ]}
+                onPress={() => setHomeTab('wardrobe')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="shirt-outline"
+                  size={13}
+                  color={homeTab === 'wardrobe' ? colors.primaryText : colors.secondaryText}
+                />
+                <Text
+                  style={[
+                    styles.homeTabPillText,
+                    {
+                      color: homeTab === 'wardrobe' ? colors.primaryText : colors.secondaryText,
+                      fontWeight: homeTab === 'wardrobe' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Armario
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -402,136 +596,324 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     : 'rgba(0, 0, 0, 0.06)',
                 },
               ]}
-              onPress={() => navigation?.navigate('Wardrobe')}
+              onPress={() => navigation?.navigate('FittingRoom')}
               activeOpacity={0.7}
             >
+              <Ionicons name="add" size={14} color={colors.primaryText} />
               <Text style={[styles.addQuickPillText, { color: colors.primaryText }]}>
-                Ver Todo
+                Nuevo Look
               </Text>
-              <Ionicons name="chevron-forward" size={13} color={colors.primaryText} />
             </TouchableOpacity>
           </View>
 
-          {/* ScrollView Vertical que aloja las 4 Filas Estrictas */}
-          <ScrollView
-            style={styles.rowsVerticalScroll}
-            contentContainerStyle={styles.rowsVerticalContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {rows.map((row) => (
-              <View key={row.id} style={styles.categoryRowBlock}>
-                {/* Título sutil de la fila */}
-                <View style={styles.rowTitleRow}>
-                  <Text style={[styles.rowCategoryTitle, { color: colors.primaryText }]}>
-                    {row.title}
-                  </Text>
-                  <Text style={[styles.rowCountLabel, { color: colors.tertiaryText }]}>
-                    {row.data.length} {row.data.length === 1 ? 'prenda' : 'prendas'}
-                  </Text>
-                </View>
+          {/* VISTA 1: LOOKS GUARDADOS PERSISTENTES (Fase 3) */}
+          {homeTab === 'saved_looks' ? (
+            <ScrollView
+              style={styles.rowsVerticalScroll}
+              contentContainerStyle={styles.savedLooksVerticalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {savedLooks.length > 0 ? (
+                savedLooks.map((look) => {
+                  const isLookActive = activeSavedLook?.id === look.id;
 
-                {/* Scroll Horizontal de Tarjetas Cuadradas Pequeñas 2D */}
-                {row.data.length > 0 ? (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalRowContent}
-                  >
-                    {row.data.map((garment) => {
-                      const isSelected = selectedGarment?.id === garment.id;
-
-                      return (
-                        <TouchableOpacity
-                          key={garment.id}
-                          style={[
-                            styles.garmentSquareCard,
-                            {
-                              backgroundColor: isDark
-                                ? 'rgba(25, 27, 32, 0.65)'
-                                : 'rgba(255, 255, 255, 0.80)',
-                              borderColor: isSelected
-                                ? colors.primaryText
-                                : isDark
-                                ? 'rgba(255, 255, 255, 0.14)'
-                                : 'rgba(0, 0, 0, 0.08)',
-                              borderWidth: isSelected ? 2 : 1,
-                              transform: isSelected ? [{ scale: 1.04 }] : [{ scale: 1.0 }],
-                            },
-                          ]}
-                          onPress={() => setActiveGarmentDetail(garment)}
-                          onLongPress={() => handleQuickTryOn(garment)}
-                          activeOpacity={0.75}
-                        >
-                          {/* Miniatura 2D */}
-                          {garment.imageUrl ? (
-                            <Image
-                              source={{ uri: garment.imageUrl }}
-                              style={styles.squareThumbImage}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View style={styles.squarePlaceholder}>
-                              <Ionicons
-                                name="shirt-outline"
-                                size={22}
-                                color={colors.secondaryText}
-                              />
-                            </View>
-                          )}
-
-                          {/* Badge de Selección Activa */}
-                          {isSelected && (
-                            <View
-                              style={[
-                                styles.selectedCheckBadge,
-                                { backgroundColor: colors.primaryText },
-                              ]}
-                            >
-                              <Ionicons name="checkmark" size={10} color={colors.bg} />
-                            </View>
-                          )}
-
-                          {/* Punto de Color Dominante */}
-                          <View
-                            style={[
-                              styles.dominantColorDot,
-                              { backgroundColor: garment.colorHex },
-                            ]}
-                          />
-
-                          {/* Nombre sutil inferior */}
-                          <View style={styles.garmentMiniInfo}>
+                  return (
+                    <GlassCard
+                      key={look.id}
+                      style={[
+                        styles.savedLookCard,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(25, 27, 32, 0.70)'
+                            : 'rgba(255, 255, 255, 0.85)',
+                          borderColor: isLookActive
+                            ? colors.primaryText
+                            : isDark
+                            ? 'rgba(255, 255, 255, 0.14)'
+                            : 'rgba(0, 0, 0, 0.08)',
+                          borderWidth: isLookActive ? 2 : 1,
+                        },
+                      ]}
+                      intensity={20}
+                    >
+                      {/* Cabecera del Look */}
+                      <View style={styles.savedLookCardHeader}>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.savedLookTitleRow}>
                             <Text
                               style={[
-                                styles.garmentMiniName,
-                                {
-                                  color: colors.primaryText,
-                                  fontWeight: isSelected ? '700' : '500',
-                                },
+                                styles.savedLookTitle,
+                                { color: colors.primaryText },
                               ]}
                               numberOfLines={1}
                             >
-                              {garment.name}
+                              {look.title}
                             </Text>
+                            {isLookActive && (
+                              <View
+                                style={[
+                                  styles.activeLookBadge,
+                                  { backgroundColor: colors.primaryText },
+                                ]}
+                              >
+                                <Ionicons name="checkmark" size={10} color={colors.bg} />
+                                <Text style={[styles.activeLookBadgeText, { color: colors.bg }]}>
+                                  En Avatar
+                                </Text>
+                              </View>
+                            )}
                           </View>
+                          <Text style={[styles.savedLookDate, { color: colors.tertiaryText }]}>
+                            {look.date} · {look.garments.length} piezas · {look.fitScore}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.savedLookDeleteBtn}
+                          onPress={() => handleRemoveSavedLook(look.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={colors.secondaryText} />
                         </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                ) : (
-                  <View style={styles.emptyRowBox}>
-                    <Text style={[styles.emptyRowText, { color: colors.tertiaryText }]}>
-                      Sin prendas registradas en esta categoría.
+                      </View>
+
+                      {/* Muestras de color y chips de prendas */}
+                      <View style={styles.lookSwatchesAndChipsRow}>
+                        <View style={styles.swatchesGroup}>
+                          {look.garments?.slice(0, 5).map((g, idx) => (
+                            <View
+                              key={idx}
+                              style={[
+                                styles.lookSwatchDot,
+                                {
+                                  backgroundColor: g?.colorHex || '#8B5CF6',
+                                  borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                },
+                              ]}
+                            />
+                          ))}
+                        </View>
+
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.lookPieceChipsScroll}
+                        >
+                          {look.garments.map((g) => (
+                            <View
+                              key={g.id}
+                              style={[
+                                styles.lookPieceChip,
+                                {
+                                  backgroundColor: colors.surfaceSubtle,
+                                  borderColor: colors.borderLight,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[styles.lookPieceChipText, { color: colors.secondaryText }]}
+                                numberOfLines={1}
+                              >
+                                {g.name}
+                              </Text>
+                            </View>
+                          ))}
+                        </ScrollView>
+                      </View>
+
+                      {/* Botones de Acción del Look */}
+                      <View style={styles.savedLookActionsRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.tryOnSavedLookBtn,
+                            {
+                              backgroundColor: isLookActive
+                                ? colors.primaryText
+                                : colors.surfaceSubtle,
+                              borderColor: colors.borderLight,
+                            },
+                          ]}
+                          onPress={() => handleTryOnSavedLook(look)}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons
+                            name="cube-outline"
+                            size={14}
+                            color={isLookActive ? colors.bg : colors.primaryText}
+                          />
+                          <Text
+                            style={[
+                              styles.tryOnSavedLookBtnText,
+                              {
+                                color: isLookActive ? colors.bg : colors.primaryText,
+                                fontWeight: isLookActive ? '700' : '600',
+                              },
+                            ]}
+                          >
+                            {isLookActive ? 'Viendo en Avatar' : 'Probar en Avatar'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.viewSavedLookDetailBtn,
+                            { borderColor: colors.borderLight },
+                          ]}
+                          onPress={() => setSelectedSavedLookDetail(look)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="eye-outline" size={14} color={colors.secondaryText} />
+                          <Text
+                            style={[
+                              styles.viewSavedLookDetailBtnText,
+                              { color: colors.secondaryText },
+                            ]}
+                          >
+                            Ver Detalle
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </GlassCard>
+                  );
+                })
+              ) : (
+                <View style={styles.emptySavedLooksCard}>
+                  <Ionicons name="bookmark-outline" size={32} color={colors.tertiaryText} />
+                  <Text style={[styles.emptySavedLooksTitle, { color: colors.primaryText }]}>
+                    Aún no tienes looks guardados
+                  </Text>
+                  <Text style={[styles.emptySavedLooksDesc, { color: colors.secondaryText }]}>
+                    Combina prendas en el Probador Virtual y presiona "Guardar Look" para crear tu catálogo personal.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.createFirstLookBtn, { backgroundColor: colors.primaryText }]}
+                    onPress={() => navigation?.navigate('FittingRoom')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="sparkles" size={14} color={colors.bg} />
+                    <Text style={[styles.createFirstLookBtnText, { color: colors.bg }]}>
+                      Crear Look en Probador
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          ) : (
+            /* VISTA 2: ARMARIO CATEGORIZADO POR 4 FILAS */
+            <ScrollView
+              style={styles.rowsVerticalScroll}
+              contentContainerStyle={styles.rowsVerticalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {rows.map((row) => (
+                <View key={row.id} style={styles.categoryRowBlock}>
+                  <View style={styles.rowTitleRow}>
+                    <Text style={[styles.rowCategoryTitle, { color: colors.primaryText }]}>
+                      {row.title}
+                    </Text>
+                    <Text style={[styles.rowCountLabel, { color: colors.tertiaryText }]}>
+                      {row.data.length} {row.data.length === 1 ? 'prenda' : 'prendas'}
                     </Text>
                   </View>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+
+                  {row.data.length > 0 ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.horizontalRowContent}
+                    >
+                      {row.data.map((garment) => {
+                        const isSelected = selectedGarment?.id === garment.id;
+
+                        return (
+                          <TouchableOpacity
+                            key={garment.id}
+                            style={[
+                              styles.garmentSquareCard,
+                              {
+                                backgroundColor: isDark
+                                  ? 'rgba(25, 27, 32, 0.65)'
+                                  : 'rgba(255, 255, 255, 0.80)',
+                                borderColor: isSelected
+                                  ? colors.primaryText
+                                  : isDark
+                                  ? 'rgba(255, 255, 255, 0.14)'
+                                  : 'rgba(0, 0, 0, 0.08)',
+                                borderWidth: isSelected ? 2 : 1,
+                                transform: isSelected ? [{ scale: 1.04 }] : [{ scale: 1.0 }],
+                              },
+                            ]}
+                            onPress={() => setActiveGarmentDetail(garment)}
+                            onLongPress={() => handleQuickTryOn(garment)}
+                            activeOpacity={0.75}
+                          >
+                            {garment.imageUrl ? (
+                              <Image
+                                source={{ uri: garment.imageUrl }}
+                                style={styles.squareThumbImage}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              <View style={styles.squarePlaceholder}>
+                                <Ionicons
+                                  name="shirt-outline"
+                                  size={22}
+                                  color={colors.secondaryText}
+                                />
+                              </View>
+                            )}
+
+                            {isSelected && (
+                              <View
+                                style={[
+                                  styles.selectedCheckBadge,
+                                  { backgroundColor: colors.primaryText },
+                                ]}
+                              >
+                                <Ionicons name="checkmark" size={10} color={colors.bg} />
+                              </View>
+                            )}
+
+                            <View
+                              style={[
+                                styles.dominantColorDot,
+                                { backgroundColor: garment.colorHex },
+                              ]}
+                            />
+
+                            <View style={styles.garmentMiniInfo}>
+                              <Text
+                                style={[
+                                  styles.garmentMiniName,
+                                  {
+                                    color: colors.primaryText,
+                                    fontWeight: isSelected ? '700' : '500',
+                                  },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {garment.name}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  ) : (
+                    <View style={styles.emptyRowBox}>
+                      <Text style={[styles.emptyRowText, { color: colors.tertiaryText }]}>
+                        Sin prendas registradas en esta categoría.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </GlassCard>
       </View>
 
-      {/* Modal de Detalle con Visor 3D y Opciones */}
+      {/* Modal de Detalle de Prenda con Visor 3D y Opciones */}
       <Modal
         visible={Boolean(activeGarmentDetail)}
         animationType="slide"
@@ -543,6 +925,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             garment={activeGarmentDetail}
             onBack={() => setActiveGarmentDetail(null)}
             navigation={navigation}
+          />
+        )}
+      </Modal>
+
+      {/* Modal de Detalle de Look Guardado (Fase 3) */}
+      <Modal
+        visible={Boolean(selectedSavedLookDetail)}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setSelectedSavedLookDetail(null)}
+      >
+        {selectedSavedLookDetail && (
+          <SavedLookScreen
+            look={selectedSavedLookDetail}
+            onBack={() => setSelectedSavedLookDetail(null)}
+            onTryAgain={(look) => {
+              handleTryOnSavedLook(look);
+              setSelectedSavedLookDetail(null);
+            }}
+            onEditLook={() => {
+              setSelectedSavedLookDetail(null);
+              navigation?.navigate('FittingRoom');
+            }}
+            onRemoveLook={(id) => {
+              removeLook(id);
+              setSelectedSavedLookDetail(null);
+            }}
+            onSelectGarment={(g) => {
+              setSelectedSavedLookDetail(null);
+              setActiveGarmentDetail(g);
+            }}
           />
         )}
       </Modal>
@@ -913,5 +1326,178 @@ const styles = StyleSheet.create({
     ...Typography.labelSm,
     fontWeight: '700',
     fontSize: 13,
+  },
+  // Estilos de Saved Looks (Fase 3)
+  homeTabSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  homeTabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    gap: 5,
+  },
+  homeTabPillText: {
+    ...Typography.micro,
+    fontSize: 11,
+  },
+  savedLooksVerticalContent: {
+    paddingBottom: 24,
+    gap: 10,
+  },
+  savedLookCard: {
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: 10,
+  },
+  savedLookCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  savedLookTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  savedLookTitle: {
+    ...Typography.callout,
+    fontWeight: '700',
+    fontSize: 14,
+    flexShrink: 1,
+  },
+  activeLookBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+    gap: 3,
+  },
+  activeLookBadgeText: {
+    ...Typography.micro,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  savedLookDate: {
+    ...Typography.micro,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  savedLookDeleteBtn: {
+    padding: 4,
+  },
+  lookSwatchesAndChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  swatchesGroup: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  lookSwatchDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  lookPieceChipsScroll: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  lookPieceChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    maxWidth: 130,
+  },
+  lookPieceChipText: {
+    ...Typography.micro,
+    fontSize: 9,
+  },
+  savedLookActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  tryOnSavedLookBtn: {
+    flex: 1.3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    gap: 5,
+  },
+  tryOnSavedLookBtnText: {
+    ...Typography.caption,
+    fontSize: 11,
+  },
+  viewSavedLookDetailBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    gap: 5,
+  },
+  viewSavedLookDetailBtnText: {
+    ...Typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  emptySavedLooksCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.lg,
+    gap: 8,
+  },
+  emptySavedLooksTitle: {
+    ...Typography.callout,
+    fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  emptySavedLooksDesc: {
+    ...Typography.micro,
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+    maxWidth: 260,
+  },
+  createFirstLookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    marginTop: 4,
+  },
+  createFirstLookBtnText: {
+    ...Typography.caption,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  lookSwatchesMiniRow: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  resetAvatarIconBtn: {
+    padding: 2,
+    marginLeft: 4,
   },
 });
