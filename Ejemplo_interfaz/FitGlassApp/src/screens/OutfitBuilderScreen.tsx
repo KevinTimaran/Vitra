@@ -15,35 +15,47 @@ import { GlassCard } from '../components/GlassCard';
 import { Garment, OutfitLayer, SavedLookItem } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
 
 interface OutfitBuilderScreenProps {
-  allGarments: Garment[];
-  onBack: () => void;
-  onSaveLook: (look: SavedLookItem) => void;
+  route?: {
+    params?: {
+      allGarments?: Garment[];
+      look?: SavedLookItem;
+    };
+  };
+  navigation?: any;
+  allGarments?: Garment[];
+  onBack?: () => void;
+  onSaveLook?: (look: SavedLookItem) => void;
 }
 
 type LayerSlot = 'Top' | 'Outerwear' | 'Bottom' | 'Shoes';
 
-export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
-  allGarments,
-  onBack,
-  onSaveLook,
-}) => {
+export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = (props) => {
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
+  const { wardrobe_items, wardrobeItems, saveLook } = useUser();
+
+  const garments =
+    props.allGarments ||
+    props.route?.params?.allGarments ||
+    wardrobe_items ||
+    wardrobeItems ||
+    [];
 
   // Initialize layers with garments from wardrobe
   const [layers, setLayers] = useState<OutfitLayer>({
-    top: allGarments.find((g) => g.category === 'Tops') || allGarments[0],
-    outerwear: allGarments.find((g) => g.category === 'Outerwear'),
-    bottom: allGarments.find((g) => g.category === 'Pants'),
-    shoes: allGarments.find((g) => g.category === 'Shoes'),
+    top: garments.find((g) => g.category === 'Tops') || garments[0],
+    outerwear: garments.find((g) => g.category === 'Outerwear'),
+    bottom: garments.find((g) => g.category === 'Pants'),
+    shoes: garments.find((g) => g.category === 'Shoes'),
   });
 
   const [activeSlot, setActiveSlot] = useState<LayerSlot>('Top');
 
   // Filter garments matching active layer category
-  const slotGarments = allGarments.filter((g) => {
+  const slotGarments = garments.filter((g) => {
     if (activeSlot === 'Top') return g.category === 'Tops';
     if (activeSlot === 'Outerwear') return g.category === 'Outerwear';
     if (activeSlot === 'Bottom') return g.category === 'Pants';
@@ -56,6 +68,14 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
     if (activeSlot === 'Outerwear') setLayers((prev) => ({ ...prev, outerwear: garment }));
     if (activeSlot === 'Bottom') setLayers((prev) => ({ ...prev, bottom: garment }));
     if (activeSlot === 'Shoes') setLayers((prev) => ({ ...prev, shoes: garment }));
+  };
+
+  const handleBack = () => {
+    if (props.onBack) {
+      props.onBack();
+    } else if (props.navigation?.canGoBack()) {
+      props.navigation.goBack();
+    }
   };
 
   const handleSave = () => {
@@ -74,7 +94,14 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
       paletteTheme: 'Cool Mineral & Basalt Harmony',
     };
 
-    onSaveLook(newLook);
+    if (props.onSaveLook) {
+      props.onSaveLook(newLook);
+    } else {
+      saveLook(newLook);
+      if (props.navigation?.canGoBack()) {
+        props.navigation.goBack();
+      }
+    }
   };
 
   const currentGarment =
@@ -98,7 +125,7 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = ({
       <Header
         title={t('outfitBuilder.title')}
         subtitle={t('outfitBuilder.subtitle')}
-        onBack={onBack}
+        onBack={handleBack}
         rightAction={{
           label: t('outfitBuilder.save'),
           onPress: handleSave,
