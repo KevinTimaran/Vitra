@@ -160,6 +160,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedAvatarType) setAvatarType(savedAvatarType as any);
           const savedAvatarUrl = localStorage.getItem('vitra_avatar_url');
           if (savedAvatarUrl) setAvatarUrl(savedAvatarUrl);
+          const savedCreatedAt = localStorage.getItem('vitra_avatar_created_at');
+          if (savedCreatedAt) setAvatarCreatedAt(savedCreatedAt);
+          const savedFace = localStorage.getItem('vitra_face_photo_uri');
+          if (savedFace) setFacePhotoUri(savedFace);
+          const savedBody = localStorage.getItem('vitra_body_photo_uri');
+          if (savedBody) setBodyPhotoUri(savedBody);
         } else if (typeof SecureStore?.isAvailableAsync === 'function' && (await SecureStore.isAvailableAsync())) {
           saved = await SecureStore.getItemAsync(ONBOARDING_KEY);
           const savedGender = await SecureStore.getItemAsync('vitra_gender');
@@ -168,6 +174,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedAvatarType) setAvatarType(savedAvatarType as any);
           const savedAvatarUrl = await SecureStore.getItemAsync('vitra_avatar_url');
           if (savedAvatarUrl) setAvatarUrl(savedAvatarUrl);
+          const savedCreatedAt = await SecureStore.getItemAsync('vitra_avatar_created_at');
+          if (savedCreatedAt) setAvatarCreatedAt(savedCreatedAt);
+          const savedFace = await SecureStore.getItemAsync('vitra_face_photo_uri');
+          if (savedFace) setFacePhotoUri(savedFace);
+          const savedBody = await SecureStore.getItemAsync('vitra_body_photo_uri');
+          if (savedBody) setBodyPhotoUri(savedBody);
         }
         if (saved === 'true') {
           setCompletedOnboarding(true);
@@ -361,17 +373,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('[UserContext] Generando avatar personalizado con Tripo3D...');
     const res = await generateAvatar(imageUriOrBase64);
     const newUrl = res.avatar_url;
+    const createdAtStr = new Date().toLocaleDateString();
     setAvatarUrl(newUrl);
     setAvatarType('custom_3d');
-    setAvatarCreatedAt(new Date().toLocaleDateString());
+    setAvatarCreatedAt(createdAtStr);
 
     try {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.setItem('vitra_avatar_url', newUrl);
         localStorage.setItem('vitra_avatar_type', 'custom_3d');
+        localStorage.setItem('vitra_avatar_created_at', createdAtStr);
       } else if (typeof SecureStore?.setItemAsync === 'function') {
         SecureStore.setItemAsync('vitra_avatar_url', newUrl).catch(() => {});
         SecureStore.setItemAsync('vitra_avatar_type', 'custom_3d').catch(() => {});
+        SecureStore.setItemAsync('vitra_avatar_created_at', createdAtStr).catch(() => {});
       }
     } catch {}
 
@@ -393,9 +408,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.removeItem('vitra_avatar_url');
+        localStorage.removeItem('vitra_avatar_created_at');
+        localStorage.removeItem('vitra_body_photo_uri');
         localStorage.setItem('vitra_avatar_type', 'preset');
       } else if (typeof SecureStore?.deleteItemAsync === 'function') {
         SecureStore.deleteItemAsync('vitra_avatar_url').catch(() => {});
+        SecureStore.deleteItemAsync('vitra_avatar_created_at').catch(() => {});
+        SecureStore.deleteItemAsync('vitra_body_photo_uri').catch(() => {});
         SecureStore.setItemAsync('vitra_avatar_type', 'preset').catch(() => {});
       }
     } catch {}
@@ -440,8 +459,30 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch {}
     }
-    if (data?.facePhotoUri !== undefined) setFacePhotoUri(data.facePhotoUri || undefined);
-    if (data?.bodyPhotoUri !== undefined) setBodyPhotoUri(data.bodyPhotoUri || undefined);
+    if (data?.facePhotoUri !== undefined) {
+      setFacePhotoUri(data.facePhotoUri || undefined);
+      try {
+        if (data.facePhotoUri) {
+          if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+            localStorage.setItem('vitra_face_photo_uri', data.facePhotoUri);
+          } else if (typeof SecureStore?.setItemAsync === 'function') {
+            SecureStore.setItemAsync('vitra_face_photo_uri', data.facePhotoUri).catch(() => {});
+          }
+        }
+      } catch {}
+    }
+    if (data?.bodyPhotoUri !== undefined) {
+      setBodyPhotoUri(data.bodyPhotoUri || undefined);
+      try {
+        if (data.bodyPhotoUri) {
+          if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+            localStorage.setItem('vitra_body_photo_uri', data.bodyPhotoUri);
+          } else if (typeof SecureStore?.setItemAsync === 'function') {
+            SecureStore.setItemAsync('vitra_body_photo_uri', data.bodyPhotoUri).catch(() => {});
+          }
+        }
+      } catch {}
+    }
 
     if (data?.avatarUrl) {
       setAvatarUrl(data.avatarUrl);
@@ -489,11 +530,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('vitra_gender');
         localStorage.removeItem('vitra_avatar_type');
         localStorage.removeItem('vitra_avatar_url');
+        localStorage.removeItem('vitra_avatar_created_at');
+        localStorage.removeItem('vitra_face_photo_uri');
+        localStorage.removeItem('vitra_body_photo_uri');
       } else if (typeof SecureStore?.deleteItemAsync === 'function') {
         SecureStore.deleteItemAsync(ONBOARDING_KEY).catch(() => {});
         SecureStore.deleteItemAsync('vitra_gender').catch(() => {});
         SecureStore.deleteItemAsync('vitra_avatar_type').catch(() => {});
         SecureStore.deleteItemAsync('vitra_avatar_url').catch(() => {});
+        SecureStore.deleteItemAsync('vitra_avatar_created_at').catch(() => {});
+        SecureStore.deleteItemAsync('vitra_face_photo_uri').catch(() => {});
+        SecureStore.deleteItemAsync('vitra_body_photo_uri').catch(() => {});
       }
     } catch {}
   };
