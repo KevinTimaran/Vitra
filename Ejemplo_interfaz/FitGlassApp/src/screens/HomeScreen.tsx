@@ -3,20 +3,27 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
+  ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { checkHealth, HealthStatusResponse } from '../services/ai/garmentAnalyzer';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { useUser } from '../contexts/UserContext';
 import { GlassCard } from '../components/GlassCard';
 import { VibrantBackground } from '../components/VibrantBackground';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - Spacing.xl * 2 - Spacing.md) / 2;
 
 export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
+  const { userProfile, colorProfile } = useUser();
   const [healthStatus, setHealthStatus] = useState<HealthStatusResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,13 +32,12 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     setLoading(true);
     setError(null);
     try {
-      console.log('[HomeScreen] Iniciando verificación de salud con FitGlassAI...');
+      console.log('[HomeScreen] Verificando estado con FitGlassAI...');
       const response = await checkHealth();
-      console.log('[HomeScreen] Respuesta de /health recibida con éxito:', response);
       setHealthStatus(response);
     } catch (err: any) {
-      console.error('[HomeScreen] Error al conectar con /health de FitGlassAI:', err);
-      setError(err?.message || 'Error de conexión desconocido');
+      console.warn('[HomeScreen] FitGlassAI no disponible:', err?.message);
+      setError(err?.message || 'Error de conexión');
     } finally {
       setLoading(false);
     }
@@ -44,122 +50,291 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <VibrantBackground />
-      <GlassCard style={styles.card}>
-        <View style={[styles.iconCircle, { backgroundColor: colors.surfaceSubtle }]}>
-          <Ionicons name="home-outline" size={38} color={colors.primaryText} />
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Cabecera Editorial & Estado de Conexión Compacto */}
+        <View style={styles.headerTop}>
+          <View style={styles.brandRow}>
+            <View
+              style={[
+                styles.brandBadge,
+                {
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                },
+              ]}
+            >
+              <Text style={[styles.brandBadgeText, { color: colors.secondaryText }]}>
+                ATELIER VITRA · A/W 2026
+              </Text>
+            </View>
+
+            {/* Chip Compacto de Estado de la IA */}
+            <TouchableOpacity
+              style={[
+                styles.statusPillCompact,
+                {
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                },
+              ]}
+              onPress={performHealthCheck}
+              activeOpacity={0.7}
+            >
+              {loading ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.secondaryText} style={{ transform: [{ scale: 0.7 }] }} />
+                  <Text style={[styles.statusPillText, { color: colors.secondaryText }]}>
+                    Conectando...
+                  </Text>
+                </>
+              ) : healthStatus ? (
+                <>
+                  <View style={styles.dotOnline} />
+                  <Text style={[styles.statusPillText, { color: colors.primaryText }]}>
+                    IA en Línea
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.dotOffline} />
+                  <Text style={[styles.statusPillText, { color: '#EF4444' }]}>
+                    Reconectar
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Título y Saludo Editorial */}
+          <Text style={[styles.editorialHeading, { color: colors.primaryText }]}>
+            {userProfile?.name ? `Hola, ${userProfile.name.split(' ')[0]}` : 'Tu Guardarropa Inteligente'}
+          </Text>
+          <Text style={[styles.editorialSubtitle, { color: colors.secondaryText }]}>
+            {t('home.heroSubtitle') || 'Simula caída de tela, tensión y armonía de color en tu silueta 3D.'}
+          </Text>
         </View>
 
-        <Text style={[styles.title, { color: colors.primaryText }]}>
-          {t('tabs.home')}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.secondaryText }]}>
-          {t('welcome.tagline')}
-        </Text>
+        {/* 1. Tarjeta Hero Principal: Probador Virtual 3D */}
+        <GlassCard style={styles.heroGlassCard}>
+          <View style={styles.heroHeaderRow}>
+            <View
+              style={[
+                styles.heroBadge,
+                {
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.07)',
+                },
+              ]}
+            >
+              <Ionicons name="sparkles" size={13} color={colors.primaryText} />
+              <Text style={[styles.heroBadgeText, { color: colors.primaryText }]}>
+                PROBADOR VIRTUAL 3D
+              </Text>
+            </View>
+            <View style={styles.heroGlowDot} />
+          </View>
 
-        {/* Indicador de Conexión con el Backend */}
-        <View
-          style={[
-            styles.statusBox,
-            { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-          ]}
-        >
-          <Text style={[styles.statusBoxTitle, { color: colors.tertiaryText }]}>
-            {t('home.serverStatus')}
+          <Text style={[styles.heroTitle, { color: colors.primaryText }]}>
+            Experimenta tu Silueta Digital
+          </Text>
+          <Text style={[styles.heroBody, { color: colors.secondaryText }]}>
+            Combina tus prendas en tiempo real con simulación tridimensional y física de tejido sobre tu avatar.
           </Text>
 
-          {loading && (
-            <View style={styles.statusRow}>
-              <ActivityIndicator size="small" color={colors.primaryText} />
-              <Text style={[styles.statusText, { color: colors.secondaryText }]}>
-                {t('home.checkingServer')}
-              </Text>
-            </View>
-          )}
+          <TouchableOpacity
+            style={[styles.heroCtaButton, { backgroundColor: colors.cta }]}
+            onPress={() => navigation?.navigate('FittingRoom')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="sparkles-outline" size={18} color={colors.ctaText} />
+            <Text style={[styles.heroCtaButtonText, { color: colors.ctaText }]}>
+              Entrar al Probador 3D
+            </Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.ctaText} style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+        </GlassCard>
 
-          {!loading && healthStatus && (
-            <View style={styles.statusContent}>
-              <View style={styles.badgeSuccess}>
-                <View style={styles.statusDotGreen} />
-                <Text style={styles.badgeSuccessText}>{t('home.connected')}</Text>
+        {/* 2. Cuadrícula Modular 2x2 de Módulos del Atelier */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.tertiaryText }]}>
+            MÓDULOS DEL ATELIER
+          </Text>
+        </View>
+
+        <View style={styles.modulesGrid}>
+          {/* Módulo 1: Estudio de Colorimetría */}
+          <TouchableOpacity
+            onPress={() => navigation?.navigate('ColorStudio')}
+            activeOpacity={0.85}
+          >
+            <GlassCard style={styles.gridCard}>
+              <View
+                style={[
+                  styles.gridIconCircle,
+                  {
+                    backgroundColor: isDark ? 'rgba(217, 70, 239, 0.15)' : 'rgba(217, 70, 239, 0.1)',
+                    borderColor: isDark ? 'rgba(217, 70, 239, 0.3)' : 'rgba(217, 70, 239, 0.2)',
+                  },
+                ]}
+              >
+                <Ionicons name="color-palette-outline" size={24} color="#D946EF" />
               </View>
-              <Text style={[styles.detailText, { color: colors.secondaryText }]}>
-                {t('home.status')}: <Text style={[styles.bold, { color: colors.primaryText }]}>{healthStatus.status}</Text>
+              <Text style={[styles.gridCardTitle, { color: colors.primaryText }]}>
+                Colorimetría
               </Text>
-              {healthStatus.message && (
-                <Text style={[styles.detailText, { color: colors.secondaryText }]}>
-                  {t('home.message')}: <Text style={[styles.bold, { color: colors.primaryText }]}>{healthStatus.message}</Text>
+              <Text style={[styles.gridCardSubtitle, { color: colors.secondaryText }]}>
+                Paleta estacional y tonos de piel
+              </Text>
+              <View style={styles.gridCardFooter}>
+                <Text style={[styles.gridCardTag, { color: '#D946EF' }]}>
+                  Espectral
                 </Text>
-              )}
-            </View>
-          )}
-
-          {!loading && error && (
-            <View style={styles.statusContent}>
-              <View style={styles.badgeError}>
-                <View style={styles.statusDotRed} />
-                <Text style={styles.badgeErrorText}>{t('home.disconnected')}</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
               </View>
-              <Text style={styles.errorText} numberOfLines={2}>
-                {error}
+            </GlassCard>
+          </TouchableOpacity>
+
+          {/* Módulo 2: Digitalizar Prenda con IA */}
+          <TouchableOpacity
+            onPress={() => navigation?.navigate('AddGarment')}
+            activeOpacity={0.85}
+          >
+            <GlassCard style={styles.gridCard}>
+              <View
+                style={[
+                  styles.gridIconCircle,
+                  {
+                    backgroundColor: isDark ? 'rgba(6, 182, 212, 0.15)' : 'rgba(6, 182, 212, 0.1)',
+                    borderColor: isDark ? 'rgba(6, 182, 212, 0.3)' : 'rgba(6, 182, 212, 0.2)',
+                  },
+                ]}
+              >
+                <Ionicons name="camera-outline" size={24} color="#06B6D4" />
+              </View>
+              <Text style={[styles.gridCardTitle, { color: colors.primaryText }]}>
+                Añadir Prenda
               </Text>
-            </View>
-          )}
+              <Text style={[styles.gridCardSubtitle, { color: colors.secondaryText }]}>
+                Extracción IA con Gemini Vision
+              </Text>
+              <View style={styles.gridCardFooter}>
+                <Text style={[styles.gridCardTag, { color: "#06B6D4" }]}>
+                  Cámara IA
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
+              </View>
+            </GlassCard>
+          </TouchableOpacity>
 
+          {/* Módulo 3: Guardarropa Digital */}
           <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.cta }]}
-            onPress={performHealthCheck}
-            activeOpacity={0.7}
-            disabled={loading}
+            onPress={() => navigation?.navigate('Wardrobe')}
+            activeOpacity={0.85}
           >
-            <Ionicons name="refresh-outline" size={16} color={colors.ctaText} />
-            <Text style={[styles.retryButtonText, { color: colors.ctaText }]}>
-              {loading ? t('home.connecting') : t('home.retry')}
-            </Text>
+            <GlassCard style={styles.gridCard}>
+              <View
+                style={[
+                  styles.gridIconCircle,
+                  {
+                    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)',
+                    borderColor: isDark ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+                  },
+                ]}
+              >
+                <Ionicons name="shirt-outline" size={24} color="#8B5CF6" />
+              </View>
+              <Text style={[styles.gridCardTitle, { color: colors.primaryText }]}>
+                Guardarropa
+              </Text>
+              <Text style={[styles.gridCardSubtitle, { color: colors.secondaryText }]}>
+                Catálogo curado y combinaciones
+              </Text>
+              <View style={styles.gridCardFooter}>
+                <Text style={[styles.gridCardTag, { color: "#8B5CF6" }]}>
+                  Colección
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
+              </View>
+            </GlassCard>
+          </TouchableOpacity>
+
+          {/* Módulo 4: Perfil & Gemelo Digital */}
+          <TouchableOpacity
+            onPress={() => navigation?.navigate('Profile')}
+            activeOpacity={0.85}
+          >
+            <GlassCard style={styles.gridCard}>
+              <View
+                style={[
+                  styles.gridIconCircle,
+                  {
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.2)',
+                  },
+                ]}
+              >
+                <Ionicons name="person-outline" size={24} color="#F59E0B" />
+              </View>
+              <Text style={[styles.gridCardTitle, { color: colors.primaryText }]}>
+                Identidad 3D
+              </Text>
+              <Text style={[styles.gridCardSubtitle, { color: colors.secondaryText }]}>
+                Calibración de medidas corporales
+              </Text>
+              <View style={styles.gridCardFooter}>
+                <Text style={[styles.gridCardTag, { color: "#F59E0B" }]}>
+                  Biometría
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
+              </View>
+            </GlassCard>
           </TouchableOpacity>
         </View>
 
-        {/* Acciones Rápidas */}
-        <View style={styles.quickActionsContainer}>
+        {/* 3. Resonancia Cromática Activa */}
+        {colorProfile && (
           <TouchableOpacity
-            style={[styles.primaryActionBtn, { backgroundColor: colors.cta }]}
-            onPress={() => (navigation ? navigation.navigate('ColorStudio') : null)}
-            activeOpacity={0.8}
+            onPress={() => navigation?.navigate('ColorStudio')}
+            activeOpacity={0.85}
           >
-            <Ionicons name="color-palette-outline" size={18} color={colors.ctaText} />
-            <Text style={[styles.primaryActionBtnText, { color: colors.ctaText }]}>
-              {t('home.biometricScan')}
-            </Text>
-          </TouchableOpacity>
+            <GlassCard style={styles.paletteSummaryCard}>
+              <View style={styles.paletteSummaryHeader}>
+                <View>
+                  <Text style={[styles.palettePreLabel, { color: colors.tertiaryText }]}>
+                    ARMONÍA CROMÁTICA ACTIVA
+                  </Text>
+                  <Text style={[styles.paletteNameText, { color: colors.primaryText }]}>
+                    {colorProfile.season || 'Paleta Estacional'}
+                  </Text>
+                </View>
+                <Ionicons name="sparkles" size={18} color="#D946EF" />
+              </View>
 
-          <TouchableOpacity
-            style={[
-              styles.secondaryActionBtn,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-            ]}
-            onPress={() => (navigation ? navigation.navigate('AddGarment') : null)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="camera" size={18} color={colors.primaryText} />
-            <Text style={[styles.secondaryActionBtnText, { color: colors.primaryText }]}>
-              {t('home.digitalizeGarment')}
-            </Text>
+              <View style={styles.paletteDotsRow}>
+                {colorProfile.recommended_colors.slice(0, 6).map((hex, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.paletteDot,
+                      {
+                        backgroundColor: hex,
+                        borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                      },
+                    ]}
+                  />
+                ))}
+                <Text style={[styles.paletteExploreLink, { color: colors.secondaryText }]}>
+                  Ver estudio →
+                </Text>
+              </View>
+            </GlassCard>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.secondaryActionBtn,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-            ]}
-            onPress={() => (navigation ? navigation.navigate('FittingRoom') : null)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="sparkles-outline" size={18} color={colors.primaryText} />
-            <Text style={[styles.secondaryActionBtnText, { color: colors.primaryText }]}>
-              {t('home.openFittingRoom')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </GlassCard>
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -167,166 +342,229 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.xl,
   },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: Radius.lg,
-    padding: Spacing.xl,
-    alignItems: 'center',
+  scroll: {
+    flex: 1,
   },
-  iconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: Radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
-    borderWidth: 1,
+  scrollContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.huge + 36,
   },
-  title: {
-    ...Typography.headlineLg,
-    marginBottom: Spacing.xs,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...Typography.bodyMd,
-    textAlign: 'center',
+  headerTop: {
     marginBottom: Spacing.lg,
-    maxWidth: 290,
   },
-  statusBox: {
-    width: '100%',
-    borderRadius: Radius.default,
-    padding: Spacing.md,
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  brandBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
     borderWidth: 1,
-    alignItems: 'center',
   },
-  statusBoxTitle: {
-    ...Typography.labelSm,
+  brandBadgeText: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '700',
     letterSpacing: 1.2,
-    marginBottom: Spacing.sm,
   },
-  statusRow: {
+  statusPillCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-  },
-  statusText: {
-    ...Typography.bodySm,
-  },
-  statusContent: {
-    width: '100%',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  badgeSuccess: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#CAE9DF', // secondaryContainer
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: Radius.pill,
     gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  statusPillText: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  dotOnline: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  dotOffline: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
+  },
+  editorialHeading: {
+    ...Typography.displayMdMobile,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    marginTop: Spacing.xs,
+  },
+  editorialSubtitle: {
+    ...Typography.bodyMd,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+
+  /* Hero Card */
+  heroGlassCard: {
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  heroBadgeText: {
+    ...Typography.micro,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  heroGlowDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#06B6D4',
+  },
+  heroTitle: {
+    ...Typography.title1,
+    fontSize: 22,
+    fontWeight: '700',
     marginBottom: Spacing.xs,
   },
-  statusDotGreen: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#48645C', // secondary
+  heroBody: {
+    ...Typography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: Spacing.lg,
   },
-  badgeSuccessText: {
-    ...Typography.labelMd,
-    color: '#03201A',
-    fontWeight: '600',
-  },
-  badgeError: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFDAD6', // errorContainer
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: Radius.pill,
-    gap: 6,
-    marginBottom: Spacing.xs,
-  },
-  statusDotRed: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#BA1A1A', // error
-  },
-  badgeErrorText: {
-    ...Typography.labelMd,
-    color: '#93000A',
-    fontWeight: '600',
-  },
-  detailText: {
-    ...Typography.bodySm,
-  },
-  bold: {
-    fontWeight: '600',
-  },
-  errorText: {
-    ...Typography.bodySm,
-    color: '#BA1A1A',
-    textAlign: 'center',
-    paddingHorizontal: Spacing.sm,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.pill,
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-  },
-  retryButtonText: {
-    ...Typography.labelMd,
-    fontWeight: '600',
-  },
-  quickActionsContainer: {
-    width: '100%',
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  primaryActionBtn: {
+  heroCtaButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: Radius.pill,
-    gap: Spacing.sm,
-    shadowColor: '#2E3238',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.full,
+    gap: 8,
   },
-  primaryActionBtnText: {
-    ...Typography.labelLg,
-    fontWeight: '600',
+  heroCtaButtonText: {
+    ...Typography.callout,
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
-  secondaryActionBtn: {
+
+  /* Grid de Módulos */
+  sectionHeaderRow: {
+    marginBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    ...Typography.micro,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+  },
+  modulesGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  gridCard: {
+    width: GRID_CARD_WIDTH,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    minHeight: 165,
+    justifyContent: 'space-between',
+  },
+  gridIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    paddingVertical: 14,
-    borderRadius: Radius.pill,
-    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
-  secondaryActionBtnText: {
-    ...Typography.labelLg,
-    fontWeight: '500',
-    letterSpacing: 0.1,
+  gridCardTitle: {
+    ...Typography.headlineSm,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  gridCardSubtitle: {
+    ...Typography.caption,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: Spacing.sm,
+  },
+  gridCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 'auto',
+  },
+  gridCardTag: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  /* Tarjeta de Paleta */
+  paletteSummaryCard: {
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  paletteSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  palettePreLabel: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  paletteNameText: {
+    ...Typography.title2,
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  paletteDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  paletteDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+  },
+  paletteExploreLink: {
+    ...Typography.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 'auto',
   },
 });
