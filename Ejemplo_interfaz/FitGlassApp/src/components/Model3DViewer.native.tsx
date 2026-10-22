@@ -10,6 +10,31 @@ interface Model3DViewerProps {
   selectedLayer?: string;
 }
 
+class Safe3DErrorBoundary extends React.Component<
+  { children: React.ReactNode; onError?: (err: any) => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err: any) {
+    console.warn('[Model3DViewer] Native 3D Error caught:', err);
+    this.props.onError?.(err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <ActivityIndicator size="small" color="#8B5CF6" />
+          <Text style={styles.errorText}>Renderizando silueta 3D...</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /**
  * Malla 3D geométrica de respaldo si la descarga o decodificación falla.
  */
@@ -30,7 +55,6 @@ const DracoModel: React.FC<{ url: string; onError?: (error: any) => void }> = ({
     const gltf = useGLTF(url);
     return <primitive object={gltf.scene} scale={1.8} position={[0, -1, 0]} />;
   } catch (err: any) {
-    // Si es una promesa de Suspense pendiente, relanzarla para que Suspense muestre el fallback
     if (err instanceof Promise || (err && typeof err.then === 'function')) {
       throw err;
     }
@@ -77,27 +101,29 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
 
   return (
     <View style={styles.container}>
-      <Suspense fallback={<Model3DLoader />}>
-        <Canvas
-          style={styles.canvas}
-          camera={{ position: [0, 0, 3.5], fov: 45 }}
-        >
-          <ambientLight intensity={1.5} />
-          <directionalLight position={[10, 15, 10]} intensity={1.8} />
-          <directionalLight position={[-10, -10, -10]} intensity={0.6} />
+      <Safe3DErrorBoundary onError={onLoadError}>
+        <Suspense fallback={<Model3DLoader />}>
+          <Canvas
+            style={styles.canvas}
+            camera={{ position: [0, 0, 3.5], fov: 45 }}
+          >
+            <ambientLight intensity={1.5} />
+            <directionalLight position={[10, 15, 10]} intensity={1.8} />
+            <directionalLight position={[-10, -10, -10]} intensity={0.6} />
 
-          <Suspense fallback={null}>
-            <DracoModel url={modelUrl} onError={onLoadError} />
-          </Suspense>
+            <Suspense fallback={null}>
+              <DracoModel url={modelUrl} onError={onLoadError} />
+            </Suspense>
 
-          <OrbitControls
-            enableZoom={true}
-            enablePan={false}
-            minDistance={1.2}
-            maxDistance={6.0}
-          />
-        </Canvas>
-      </Suspense>
+            <OrbitControls
+              enableZoom={true}
+              enablePan={false}
+              minDistance={1.2}
+              maxDistance={6.0}
+            />
+          </Canvas>
+        </Suspense>
+      </Safe3DErrorBoundary>
     </View>
   );
 };
@@ -130,5 +156,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8B5CF6',
     fontWeight: '600',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  errorText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#8B5CF6',
+    fontWeight: '500',
   },
 });
