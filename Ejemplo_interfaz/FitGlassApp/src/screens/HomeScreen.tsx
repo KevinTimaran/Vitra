@@ -18,7 +18,9 @@ import { GlassCard } from '../components/GlassCard';
 import { VibrantBackground } from '../components/VibrantBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_CARD_WIDTH = (SCREEN_WIDTH - Spacing.xl * 2 - Spacing.md) / 2;
+const SCREEN_GUTTER = 12;
+const GRID_GAP = 12;
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - SCREEN_GUTTER * 2 - GRID_GAP) / 2;
 
 export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark } = useTheme();
@@ -347,9 +349,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.huge + 36,
+    paddingHorizontal: SCREEN_GUTTER,
+    paddingTop: Spacing.md,
+    paddingBottom: 95,
   },
   headerTop: {
     marginBottom: Spacing.lg,
@@ -482,7 +484,7 @@ const styles = StyleSheet.create({
   modulesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.md,
+    gap: GRID_GAP,
     marginBottom: Spacing.xl,
   },
   gridCard: {
