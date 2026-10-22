@@ -253,23 +253,57 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
         const cleanName = remoteUrl.split('/').pop()?.split('?')[0] || 'model.glb';
         const targetFile = new File(Paths.cache, `fitglass_${cleanName}`);
 
-        if (targetFile.exists && targetFile.size > 1000) {
-          if (!isCancelled) {
-            setLocalUri(targetFile.uri);
-            setIsLoading(false);
+        if (targetFile.exists) {
+          if (targetFile.size > 50_000) {
+            console.log('[Model3DViewer] Modelo recuperado de caché local válido:', targetFile.uri, `(${targetFile.size} bytes)`);
+            if (!isCancelled) {
+              setLocalUri(targetFile.uri);
+              setIsLoading(false);
+            }
+            return;
+          } else {
+            console.warn('[Model3DViewer] Archivo en caché corrupto o incompleto, eliminando...');
+            try {
+              targetFile.delete();
+            } catch {}
           }
-          return;
         }
 
         console.log('[Model3DViewer] Descargando modelo con Bypass-Tunnel-Reminder:', remoteUrl);
-        const downloadedFile = await File.downloadFileAsync(remoteUrl, targetFile, {
-          headers: {
-            'Bypass-Tunnel-Reminder': 'true',
-          },
-          idempotent: true,
-        });
+        let downloadedFile: any = null;
+        let lastErr: any = null;
 
-        if (!isCancelled) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            downloadedFile = await File.downloadFileAsync(remoteUrl, targetFile, {
+              headers: {
+                'Bypass-Tunnel-Reminder': 'true',
+              },
+              idempotent: true,
+            });
+
+            // Validar que el archivo descargado sea un modelo 3D real y no un error HTML
+            if (targetFile.exists && targetFile.size < 50_000) {
+              console.warn(`[Model3DViewer] Intento ${attempt}: Tamaño de archivo sospechoso (${targetFile.size} bytes). Reintentando...`);
+              try { targetFile.delete(); } catch {}
+              throw new Error(`Respuesta no válida del servidor (${targetFile.size} bytes)`);
+            }
+
+            break; // Descarga exitosa
+          } catch (attemptErr: any) {
+            lastErr = attemptErr;
+            console.warn(`[Model3DViewer] Intento ${attempt}/3 falló:`, attemptErr?.message || attemptErr);
+            if (attempt < 3 && !isCancelled) {
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+            }
+          }
+        }
+
+        if (!downloadedFile && lastErr) {
+          throw lastErr;
+        }
+
+        if (!isCancelled && downloadedFile) {
           console.log('[Model3DViewer] Modelo guardado en caché local con éxito:', downloadedFile.uri);
           setLocalUri(downloadedFile.uri);
           setIsLoading(false);
