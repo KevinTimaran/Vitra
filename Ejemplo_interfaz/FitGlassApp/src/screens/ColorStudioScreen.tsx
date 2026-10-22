@@ -74,16 +74,6 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
   return (
     <View style={styles.container}>
       <VibrantBackground />
-      <Header
-        title="Estudio de Color"
-        subtitle="Armonía Espectral & Colorimetría IA"
-        showAvatar
-        onAvatarPress={onOpenProfile || (() => navigation?.navigate('Profile'))}
-        rightAction={{
-          icon: 'camera-outline',
-          onPress: handleRecalibrate,
-        }}
-      />
 
       <ScrollView
         style={styles.scroll}
@@ -391,7 +381,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: Spacing.huge,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.huge + 40,
   },
   glassHeroCard: {
     marginHorizontal: Spacing.xl,
