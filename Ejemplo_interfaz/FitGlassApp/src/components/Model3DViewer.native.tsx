@@ -13,6 +13,8 @@ export interface Model3DViewerProps {
   currentGarmentName?: string;
   selectedLayer?: string;
   garmentColorHex?: string;
+  isAvatarMode?: boolean;
+  avatarGender?: 'female' | 'male' | 'non-binary' | string;
 }
 
 // Asset 3D local empaquetado directamente por el bundler de Metro
@@ -26,6 +28,130 @@ const getResolvedLocalAsset = (): string | number => {
   } catch {
     return LOCAL_TSHIRT_ASSET;
   }
+};
+
+/**
+ * Silueta anatómica 3D del Atelier Vitra, calibrada por género.
+ * Construida 100% con geometrías Three.js sin latencia ni descargas de red.
+ */
+export const StylizedAvatarSilhouette: React.FC<{
+  gender?: 'female' | 'male' | 'non-binary' | string;
+  colorHex?: string;
+}> = ({ gender = 'female', colorHex = '#8EB6C7' }) => {
+  const isMale = gender === 'male';
+  const isNeutral = gender === 'non-binary';
+
+  const shoulderWidth = isMale ? 1.30 : isNeutral ? 1.10 : 0.95;
+  const chestRadiusTop = isMale ? 0.48 : isNeutral ? 0.42 : 0.38;
+  const chestRadiusBottom = isMale ? 0.36 : isNeutral ? 0.32 : 0.28;
+  const waistRadius = isMale ? 0.34 : isNeutral ? 0.30 : 0.24;
+  const hipWidth = isMale ? 0.85 : isNeutral ? 0.88 : 0.95;
+  const legSpacing = isMale ? 0.18 : 0.16;
+  const primaryColor = colorHex || '#8EB6C7';
+
+  return (
+    <group position={[0, 0.1, 0]}>
+      {/* Cabeza estilizada minimalista */}
+      <mesh position={[0, 1.25, 0]}>
+        <sphereGeometry args={[0.22, 24, 24]} />
+        <meshStandardMaterial
+          color="#E2D3C4"
+          metalness={0.25}
+          roughness={0.35}
+          transparent={true}
+          opacity={0.92}
+        />
+      </mesh>
+
+      {/* Cuello */}
+      <mesh position={[0, 0.98, 0]}>
+        <cylinderGeometry args={[0.09, 0.11, 0.20, 16]} />
+        <meshStandardMaterial color="#D4C3B2" metalness={0.3} roughness={0.4} />
+      </mesh>
+
+      {/* Hombros */}
+      <mesh position={[0, 0.82, 0]}>
+        <boxGeometry args={[shoulderWidth, 0.14, 0.32]} />
+        <meshStandardMaterial
+          color={primaryColor}
+          metalness={0.4}
+          roughness={0.3}
+          wireframe={true}
+          transparent={true}
+          opacity={0.85}
+        />
+      </mesh>
+
+      {/* Pecho y Torso Superior */}
+      <mesh position={[0, 0.60, 0]}>
+        <cylinderGeometry args={[chestRadiusTop, chestRadiusBottom, 0.38, 20]} />
+        <meshStandardMaterial
+          color={primaryColor}
+          metalness={0.35}
+          roughness={0.35}
+          wireframe={true}
+          transparent={true}
+          opacity={0.88}
+        />
+      </mesh>
+
+      {/* Cintura */}
+      <mesh position={[0, 0.34, 0]}>
+        <cylinderGeometry args={[chestRadiusBottom, waistRadius, 0.22, 20]} />
+        <meshStandardMaterial
+          color={primaryColor}
+          metalness={0.4}
+          roughness={0.3}
+          wireframe={true}
+          transparent={true}
+          opacity={0.88}
+        />
+      </mesh>
+
+      {/* Caderas / Pelvis */}
+      <mesh position={[0, 0.14, 0]}>
+        <boxGeometry args={[hipWidth, 0.24, 0.34]} />
+        <meshStandardMaterial
+          color={primaryColor}
+          metalness={0.4}
+          roughness={0.3}
+          wireframe={true}
+          transparent={true}
+          opacity={0.90}
+        />
+      </mesh>
+
+      {/* Piernas superiores (Muslos) */}
+      <mesh position={[-legSpacing, -0.20, 0]}>
+        <cylinderGeometry args={[0.13, 0.09, 0.50, 16]} />
+        <meshStandardMaterial color={primaryColor} metalness={0.35} roughness={0.4} wireframe={true} opacity={0.8} transparent={true} />
+      </mesh>
+      <mesh position={[legSpacing, -0.20, 0]}>
+        <cylinderGeometry args={[0.13, 0.09, 0.50, 16]} />
+        <meshStandardMaterial color={primaryColor} metalness={0.35} roughness={0.4} wireframe={true} opacity={0.8} transparent={true} />
+      </mesh>
+
+      {/* Piernas inferiores (Pantorrillas) */}
+      <mesh position={[-legSpacing, -0.66, 0]}>
+        <cylinderGeometry args={[0.09, 0.06, 0.48, 16]} />
+        <meshStandardMaterial color={primaryColor} metalness={0.35} roughness={0.4} wireframe={true} opacity={0.75} transparent={true} />
+      </mesh>
+      <mesh position={[legSpacing, -0.66, 0]}>
+        <cylinderGeometry args={[0.09, 0.06, 0.48, 16]} />
+        <meshStandardMaterial color={primaryColor} metalness={0.35} roughness={0.4} wireframe={true} opacity={0.75} transparent={true} />
+      </mesh>
+
+      {/* Pedestal Atelier */}
+      <mesh position={[0, -0.98, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, 0.22, 16]} />
+        <meshStandardMaterial color="#6D28D9" metalness={0.7} roughness={0.2} />
+      </mesh>
+      <mesh position={[0, -1.10, 0]}>
+        <cylinderGeometry args={[0.55, 0.55, 0.04, 32]} />
+        <meshStandardMaterial color="#7C3AED" metalness={0.8} roughness={0.2} />
+      </mesh>
+    </group>
+  );
 };
 
 /**
@@ -353,8 +479,10 @@ const Interactive3DScene: React.FC<{
   }>;
   activeModelUrl?: string | null;
   garmentColorHex?: string;
+  isAvatarMode?: boolean;
+  avatarGender?: string;
   onError?: (err: any) => void;
-}> = ({ gestureRef, activeModelUrl, garmentColorHex, onError }) => {
+}> = ({ gestureRef, activeModelUrl, garmentColorHex, isAvatarMode, avatarGender, onError }) => {
   const groupRef = useRef<any>(null);
   const { localUri, isLoading, downloadError } = useResolvedModelUri(activeModelUrl || null);
 
@@ -417,6 +545,15 @@ const Interactive3DScene: React.FC<{
         ) : (
           <StylizedGarmentMannequin colorHex={garmentColorHex} />
         )
+      ) : isAvatarMode ? (
+        <InnerModelErrorBoundary
+          fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
+          onError={onError}
+        >
+          <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
+            <StylizedAvatarSilhouette gender={avatarGender} colorHex={garmentColorHex || '#8EB6C7'} />
+          </Suspense>
+        </InnerModelErrorBoundary>
       ) : (
         <InnerModelErrorBoundary
           fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
@@ -448,8 +585,13 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   activeModelUrl,
   modelUrl,
   garmentColorHex = '#8B5CF6',
+  selectedLayer,
+  isAvatarMode,
+  avatarGender,
   onLoadError,
 }) => {
+  const isAvatar = isAvatarMode || selectedLayer === 'Avatar 3D' || selectedLayer === 'Cuerpo Base';
+
   // Estado compartido para gestos táctiles directos con PanResponder y física de velocidad
   const gestureState = useRef({
     x: 0,
@@ -545,6 +687,8 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
           gestureRef={gestureState}
           activeModelUrl={resolvedDynamicUrl}
           garmentColorHex={garmentColorHex}
+          isAvatarMode={isAvatar}
+          avatarGender={avatarGender}
           onError={onLoadError}
         />
       </Canvas>
