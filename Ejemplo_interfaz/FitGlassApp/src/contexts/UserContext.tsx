@@ -6,8 +6,7 @@ import { INITIAL_BODY_PROFILE, MOCK_GARMENTS } from '../data/mockData';
 
 const ONBOARDING_KEY = 'vitra_user_onboarding_v2';
 
-const DEFAULT_SAMPLE_MODEL_URL =
-  'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
+const DEFAULT_SAMPLE_MODEL_URL = '';
 
 const DEFAULT_HUMAN_AVATAR_2D =
   'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
@@ -76,9 +75,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [bodyPhotoUri, setBodyPhotoUri] = useState<string | undefined>(undefined);
 
   const [colorProfile, setColorProfile] = useState<ColorProfile>(DEFAULT_COLOR_PROFILE);
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
-    'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb'
-  );
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [userPhotoUri, setUserPhotoUri] = useState<string | undefined>(undefined);
   const [bodyProfile, setBodyProfile] = useState<BodyProfile>(INITIAL_BODY_PROFILE);
   const [completedOnboarding, setCompletedOnboarding] = useState<boolean>(false);
