@@ -35,9 +35,6 @@ interface FittingRoomScreenProps {
   onOpenAddGarment?: () => void;
 }
 
-const DEFAULT_SAMPLE_MODEL_URL =
-  'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
-
 export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
@@ -50,19 +47,18 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
     wardrobe_items,
   } = useUser();
 
-  // Estados de URLs 3D y 2D
+  // Estado dinámico del modelo 3D generado por la API (null = camiseta decorativa local)
   const initial3D =
     props.model_3d_url ||
     props.route?.params?.model_3d_url ||
-    avatar_3d_base_url ||
-    DEFAULT_SAMPLE_MODEL_URL;
+    null;
 
   const initial2D =
     props.image_2d_url ||
     props.route?.params?.image_2d_url ||
     undefined;
 
-  const [current3DModelUrl, setCurrent3DModelUrl] = useState<string>(initial3D);
+  const [activeModelUrl, setActiveModelUrl] = useState<string | null>(initial3D);
   const [current2DUrl, setCurrent2DUrl] = useState<string | undefined>(initial2D);
   const [show2DView, setShow2DView] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -75,19 +71,19 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   // Filtro de categorías del carrusel
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
 
-  // Precargar modelo inicial
+  // Precargar modelo dinámico cuando activeModelUrl cambia
   useEffect(() => {
-    if (current3DModelUrl) {
-      preloadGLTF(current3DModelUrl);
+    if (activeModelUrl) {
+      preloadGLTF(activeModelUrl);
     }
-  }, [current3DModelUrl]);
+  }, [activeModelUrl]);
 
   // Actualizar si cambian los parámetros de navegación
   useEffect(() => {
     const route3d = props.model_3d_url || props.route?.params?.model_3d_url;
     const route2d = props.image_2d_url || props.route?.params?.image_2d_url;
     if (route3d) {
-      setCurrent3DModelUrl(route3d);
+      setActiveModelUrl(route3d);
       preloadGLTF(route3d);
     }
     if (route2d) {
@@ -133,7 +129,8 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       );
 
       if (result.model_3d_url) {
-        setCurrent3DModelUrl(result.model_3d_url);
+        console.log('[FittingRoom] Modelo 3D recibido del backend, actualizando visor:', result.model_3d_url);
+        setActiveModelUrl(result.model_3d_url);
         preloadGLTF(result.model_3d_url);
       }
       if (result.image_2d_url) {
@@ -141,11 +138,9 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       }
     } catch (err: any) {
       console.warn(
-        '[FittingRoom] Aviso en TryOn backend, aplicando fallback seguro 3D:',
+        '[FittingRoom] Aviso en TryOn backend:',
         err?.message
       );
-      // Fallback seguro a modelo 3D optimizado y preview de la prenda seleccionada
-      setCurrent3DModelUrl(DEFAULT_SAMPLE_MODEL_URL);
       if (garment.imageUrl) {
         setCurrent2DUrl(garment.imageUrl);
       }
@@ -194,12 +189,13 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
           /* Visor 3D estricto con Canvas de @react-three/fiber */
           <View style={styles.canvasContainer}>
             <Model3DViewer
-              modelUrl={current3DModelUrl || DEFAULT_SAMPLE_MODEL_URL}
+              activeModelUrl={activeModelUrl}
+              modelUrl={activeModelUrl}
               currentGarmentName={selectedGarment?.name || 'Prenda Atelier'}
               selectedLayer={selectedGarment?.category || 'Capa 3D'}
               garmentColorHex={selectedGarment?.colorHex || '#8B5CF6'}
               onLoadError={(err) => {
-                console.warn('[FittingRoom] Error al cargar modelo 3D:', err);
+                console.warn('[FittingRoom] Error al cargar modelo 3D dinámico:', err);
               }}
             />
 
