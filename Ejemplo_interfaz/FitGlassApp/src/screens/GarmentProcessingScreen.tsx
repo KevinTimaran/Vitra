@@ -12,12 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { Typography, Spacing, Radius } from '../theme';
-import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
-import { analyzeGarment, generateTryOn } from '../services/ai/garmentAnalyzer';
+import { analyzeGarment, generateTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
 import { GarmentMetadata } from '../services/ai/types';
-
-interface GarmentProcessingScreenProps {
   route?: {
     params?: {
       imageBase64?: string;
@@ -130,11 +127,20 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
         model3dUrl = tryOnResult.model_3d_url;
         image2dUrl = tryOnResult.image_2d_url;
       } catch (tryOnErr: any) {
-        console.warn('[Processing] TryOn aviso, aplicando modelo de respaldo:', tryOnErr?.message);
-        // Si las API keys de Replicate/Tripo aún no están activadas o no tienen créditos,
-        // utilizamos el modelo 3D local de demostración y la foto seleccionada para no bloquear la experiencia
-        model3dUrl = '';
-        image2dUrl = imageBase64 || imageUri || userPhotoUrl;
+        console.warn('[Processing] TryOn aviso:', tryOnErr?.message);
+        try {
+          const latest = await getLatestModel();
+          if (latest?.model_3d_url) {
+            console.log('[Processing] Recuperado modelo 3D real generado en el backend:', latest.model_3d_url);
+            model3dUrl = latest.model_3d_url;
+            image2dUrl = imageBase64 || imageUri || userPhotoUrl;
+          }
+        } catch {}
+
+        if (!model3dUrl) {
+          model3dUrl = '';
+          image2dUrl = imageBase64 || imageUri || userPhotoUrl;
+        }
       }
 
       // Paso 5: Finalización
