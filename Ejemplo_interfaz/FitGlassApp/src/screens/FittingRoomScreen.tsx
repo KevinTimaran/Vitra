@@ -63,20 +63,22 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Barra superior con metadatos y alternador 2D/3D */}
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.borderLight }]}>
-        <View style={styles.titleColumn}>
-          <Text style={[styles.screenTitle, { color: colors.primaryText }]}>{t('fittingRoom.title')}</Text>
-          <Text style={[styles.screenSubtitle, { color: colors.secondaryText }]}>
-            {metadata?.tipo_prenda
-              ? `${metadata.tipo_prenda} · ${metadata.estilo_recomendado || 'Generativo'}`
-              : t('fittingRoom.subtitle')}
-          </Text>
-        </View>
-
+      {/* Controles flotantes superiores en cristal sin barra ni título de pantalla */}
+      <View style={styles.floatingControlsTop}>
         {image2dUrl ? (
           <TouchableOpacity
-            style={[styles.toggleBtn, { backgroundColor: colors.surfaceSubtle }]}
+            style={[
+              styles.toggleBtn,
+              {
+                backgroundColor: isDark ? 'rgba(20, 22, 28, 0.75)' : 'rgba(255, 255, 255, 0.88)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.10)',
+                shadowColor: '#0d2626',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.30,
+                shadowRadius: 14,
+                elevation: 6,
+              },
+            ]}
             onPress={() => setShow2DView(!show2DView)}
             activeOpacity={0.7}
           >
@@ -193,25 +195,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-  },
-  titleColumn: {
-    flex: 1,
-  },
-  screenTitle: {
-    ...Typography.headlineMd,
-    fontSize: 20,
-    lineHeight: 26,
-  },
-  screenSubtitle: {
-    ...Typography.bodySm,
-    marginTop: 2,
+  floatingControlsTop: {
+    position: 'absolute',
+    top: 24,
+    right: 20,
+    zIndex: 20,
   },
   toggleBtn: {
     flexDirection: 'row',

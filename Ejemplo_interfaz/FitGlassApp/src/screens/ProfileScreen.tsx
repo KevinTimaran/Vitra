@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.xl,
-    paddingBottom: Spacing.huge,
+    paddingBottom: Spacing.huge + 40,
   },
   userCard: {
     borderRadius: Radius.xl,
