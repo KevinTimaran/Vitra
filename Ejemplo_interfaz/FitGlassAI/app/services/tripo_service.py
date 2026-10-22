@@ -9,7 +9,11 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 TRIPO_API_BASE_URL = "https://api.tripo3d.ai/v2/openapi"
-SAMPLE_3D_MODEL_FALLBACK = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
+SAMPLE_3D_MODEL_FALLBACK = (
+    f"{settings.EXPO_PUBLIC_API_BASE_URL.rstrip('/')}/static/models/tshirt.glb"
+    if settings.EXPO_PUBLIC_API_BASE_URL
+    else "https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb"
+)
 
 
 async def _fetch_image_bytes(image_url: str) -> tuple[bytes, str, str]:
