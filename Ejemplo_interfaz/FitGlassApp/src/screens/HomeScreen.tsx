@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Model3DViewer, preloadGLTF } from '../components/Model3DViewer';
@@ -19,6 +20,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
 import { generateTryOn } from '../services/ai/garmentAnalyzer';
 import { Garment } from '../types';
+import { GarmentViewScreen } from './GarmentViewScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -65,6 +67,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [activeModelUrl, setActiveModelUrl] = useState<string | null>(avatar_3d_url);
   const [selectedGarment, setSelectedGarment] = useState<Garment | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [activeGarmentDetail, setActiveGarmentDetail] = useState<Garment | null>(null);
 
   // Sincronizar si cambia el avatar global
   useEffect(() => {
@@ -455,7 +458,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                               transform: isSelected ? [{ scale: 1.04 }] : [{ scale: 1.0 }],
                             },
                           ]}
-                          onPress={() => handleQuickTryOn(garment)}
+                          onPress={() => setActiveGarmentDetail(garment)}
+                          onLongPress={() => handleQuickTryOn(garment)}
                           activeOpacity={0.75}
                         >
                           {/* Miniatura 2D */}
@@ -526,6 +530,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </ScrollView>
         </GlassCard>
       </View>
+
+      {/* Modal de Detalle con Visor 3D y Opciones */}
+      <Modal
+        visible={Boolean(activeGarmentDetail)}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setActiveGarmentDetail(null)}
+      >
+        {activeGarmentDetail && (
+          <GarmentViewScreen
+            garment={activeGarmentDetail}
+            onBack={() => setActiveGarmentDetail(null)}
+            navigation={navigation}
+          />
+        )}
+      </Modal>
     </View>
   );
 };

@@ -9,6 +9,7 @@ import {
   Image,
   FlatList,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Model3DViewer, preloadGLTF } from '../components/Model3DViewer';
@@ -20,6 +21,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
 import { generateTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
 import { Garment } from '../types';
+import { GarmentViewScreen } from './GarmentViewScreen';
 
 interface FittingRoomScreenProps {
   route?: {
@@ -62,6 +64,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const [current2DUrl, setCurrent2DUrl] = useState<string | undefined>(initial2D);
   const [show2DView, setShow2DView] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [activeGarmentDetail, setActiveGarmentDetail] = useState<Garment | null>(null);
 
   // Prenda seleccionada
   const [selectedGarment, setSelectedGarment] = useState<Garment | null>(
@@ -440,7 +443,14 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                       transform: isSelected ? [{ scale: 1.03 }] : [{ scale: 1.0 }],
                     },
                   ]}
-                  onPress={() => handleSelectGarment(item)}
+                  onPress={() => {
+                    if (isSelected) {
+                      setActiveGarmentDetail(item);
+                    } else {
+                      handleSelectGarment(item);
+                    }
+                  }}
+                  onLongPress={() => setActiveGarmentDetail(item)}
                   activeOpacity={0.75}
                 >
                   {/* Miniatura 2D */}
@@ -563,6 +573,22 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
           />
         </GlassCard>
       </View>
+
+      {/* Modal de Detalle con Visor 3D y Opciones */}
+      <Modal
+        visible={Boolean(activeGarmentDetail)}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setActiveGarmentDetail(null)}
+      >
+        {activeGarmentDetail && (
+          <GarmentViewScreen
+            garment={activeGarmentDetail}
+            onBack={() => setActiveGarmentDetail(null)}
+            navigation={navigation}
+          />
+        )}
+      </Modal>
     </View>
   );
 };
