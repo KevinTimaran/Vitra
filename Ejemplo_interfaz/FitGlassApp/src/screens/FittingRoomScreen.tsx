@@ -17,10 +17,11 @@ import { VibrantBackground } from '../components/VibrantBackground';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { useUser } from '../contexts/UserContext';
 import { generateTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
+import { Garment } from '../types';
 
 interface FittingRoomScreenProps {
-  route?: {
     params?: {
       model_3d_url?: string;
       image_2d_url?: string;
