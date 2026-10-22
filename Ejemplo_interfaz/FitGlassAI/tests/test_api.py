@@ -207,7 +207,7 @@ def test_tryon_generate_tripo_fallback_when_allowed():
         assert response.status_code == 200
         data = response.json()
         assert data["image_2d_url"] == "https://replicate.delivery/pbxt/tryon_result.png"
-        assert "tshirt" in data["model_3d_url"]
+        assert "DamagedHelmet" in data["model_3d_url"]
         assert data["status"] == "completed"
 
 
