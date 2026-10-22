@@ -65,3 +65,54 @@ def test_tryon_async_pipeline_without_tripo():
         assert completed is True, "La tarea asíncrona debió completarse con éxito"
         # Verificar explícitamente que Tripo3D fue invocado ÚNICAMENTE con la imagen de la prenda aislada, NO con el avatar/persona
         mock_3d_fn.assert_called_once_with(image_url="https://example.com/jacket.jpg")
+
+
+def test_tryon_multi_garment_pipeline_invokes_tripo_once():
+    """
+    Verifica que en un look multi-prenda (top + pants + shoes),
+    VTON se invoque para cada prenda aplicable y Tripo3D se invoque EXACTAMENTE UNA VEZ
+    para el look completado.
+    """
+    mock_2d_1 = "https://mock-replicate.delivery/vton_step1.png"
+    mock_2d_2 = "https://mock-replicate.delivery/vton_step2.png"
+    mock_3d = "https://mock-tripo3d.ai/look_mesh.glb"
+
+    with patch("app.api.tryon.generate_vton", new_callable=AsyncMock) as mock_vton, \
+         patch("app.api.tryon.generate_3d_model", new_callable=AsyncMock) as mock_3d_fn, \
+         patch("app.api.tryon.optimize_3d_model", new_callable=AsyncMock) as mock_opt:
+
+        mock_vton.side_effect = [mock_2d_1, mock_2d_2]
+        mock_3d_fn.return_value = mock_3d
+        mock_opt.return_value = "http://testserver/static/models/multi_outfit_opt.glb"
+
+        payload = {
+            "human_image": "https://example.com/human_avatar.jpg",
+            "garments": [
+                {
+                    "image": "https://example.com/tshirt.png",
+                    "category": "upper_body",
+                    "name": "White Linen T-Shirt"
+                },
+                {
+                    "image": "https://example.com/trousers.png",
+                    "category": "lower_body",
+                    "name": "Pleated Trousers"
+                }
+            ],
+            "allow_fallback": True
+        }
+
+        # 1. Probar endpoint síncrono
+        sync_res = client.post("/api/tryon/generate", json=payload)
+        assert sync_res.status_code == 200
+        sync_data = sync_res.json()
+        assert sync_data["status"] == "completed"
+        assert sync_data["model_3d_url"] == "http://testserver/static/models/multi_outfit_opt.glb"
+        assert sync_data["image_2d_url"] == mock_2d_2
+
+        # VTON debe haberse llamado dos veces (una por prenda)
+        assert mock_vton.call_count == 2
+        # Tripo3D debe haberse llamado EXACTAMENTE UNA VEZ para todo el look con el resultado fusionado
+        assert mock_3d_fn.call_count == 1
+        mock_3d_fn.assert_called_once_with(image_url=mock_2d_2)
+
