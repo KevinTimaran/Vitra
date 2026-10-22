@@ -1,10 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { File, Paths } from 'expo-file-system';
 import { UserProfile, ColorProfile, BodyProfile, Garment } from '../types';
-import { INITIAL_BODY_PROFILE, MOCK_GARMENTS } from '../data/mockData';
+import { INITIAL_BODY_PROFILE } from '../data/mockData';
 
 const ONBOARDING_KEY = 'vitra_user_onboarding_v2';
+const WARDROBE_STORAGE_FILE = 'vitra_wardrobe_v1.json';
+
+const getWardrobeFile = () => {
+  try {
+    if (Paths?.document) {
+      return new File(Paths.document, WARDROBE_STORAGE_FILE);
+    }
+  } catch {}
+  return null;
+};
 
 const DEFAULT_SAMPLE_MODEL_URL = '';
 
@@ -57,6 +68,8 @@ interface UserContextValue {
   wardrobe_items: Garment[];
   wardrobeItems: Garment[];
   addGarmentToWardrobe: (garment: Garment) => void;
+  removeGarmentFromWardrobe: (id: string) => void;
+  toggleFavoriteGarment: (id: string) => void;
   setWardrobeItems: React.Dispatch<React.SetStateAction<Garment[]>>;
   updateColorProfile: (profile: Partial<ColorProfile> & { season: string; recommended_colors: string[] }) => void;
   updateAvatarUrl: (url: string) => void;
@@ -145,17 +158,79 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const [wardrobeItems, setWardrobeItems] = useState<Garment[]>(MOCK_GARMENTS);
+  const [wardrobeItems, setWardrobeItems] = useState<Garment[]>([]);
+
+  useEffect(() => {
+    const loadWardrobe = async () => {
+      try {
+        const file = getWardrobeFile();
+        if (file && file.exists) {
+          const content = await file.text();
+          if (content) {
+            const parsed = JSON.parse(content);
+            if (Array.isArray(parsed)) {
+              setWardrobeItems(parsed);
+              return;
+            }
+          }
+        }
+        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+          const webSaved = localStorage.getItem('vitra_wardrobe_v1');
+          if (webSaved) {
+            setWardrobeItems(JSON.parse(webSaved));
+          }
+        }
+      } catch (err) {
+        console.warn('[UserContext] Error al cargar prendas del armario:', err);
+      }
+    };
+    loadWardrobe();
+  }, []);
+
+  const saveWardrobeToDisk = async (items: Garment[]) => {
+    try {
+      const file = getWardrobeFile();
+      if (file) {
+        await file.write(JSON.stringify(items));
+      }
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.setItem('vitra_wardrobe_v1', JSON.stringify(items));
+      }
+    } catch (e) {
+      console.warn('[UserContext] Error al persistir prendas en disco:', e);
+    }
+  };
 
   const addGarmentToWardrobe = (garment: Garment) => {
     setWardrobeItems((prev) => {
       const idx = prev.findIndex((g) => g.id === garment.id);
+      let next: Garment[];
       if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = garment;
-        return copy;
+        next = [...prev];
+        next[idx] = garment;
+      } else {
+        next = [garment, ...prev];
       }
-      return [garment, ...prev];
+      saveWardrobeToDisk(next);
+      return next;
+    });
+  };
+
+  const removeGarmentFromWardrobe = (id: string) => {
+    setWardrobeItems((prev) => {
+      const next = prev.filter((g) => g.id !== id);
+      saveWardrobeToDisk(next);
+      return next;
+    });
+  };
+
+  const toggleFavoriteGarment = (id: string) => {
+    setWardrobeItems((prev) => {
+      const next = prev.map((g) =>
+        g.id === id ? { ...g, isFavorite: !g.isFavorite } : g
+      );
+      saveWardrobeToDisk(next);
+      return next;
     });
   };
 
@@ -167,7 +242,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setColorProfile(DEFAULT_COLOR_PROFILE);
     setAvatarUrl(DEFAULT_SAMPLE_MODEL_URL);
     setUserPhotoUri(undefined);
-    setWardrobeItems(MOCK_GARMENTS);
+    setWardrobeItems([]);
+    saveWardrobeToDisk([]);
     setCompletedOnboarding(false);
 
     try {
@@ -214,6 +290,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         wardrobe_items: wardrobeItems,
         wardrobeItems,
         addGarmentToWardrobe,
+        removeGarmentFromWardrobe,
+        toggleFavoriteGarment,
         setWardrobeItems,
         updateColorProfile,
         updateAvatarUrl,
