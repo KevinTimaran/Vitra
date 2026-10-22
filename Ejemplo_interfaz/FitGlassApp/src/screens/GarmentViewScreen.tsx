@@ -207,27 +207,20 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
   };
 
   const handleTryOnAvatar = () => {
-    Alert.alert(
-      'Simulación en Avatar 3D',
-      `Esta función adaptará y modelará "${garment.name}" en 3D directamente sobre la silueta tridimensional de tu avatar personal.\n\n(Módulo en preparación para la siguiente fase).`,
-      [
-        {
-          text: 'Probar en Probador',
-          onPress: () => {
-            if (props.navigation) {
-              props.navigation.navigate('MainTabs', {
-                screen: 'FittingRoom',
-                params: {
-                  model_3d_url: active3DUrl || garment.model3dUrl,
-                  image_2d_url: garment.image2dUrl || garment.imageUrl,
-                },
-              });
-            }
-          },
+    if (props.onTryOn) {
+      props.onTryOn(garment);
+      return;
+    }
+    if (props.navigation) {
+      props.navigation.navigate('MainTabs', {
+        screen: 'FittingRoom',
+        params: {
+          selectedGarment: garment,
+          model_3d_url: active3DUrl || garment.model3dUrl,
+          image_2d_url: garment.image2dUrl || garment.imageUrl,
         },
-        { text: 'Entendido', style: 'cancel' },
-      ]
-    );
+      });
+    }
   };
 
   return (
