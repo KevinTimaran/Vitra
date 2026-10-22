@@ -1,11 +1,15 @@
 import asyncio
 import base64
+import logging
 import httpx
 from fastapi import HTTPException
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 TRIPO_API_BASE_URL = "https://api.tripo3d.ai/v2/openapi"
+SAMPLE_3D_MODEL_FALLBACK = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
 
 
 async def _fetch_image_bytes(image_url: str) -> tuple[bytes, str, str]:
@@ -57,37 +61,43 @@ async def _fetch_image_bytes(image_url: str) -> tuple[bytes, str, str]:
         )
 
 
-async def generate_3d_model(image_url: str, polling_interval: float = 2.5, timeout_seconds: float = 180.0) -> str:
+async def generate_3d_model(
+    image_url: str,
+    polling_interval: float = 2.5,
+    timeout_seconds: float = 180.0,
+    allow_fallback: bool = False,
+) -> str:
     """
     Convierte una imagen 2D en un modelo 3D (.glb) utilizando la API de Tripo3D.
-    
-    Flujo:
-    1. Subir la imagen mediante la API de Tripo (/upload) para obtener un file_token.
-    2. Crear una tarea image_to_model (/task) y obtener el task_id.
-    3. Realizar polling periódico hasta que la tarea termine exitosamente.
-    4. Retornar la URL de descarga del archivo .glb resultante.
+    Si allow_fallback es True, en caso de fallo retorna el modelo .glb de respaldo autónomo.
     """
     if not settings.has_tripo:
+        if allow_fallback:
+            logger.warning("[generate_3d_model] TRIPO_API_KEY no configurada. Retornando modelo 3D de respaldo.")
+            return SAMPLE_3D_MODEL_FALLBACK
         raise HTTPException(
             status_code=500,
             detail="TRIPO_API_KEY no está configurada en las variables de entorno."
         )
 
     if not image_url or not image_url.strip():
+        if allow_fallback:
+            return SAMPLE_3D_MODEL_FALLBACK
         raise HTTPException(
             status_code=400,
             detail="La URL de la imagen (image_url) no puede estar vacía."
         )
 
-    auth_headers = {
-        "Authorization": f"Bearer {settings.TRIPO_API_KEY}",
-    }
+    try:
+        auth_headers = {
+            "Authorization": f"Bearer {settings.TRIPO_API_KEY}",
+        }
 
-    # Paso 1: Descargar los bytes de la imagen y subirla a Tripo3D
-    image_bytes, mime_type, filename = await _fetch_image_bytes(image_url)
+        # Paso 1: Descargar los bytes de la imagen y subirla a Tripo3D
+        image_bytes, mime_type, filename = await _fetch_image_bytes(image_url)
 
-    upload_url = f"{TRIPO_API_BASE_URL}/upload"
-    task_url = f"{TRIPO_API_BASE_URL}/task"
+        upload_url = f"{TRIPO_API_BASE_URL}/upload"
+        task_url = f"{TRIPO_API_BASE_URL}/task"
 
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
         try:
@@ -222,3 +232,8 @@ async def generate_3d_model(image_url: str, polling_interval: float = 2.5, timeo
             status_code=504,
             detail=f"Tiempo de espera agotado ({timeout_seconds}s) esperando la generación 3D de Tripo3D."
         )
+    except Exception as e:
+        if allow_fallback:
+            logger.warning(f"[generate_3d_model] Error en generación Tripo3D ({type(e).__name__}: {e}). Retornando modelo de respaldo.")
+            return SAMPLE_3D_MODEL_FALLBACK
+        raise
