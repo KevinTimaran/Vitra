@@ -36,7 +36,7 @@ interface FittingRoomScreenProps {
 }
 
 const DEFAULT_SAMPLE_MODEL_URL =
-  'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
+  'https://fitglass-ai-kevin.loca.lt/static/models/tshirt.glb';
 
 export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const { colors, isDark } = useTheme();
@@ -193,25 +193,15 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
         ) : (
           /* Visor 3D estricto con Canvas de @react-three/fiber */
           <View style={styles.canvasContainer}>
-            <Suspense
-              fallback={
-                <View style={styles.loaderFallback}>
-                  <ActivityIndicator size="large" color={colors.primaryText} />
-                  <Text style={[styles.loaderFallbackText, { color: colors.secondaryText }]}>
-                    Descomprimiendo modelo 3D...
-                  </Text>
-                </View>
-              }
-            >
-              <Model3DViewer
-                modelUrl={current3DModelUrl}
-                currentGarmentName={selectedGarment?.name || 'Prenda Atelier'}
-                selectedLayer={selectedGarment?.category || 'Capa 3D'}
-                onLoadError={(err) => {
-                  console.warn('[FittingRoom] Error al cargar modelo 3D:', err);
-                }}
-              />
-            </Suspense>
+            <Model3DViewer
+              modelUrl={current3DModelUrl || DEFAULT_SAMPLE_MODEL_URL}
+              currentGarmentName={selectedGarment?.name || 'Prenda Atelier'}
+              selectedLayer={selectedGarment?.category || 'Capa 3D'}
+              garmentColorHex={selectedGarment?.colorHex || '#8B5CF6'}
+              onLoadError={(err) => {
+                console.warn('[FittingRoom] Error al cargar modelo 3D:', err);
+              }}
+            />
 
             {/* Guía táctil 360 */}
             <View style={styles.touchHintBadge}>
