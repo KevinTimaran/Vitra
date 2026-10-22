@@ -191,8 +191,8 @@ export const FloatingGlassTabBar: React.FC<BottomTabBarProps> = ({
   const { isDark, colors } = useTheme();
   const { t } = useTranslation();
 
-  // Posicionamiento flotante seguro respecto a la barra de inicio de iOS/Android
-  const bottomOffset = Math.max(insets.bottom, 12) + 6;
+  // Posicionamiento más bajo para no estorbar ni tapar contenido inferior
+  const bottomOffset = insets.bottom > 0 ? Math.max(insets.bottom - 14, 6) : 6;
 
   const getLabelForRoute = (name: string): string => {
     switch (name) {
@@ -311,36 +311,35 @@ export const FloatingGlassTabBar: React.FC<BottomTabBarProps> = ({
 const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    left: 14,
-    right: 14,
+    left: 8,
+    right: 8,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
   },
   glassCardShadow: {
     width: '100%',
-    maxWidth: 440,
-    borderRadius: 36,
+    borderRadius: 30,
     shadowColor: '#0d2626',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 28,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 12,
     backgroundColor: 'transparent',
   },
   blurSurface: {
     width: '100%',
-    borderRadius: 36,
+    borderRadius: 30,
     overflow: 'hidden',
     borderWidth: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
   },
   specularSheen: {
     position: 'absolute',
     top: 0,
-    left: 20,
-    right: 20,
+    left: 16,
+    right: 16,
     height: 1,
     borderTopWidth: 1,
   },
@@ -354,18 +353,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
+    paddingVertical: 1,
   },
   tabContentContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 24,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: 'transparent',
-    minWidth: 52,
-    minHeight: 48,
+    minWidth: 46,
+    minHeight: 40,
   },
   tabContentFocused: {
     shadowColor: '#0d2626',
