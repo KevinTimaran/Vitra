@@ -18,7 +18,7 @@ import { PrimaryButton, SecondaryButton, TextButton } from '../components/Button
 import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
-import { useUser } from '../contexts/UserContext';
+import { useUser, PRESET_AVATARS } from '../contexts/UserContext';
 import { analyzeColorimetry, generateAvatar } from '../services/ai/garmentAnalyzer';
 
 interface BodyProfileScreenProps {
@@ -26,14 +26,6 @@ interface BodyProfileScreenProps {
   onComplete?: () => void;
   onSkip?: () => void;
 }
-
-const ONBOARDING_STEPS = [
-  { id: 1, title: 'Calibrando captura biométrica', detail: 'Verificando resolución y alineación frontal...' },
-  { id: 2, title: 'Análisis Gemini Vision', detail: 'Extrayendo tono de piel, color de cabello y estación...' },
-  { id: 3, title: 'Extrusión 3D en Tripo3D', detail: 'Construyendo malla anatómica y texturas PBR...' },
-  { id: 4, title: 'Optimizando avatar_base.glb', detail: 'Empaquetando modelo tridimensional interactivo...' },
-  { id: 5, title: 'Perfil biométrico listo', detail: 'Sincronizando paleta y gemelo digital en FitGlass...' },
-];
 
 export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
   navigation,
@@ -43,23 +35,37 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const {
+    gender: contextGender,
+    setGender: setContextGender,
+    setPresetAvatar,
     updateColorProfile,
     updateAvatarUrl,
     setUserPhotoUri,
     completeOnboarding,
   } = useUser();
 
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  // 1. Género obligatorio (por defecto femenino, seleccionable)
+  const [selectedGender, setSelectedGender] = useState<'female' | 'male' | 'non-binary'>(
+    (contextGender as any) || 'female'
+  );
+
+  // 2. Fotos opcionales (facial para colorimetría y cuerpo entero para avatar 3D)
+  const [faceImageUri, setFaceImageUri] = useState<string | null>(null);
+  const [faceImageBase64, setFaceImageBase64] = useState<string | null>(null);
+
+  const [bodyImageUri, setBodyImageUri] = useState<string | null>(null);
+  const [bodyImageBase64, setBodyImageBase64] = useState<string | null>(null);
+
+  // Estados de procesamiento
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
+  const [processStep, setProcessStep] = useState<string>('Iniciando configuración...');
+  const [processProgress, setProcessProgress] = useState<number>(0.1);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0.1)).current;
 
-  // Animación de pulso continuo durante el procesamiento
   useEffect(() => {
     let pulse: Animated.CompositeAnimation | null = null;
     if (isProcessing) {
@@ -86,177 +92,169 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
     };
   }, [isProcessing]);
 
-  // Tomar fotografía frontal con cámara
-  const handleLaunchCamera = async () => {
+  const handlePickImage = async (
+    target: 'face' | 'body',
+    source: 'camera' | 'gallery' | 'sample'
+  ) => {
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(
-          'Permiso de Cámara',
-          'Se requiere acceso a la cámara para capturar tu fotografía frontal y facial.'
-        );
+      if (source === 'sample') {
+        if (target === 'face') {
+          const sample =
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80';
+          setFaceImageUri(sample);
+          setFaceImageBase64(sample);
+        } else {
+          const sample =
+            selectedGender === 'male'
+              ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80'
+              : selectedGender === 'non-binary'
+              ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
+              : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+          setBodyImageUri(sample);
+          setBodyImageBase64(sample);
+        }
         return;
       }
 
-      const result = await ImagePicker.launchCameraAsync({
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permiso Requerido',
+            'Se requiere acceso a la cámara para capturar la fotografía.'
+          );
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permiso Requerido',
+            'Se requiere acceso a la galería para seleccionar la fotografía.'
+          );
+          return;
+        }
+      }
+
+      const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
         allowsEditing: true,
-        aspect: [3, 4],
+        aspect: target === 'face' ? [1, 1] : [3, 4],
         quality: 0.85,
         base64: true,
-      });
+      };
+
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync(options)
+          : await ImagePicker.launchImageLibraryAsync(options);
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        setSelectedImageUri(asset.uri);
         const b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        setImageBase64(b64);
+
+        if (target === 'face') {
+          setFaceImageUri(asset.uri);
+          setFaceImageBase64(b64);
+        } else {
+          setBodyImageUri(asset.uri);
+          setBodyImageBase64(b64);
+        }
       }
     } catch (err: any) {
-      console.error('[BodyProfileScreen] Error de cámara:', err);
-      Alert.alert('Error', 'No se pudo inicializar la cámara del dispositivo.');
+      console.error('[BodyProfileScreen] Error capturando imagen:', err);
+      Alert.alert('Error', 'No se pudo acceder a la imagen seleccionada.');
     }
   };
 
-  // Seleccionar fotografía de la galería
-  const handleLaunchGallery = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(
-          'Permiso de Galería',
-          'Se requiere acceso a tus imágenes para seleccionar tu fotografía.'
-        );
-        return;
-      }
+  // Finalizar onboarding y ejecutar el pipeline biométrico
+  const handleCompleteSetup = async () => {
+    setContextGender(selectedGender);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [3, 4],
-        quality: 0.85,
-        base64: true,
+    const hasFace = Boolean(faceImageBase64 || faceImageUri);
+    const hasBody = Boolean(bodyImageBase64 || bodyImageUri);
+
+    // Si no hay fotos, asignar de inmediato el avatar preset y completar
+    if (!hasFace && !hasBody) {
+      setPresetAvatar(selectedGender);
+      completeOnboarding({
+        gender: selectedGender,
+        avatarType: 'preset',
+        avatarUrl: '',
       });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setSelectedImageUri(asset.uri);
-        const b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        setImageBase64(b64);
+      if (onComplete) {
+        onComplete();
+      } else if (navigation) {
+        navigation.navigate('MainTabs');
       }
-    } catch (err: any) {
-      console.error('[BodyProfileScreen] Error de galería:', err);
-      Alert.alert('Error', 'No se pudo acceder a las fotos del dispositivo.');
-    }
-  };
-
-  // Pipeline generativo de FASE 4: Colorimetría + Avatar 3D
-  const handleRunBiometricPipeline = async () => {
-    if (!imageBase64 && !selectedImageUri) {
-      Alert.alert('Foto requerida', 'Por favor toma o selecciona una foto frontal antes de continuar.');
       return;
     }
 
-    const imageToSend = imageBase64 || selectedImageUri!;
     setIsProcessing(true);
     setError(null);
     setIsSuccess(false);
-    setCurrentStepIndex(0);
-
-    Animated.timing(progressAnim, {
-      toValue: 0.25,
-      duration: 2000,
-      useNativeDriver: false,
-    }).start();
 
     try {
-      // Paso 1: Calibración
-      setCurrentStepIndex(0);
-      await new Promise((res) => setTimeout(res, 600));
+      let colorResult = null;
+      let avatar3DUrl = '';
 
-      // Paso 2: Análisis de Colorimetría con Gemini Vision
-      setCurrentStepIndex(1);
-      Animated.timing(progressAnim, {
-        toValue: 0.55,
-        duration: 3500,
-        useNativeDriver: false,
-      }).start();
-
-      let colorimetryResult = null;
-      try {
-        console.log('[BodyProfileScreen] Consultando /api/colorimetry/analyze...');
-        const colorRes = await analyzeColorimetry(imageToSend);
-        if (colorRes.success && colorRes.data) {
-          colorimetryResult = colorRes.data;
-          updateColorProfile(colorRes.data);
+      // 1. Análisis de Colorimetría si se proporcionó foto de rostro
+      if (hasFace) {
+        setProcessStep('Analizando colorimetría facial con Gemini Vision...');
+        Animated.timing(progressAnim, { toValue: 0.45, duration: 2500, useNativeDriver: false }).start();
+        try {
+          const colorRes = await analyzeColorimetry(faceImageBase64 || faceImageUri!);
+          if (colorRes.success && colorRes.data) {
+            colorResult = colorRes.data;
+            updateColorProfile(colorRes.data);
+          }
+        } catch (cErr: any) {
+          console.warn('[BodyProfileScreen] Aviso en colorimetría:', cErr?.message);
         }
-      } catch (colorErr: any) {
-        console.warn('[BodyProfileScreen] Colorimetría aviso:', colorErr?.message);
       }
 
-      // Paso 3 & 4: Generación de Avatar 3D con Tripo3D
-      setCurrentStepIndex(2);
-      Animated.timing(progressAnim, {
-        toValue: 0.85,
-        duration: 4000,
-        useNativeDriver: false,
-      }).start();
-
-      let avatarUrl = '';
-      try {
-        console.log('[BodyProfileScreen] Consultando /api/avatar/generate...');
-        const avatarRes = await generateAvatar(imageToSend);
-        avatarUrl = avatarRes.avatar_url;
-        updateAvatarUrl(avatarRes.avatar_url);
-      } catch (avatarErr: any) {
-        console.warn('[BodyProfileScreen] Avatar aviso (usando modelo 3D fallback):', avatarErr?.message);
-        avatarUrl = '';
-        updateAvatarUrl('');
+      // 2. Generación de Avatar 3D si se proporcionó foto de cuerpo entero
+      if (hasBody) {
+        setProcessStep('Construyendo avatar 3D personalizado con Tripo3D...');
+        Animated.timing(progressAnim, { toValue: 0.85, duration: 4000, useNativeDriver: false }).start();
+        try {
+          const avatarRes = await generateAvatar(bodyImageBase64 || bodyImageUri!);
+          avatar3DUrl = avatarRes.avatar_url;
+          updateAvatarUrl(avatarRes.avatar_url);
+        } catch (aErr: any) {
+          console.warn('[BodyProfileScreen] Aviso en avatar 3D (usando preset):', aErr?.message);
+          avatar3DUrl = '';
+          setPresetAvatar(selectedGender);
+        }
+      } else {
+        // Asignación inicial de silueta preset
+        setPresetAvatar(selectedGender);
       }
 
-      // Paso 5: Finalización y guardado en UserContext
-      setCurrentStepIndex(4);
-      Animated.timing(progressAnim, {
-        toValue: 1.0,
-        duration: 600,
-        useNativeDriver: false,
-      }).start();
+      Animated.timing(progressAnim, { toValue: 1.0, duration: 500, useNativeDriver: false }).start();
+      setProcessStep('Identidad configurada con éxito.');
 
-      if (selectedImageUri) {
-        setUserPhotoUri(selectedImageUri);
-      }
       completeOnboarding({
-        avatarUrl,
-        colorProfile: colorimetryResult || undefined,
-        photoUri: selectedImageUri || undefined,
+        gender: selectedGender,
+        facePhotoUri: faceImageUri || undefined,
+        bodyPhotoUri: bodyImageUri || undefined,
+        avatarUrl: avatar3DUrl || undefined,
+        avatarType: avatar3DUrl ? 'custom_3d' : 'preset',
+        colorProfile: colorResult || undefined,
       });
 
       setIsProcessing(false);
       setIsSuccess(true);
     } catch (err: any) {
-      console.error('[BodyProfileScreen] Fallo general:', err);
+      console.error('[BodyProfileScreen] Error general en onboarding:', err);
       setIsProcessing(false);
-      setError(err?.message || 'Error inesperado durante la calibración biométrica.');
+      setError(err?.message || 'Error durante la calibración de la identidad.');
     }
   };
 
-  const handleGoToColorStudio = () => {
+  const handleFinishToTabs = () => {
     if (onComplete) {
       onComplete();
-    } else if (navigation) {
-      navigation.navigate('ColorStudio');
-    }
-  };
-
-  const handleGoToMainTabs = () => {
-    if (navigation) {
-      navigation.navigate('MainTabs');
-    }
-  };
-
-  const handleSkip = () => {
-    if (onSkip) {
-      onSkip();
     } else if (navigation) {
       navigation.navigate('MainTabs');
     }
@@ -266,19 +264,9 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
   // RENDER: PANTALLA DE PROCESAMIENTO / ÉXITO
   // ==========================================
   if (isProcessing || isSuccess || error) {
-    const currentStep = ONBOARDING_STEPS[currentStepIndex] || ONBOARDING_STEPS[0];
-
     return (
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <GlassCard style={styles.processingCard}>
-          {/* Vista previa miniatura de la foto */}
-          {selectedImageUri ? (
-            <View style={[styles.photoThumbnail, { borderColor: colors.borderLight }]}>
-              <Image source={{ uri: selectedImageUri }} style={styles.thumbnailImg} />
-            </View>
-          ) : null}
-
-          {/* Icono central de estado con pulso */}
           <Animated.View
             style={[
               styles.stateCircle,
@@ -295,59 +283,50 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                   ? 'checkmark-circle'
                   : error
                   ? 'alert-circle-outline'
-                  : 'scan-circle-outline'
+                  : 'sparkles'
               }
               size={48}
-              color={
-                isSuccess ? '#15803D' : error ? '#EF4444' : colors.primary
-              }
+              color={isSuccess ? '#15803D' : error ? '#EF4444' : colors.primary}
             />
           </Animated.View>
 
-          {/* Estado de Éxito */}
           {isSuccess ? (
             <View style={styles.resultBox}>
               <Text style={[styles.processingTitle, { color: colors.primaryText }]}>
-                ¡Identidad Creada!
+                ¡Identidad y Gemelo Listos!
               </Text>
               <Text style={[styles.processingSubtitle, { color: colors.secondaryText }]}>
-                Tu avatar 3D ha sido sintetizado y Gemini Vision ha calibrado tu paleta de colorimetría personalizada.
+                Tu silueta base ha sido calibrada{' '}
+                {bodyImageUri
+                  ? 'con tu avatar 3D personalizado generado por Tripo3D.'
+                  : 'con la silueta Atelier correspondiente a tu género seleccionado.'}
               </Text>
 
               <View style={styles.successActions}>
                 <PrimaryButton
-                  label="Ver Mi Estudio de Color"
-                  onPress={handleGoToColorStudio}
-                  icon="color-palette-outline"
-                />
-                <SecondaryButton
-                  label="Ir al Armario y Probador 3D"
-                  onPress={handleGoToMainTabs}
-                  icon="shirt-outline"
-                  style={{ marginTop: Spacing.sm }}
+                  label="Ir a Inicio y Probador Virtual"
+                  onPress={handleFinishToTabs}
+                  icon="sparkles"
                 />
               </View>
             </View>
           ) : error ? (
-            /* Estado de Error */
             <View style={styles.resultBox}>
               <Text style={[styles.processingTitle, { color: colors.primaryText }]}>
-                Error de Calibración
+                Error en la Configuración
               </Text>
               <Text style={[styles.processingSubtitle, { color: colors.secondaryText }]}>
                 {error}
               </Text>
-
               <View style={styles.errorButtonsRow}>
                 <TouchableOpacity
                   style={[styles.btnAction, { backgroundColor: colors.cta }]}
-                  onPress={handleRunBiometricPipeline}
+                  onPress={handleCompleteSetup}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="refresh" size={18} color={colors.ctaText} />
                   <Text style={[styles.btnActionText, { color: colors.ctaText }]}>Reintentar</Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
                   style={[styles.btnActionSecondary, { borderColor: colors.borderLight }]}
                   onPress={() => {
@@ -357,22 +336,20 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.btnActionSecondaryText, { color: colors.secondaryText }]}>
-                    Cambiar Foto
+                    Volver
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
-            /* Estado de Procesamiento Activo */
             <View style={styles.activeBox}>
               <Text style={[styles.processingTitle, { color: colors.primaryText }]}>
-                {currentStep.title}
+                Configurando Identidad
               </Text>
               <Text style={[styles.processingSubtitle, { color: colors.secondaryText }]}>
-                {currentStep.detail}
+                {processStep}
               </Text>
 
-              {/* Barra de progreso animada */}
               <View style={[styles.progressTrack, { backgroundColor: colors.surfaceSubtle }]}>
                 <Animated.View
                   style={[
@@ -388,49 +365,8 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                 />
               </View>
 
-              {/* Lista de etapas */}
-              <View style={styles.stepsList}>
-                {ONBOARDING_STEPS.map((step, idx) => {
-                  const isPassed = idx < currentStepIndex;
-                  const isCurrent = idx === currentStepIndex;
-                  return (
-                    <View key={step.id} style={styles.stepItemRow}>
-                      <View
-                        style={[
-                          styles.stepDot,
-                          isPassed
-                            ? styles.stepDotPassed
-                            : isCurrent
-                            ? [styles.stepDotCurrent, { backgroundColor: colors.primary }]
-                            : styles.stepDotPending,
-                        ]}
-                      >
-                        {isPassed ? (
-                          <Ionicons name="checkmark" size={11} color="#FFFFFF" />
-                        ) : null}
-                      </View>
-                      <Text
-                        style={[
-                          styles.stepLabel,
-                          {
-                            color: isCurrent
-                              ? colors.primaryText
-                              : isPassed
-                              ? colors.secondaryText
-                              : colors.tertiaryText,
-                            fontWeight: isCurrent ? '700' : '400',
-                          },
-                        ]}
-                      >
-                        {step.title}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-
               <Text style={[styles.latencyHint, { color: colors.tertiaryText }]}>
-                Generando avatar_base.glb y armonía espectral. Este proceso toma entre 10 y 25 segundos.
+                FitGlassAI está procesando tus datos biométricos. Por favor espera unos momentos.
               </Text>
             </View>
           )}
@@ -440,7 +376,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
   }
 
   // ==========================================
-  // RENDER: PANTALLA PRINCIPAL DE CAPTURA
+  // RENDER: PANTALLA PRINCIPAL DE ONBOARDING
   // ==========================================
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -448,11 +384,11 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header / Progreso */}
+        {/* Cabecera de Onboarding */}
         <View style={styles.header}>
           <View style={styles.stepIndicatorRow}>
             <Text style={[styles.stepBadge, { color: colors.tertiaryText }]}>
-              FASE 04 · ONBOARDING BIOMÉTRICO
+              FASE 01 · IDENTIDAD Y AVATAR BASE
             </Text>
             <View style={[styles.progressBarMini, { backgroundColor: colors.surfaceSubtle }]}>
               <View style={[styles.progressFillMini, { backgroundColor: colors.primaryText }]} />
@@ -460,95 +396,255 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
           </View>
 
           <Text style={[Typography.largeTitle, styles.title, { color: colors.primaryText }]}>
-            Escaneo Frontal
+            Configura tu Gemelo Digital
           </Text>
           <Text style={[Typography.body, styles.subtitle, { color: colors.secondaryText }]}>
-            Toma una fotografía frontal clara. FitGlass AI extraerá tu avatar 3D y tu estación de colorimetría.
+            Selecciona tu silueta requerida y añade fotos opcionales para personalizar tu avatar 3D y colorimetría.
           </Text>
         </View>
 
-        {/* Viewfinder con Guía Óptica Biométrico */}
-        <GlassCard style={styles.viewfinderCard}>
-          {selectedImageUri ? (
-            <View style={styles.previewContainer}>
-              <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
-              <View style={styles.previewBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#8EB6C7" />
-                <Text style={styles.previewBadgeText}>Fotografía Capturada</Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.guideContainer}>
-              {/* Abstract Facial/Body Silhouette Guidelines */}
-              <View style={[styles.faceOvalGuide, { borderColor: colors.tiffany }]}>
-                <View style={[styles.eyeLineGuide, { backgroundColor: colors.borderLight }]} />
-                <View style={[styles.verticalAxisGuide, { backgroundColor: colors.borderLight }]} />
-              </View>
-              <View style={[styles.shoulderGuide, { borderColor: colors.borderLight }]} />
-
-              <View style={styles.guideInstructionBox}>
-                <Ionicons name="camera-reverse-outline" size={24} color={colors.primary} />
-                <Text style={[styles.guideInstructionText, { color: colors.secondaryText }]}>
-                  Encuadra tu rostro y torso con buena iluminación y fondo neutro
-                </Text>
-              </View>
-            </View>
-          )}
-        </GlassCard>
-
-        {/* Selector de Captura: Cámara y Galería */}
-        <View style={styles.buttonsGroup}>
-          <TouchableOpacity
-            style={[styles.cameraActionBtn, { backgroundColor: colors.cta }]}
-            onPress={handleLaunchCamera}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="camera" size={20} color={colors.ctaText} />
-            <Text style={[styles.cameraActionText, { color: colors.ctaText }]}>
-              {selectedImageUri ? 'Tomar Otra Foto con Cámara' : 'Tomar Foto con Cámara'}
+        {/* 1. SELECCIÓN DE GÉNERO OBLIGATORIA */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
+              1. Silueta y Género
             </Text>
-          </TouchableOpacity>
+            <View style={[styles.requiredBadge, { backgroundColor: colors.surfaceSubtle }]}>
+              <Text style={[styles.requiredBadgeText, { color: colors.primaryText }]}>
+                REQUERIDO
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
+            Define la estructura anatómica del avatar para la calibración del probador 3D.
+          </Text>
 
-          <TouchableOpacity
-            style={[
-              styles.galleryActionBtn,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
-            ]}
-            onPress={handleLaunchGallery}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="images-outline" size={20} color={colors.primaryText} />
-            <Text style={[styles.galleryActionText, { color: colors.primaryText }]}>
-              Elegir de la Fototeca
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.genderOptionsColumn}>
+            {[
+              {
+                id: 'female' as const,
+                title: 'Silueta Femenina Atelier',
+                desc: 'Proporciones esbeltas con calibración para vestidos y sastrería.',
+                icon: 'woman-outline',
+              },
+              {
+                id: 'male' as const,
+                title: 'Silueta Masculina Atelier',
+                desc: 'Estructura atlética con hombros definidos y caída recta.',
+                icon: 'man-outline',
+              },
+              {
+                id: 'non-binary' as const,
+                title: 'Silueta Fluida / Neutra',
+                desc: 'Líneas minimalistas y proporciones universales contemporáneas.',
+                icon: 'people-outline',
+              },
+            ].map((option) => {
+              const isSelected = selectedGender === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.genderCard,
+                    {
+                      backgroundColor: isSelected ? colors.surfaceSubtle : 'transparent',
+                      borderColor: isSelected ? colors.primaryText : colors.borderLight,
+                      borderWidth: isSelected ? 2 : 1,
+                    },
+                  ]}
+                  onPress={() => setSelectedGender(option.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.genderIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+                    <Ionicons name={option.icon as any} size={22} color={colors.primaryText} />
+                  </View>
+                  <View style={styles.genderTextCol}>
+                    <Text style={[styles.genderCardTitle, { color: colors.primaryText }]}>
+                      {option.title}
+                    </Text>
+                    <Text style={[styles.genderCardDesc, { color: colors.secondaryText }]}>
+                      {option.desc}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.radioCircle,
+                      {
+                        borderColor: isSelected ? colors.primaryText : colors.borderLight,
+                        backgroundColor: isSelected ? colors.primaryText : 'transparent',
+                      },
+                    ]}
+                  >
+                    {isSelected && <Ionicons name="checkmark" size={12} color={colors.bg} />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
-        {/* Consejos de captura */}
-        <GlassCard style={styles.tipsCard}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
-          <Text style={[styles.tipsCardText, { color: colors.secondaryText }]}>
-            Para una colorimetría precisa, evita sombras duras, lentes oscuros y filtros artificiales.
+        {/* 2. FOTO FACIAL (OPCIONAL - COLORIMETRÍA) */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
+              2. Foto Facial (Colorimetría)
+            </Text>
+            <View style={styles.optionalBadge}>
+              <Text style={[styles.optionalBadgeText, { color: colors.secondaryText }]}>
+                OPCIONAL
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
+            Gemini Vision analiza tu tono de piel y cabello para extraer tu paleta estacional HEX.
           </Text>
+
+          <GlassCard style={styles.photoCaptureCard}>
+            {faceImageUri ? (
+              <View style={styles.photoPreviewRow}>
+                <Image source={{ uri: faceImageUri }} style={styles.photoThumbCircle} />
+                <View style={styles.photoPreviewInfo}>
+                  <Text style={[styles.photoCapturedText, { color: colors.primaryText }]}>
+                    Fotografía facial seleccionada
+                  </Text>
+                  <Text style={[styles.photoCapturedSub, { color: colors.secondaryText }]}>
+                    Lista para análisis cromático
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.btnRemovePhoto}
+                  onPress={() => {
+                    setFaceImageUri(null);
+                    setFaceImageBase64(null);
+                  }}
+                >
+                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.photoActionsRow}>
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+                  onPress={() => handlePickImage('face', 'camera')}
+                >
+                  <Ionicons name="camera-outline" size={18} color={colors.primaryText} />
+                  <Text style={[styles.captureBtnText, { color: colors.primaryText }]}>Cámara</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+                  onPress={() => handlePickImage('face', 'gallery')}
+                >
+                  <Ionicons name="images-outline" size={18} color={colors.primaryText} />
+                  <Text style={[styles.captureBtnText, { color: colors.primaryText }]}>Galería</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+                  onPress={() => handlePickImage('face', 'sample')}
+                >
+                  <Ionicons name="sparkles-outline" size={18} color={colors.primaryText} />
+                  <Text style={[styles.captureBtnText, { color: colors.primaryText }]}>Muestra</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </GlassCard>
+        </View>
+
+        {/* 3. FOTO DE CUERPO ENTERO (OPCIONAL - AVATAR 3D) */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
+              3. Foto de Cuerpo Completo (Avatar 3D)
+            </Text>
+            <View style={styles.optionalBadge}>
+              <Text style={[styles.optionalBadgeText, { color: colors.secondaryText }]}>
+                OPCIONAL
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
+            Tripo3D construye tu gemelo 3D interactivo (.glb). Si la omites, se asignará el avatar preset correspondiente a tu silueta.
+          </Text>
+
+          <GlassCard style={styles.photoCaptureCard}>
+            {bodyImageUri ? (
+              <View style={styles.photoPreviewRow}>
+                <Image source={{ uri: bodyImageUri }} style={styles.photoThumbRect} />
+                <View style={styles.photoPreviewInfo}>
+                  <Text style={[styles.photoCapturedText, { color: colors.primaryText }]}>
+                    Fotografía corporal seleccionada
+                  </Text>
+                  <Text style={[styles.photoCapturedSub, { color: colors.secondaryText }]}>
+                    Lista para reconstrucción tridimensional
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.btnRemovePhoto}
+                  onPress={() => {
+                    setBodyImageUri(null);
+                    setBodyImageBase64(null);
+                  }}
+                >
+                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.photoActionsRow}>
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+                  onPress={() => handlePickImage('body', 'camera')}
+                >
+                  <Ionicons name="camera-outline" size={18} color={colors.primaryText} />
+                  <Text style={[styles.captureBtnText, { color: colors.primaryText }]}>Cámara</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+                  onPress={() => handlePickImage('body', 'gallery')}
+                >
+                  <Ionicons name="images-outline" size={18} color={colors.primaryText} />
+                  <Text style={[styles.captureBtnText, { color: colors.primaryText }]}>Galería</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+                  onPress={() => handlePickImage('body', 'sample')}
+                >
+                  <Ionicons name="sparkles-outline" size={18} color={colors.primaryText} />
+                  <Text style={[styles.captureBtnText, { color: colors.primaryText }]}>Muestra</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </GlassCard>
+        </View>
+
+        {/* Resumen de Asignación Inicial */}
+        <GlassCard style={styles.summaryCard}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.summaryTitle, { color: colors.primaryText }]}>
+              Asignación Inicial de Avatar
+            </Text>
+            <Text style={[styles.summaryDesc, { color: colors.secondaryText }]}>
+              {bodyImageUri
+                ? 'Se generará tu avatar 3D personalizado a través de Tripo3D.'
+                : `Se asignará la ${PRESET_AVATARS[selectedGender]?.label || 'Silueta Atelier'} como tu modelo base interactivo.`}
+            </Text>
+          </View>
         </GlassCard>
       </ScrollView>
 
-      {/* Footer de Confirmación */}
-      <View
-        style={[
-          styles.footer,
-          { backgroundColor: colors.bg, borderTopColor: colors.borderLight },
-        ]}
-      >
+      {/* Footer de Acción */}
+      <View style={[styles.footer, { backgroundColor: colors.bg, borderTopColor: colors.borderLight }]}>
         <PrimaryButton
-          label="Analizar y Generar Avatar 3D"
-          onPress={handleRunBiometricPipeline}
-          icon="sparkles"
-          disabled={!selectedImageUri}
+          label="Completar y Asignar Avatar"
+          onPress={handleCompleteSetup}
+          icon="arrow-forward"
         />
         <TextButton
-          label="Omitir por ahora y usar modelo base"
-          onPress={handleSkip}
+          label="Continuar solo con silueta base"
+          onPress={() => {
+            setPresetAvatar(selectedGender);
+            completeOnboarding({ gender: selectedGender, avatarType: 'preset' });
+            handleFinishToTabs();
+          }}
           style={{ marginTop: Spacing.xs }}
         />
       </View>
@@ -561,7 +657,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xl,
   },
@@ -586,147 +682,174 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFillMini: {
-    width: '65%',
+    width: '100%',
     height: '100%',
   },
   title: {
     marginTop: Spacing.xs,
+    fontSize: 24,
   },
   subtitle: {
     marginTop: Spacing.xs,
     lineHeight: 20,
+    fontSize: 13,
   },
-  viewfinderCard: {
-    height: 320,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+  sectionContainer: {
     marginBottom: Spacing.lg,
-    position: 'relative',
   },
-  previewContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  previewBadge: {
-    position: 'absolute',
-    top: Spacing.md,
-    right: Spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+  sectionHeaderRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    ...Typography.callout,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  sectionSubtitle: {
+    ...Typography.micro,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: Spacing.sm,
+  },
+  requiredBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: Radius.full,
-    gap: 6,
   },
-  previewBadgeText: {
+  requiredBadgeText: {
     ...Typography.micro,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '800',
+    fontSize: 9,
+    letterSpacing: 0.8,
   },
-  guideContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
-    padding: Spacing.lg,
+  optionalBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
-  faceOvalGuide: {
-    width: 140,
-    height: 180,
-    borderRadius: 70,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  eyeLineGuide: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    height: 1,
-  },
-  verticalAxisGuide: {
-    position: 'absolute',
-    top: 20,
-    bottom: 20,
-    width: 1,
-  },
-  shoulderGuide: {
-    width: 220,
-    height: 70,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    borderRightWidth: 2,
-    borderStyle: 'dashed',
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    marginTop: 6,
-  },
-  guideInstructionBox: {
-    position: 'absolute',
-    bottom: Spacing.lg,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    gap: 4,
-  },
-  guideInstructionText: {
+  optionalBadgeText: {
     ...Typography.micro,
-    textAlign: 'center',
-    lineHeight: 14,
+    fontWeight: '700',
+    fontSize: 9,
+    letterSpacing: 0.8,
   },
-  buttonsGroup: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+  genderOptionsColumn: {
+    gap: Spacing.xs,
   },
-  cameraActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: Radius.pill,
-    gap: Spacing.sm,
-  },
-  cameraActionText: {
-    ...Typography.callout,
-    fontFamily: Typography.outfit.semiBold,
-    fontWeight: '600',
-  },
-  galleryActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    gap: Spacing.sm,
-  },
-  galleryActionText: {
-    ...Typography.callout,
-    fontFamily: Typography.outfit.semiBold,
-    fontWeight: '600',
-  },
-  tipsCard: {
+  genderCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
+    gap: Spacing.md,
+  },
+  genderIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderTextCol: {
+    flex: 1,
+  },
+  genderCardTitle: {
+    ...Typography.callout,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  genderCardDesc: {
+    ...Typography.micro,
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoCaptureCard: {
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
     borderWidth: 1,
+  },
+  photoActionsRow: {
+    flexDirection: 'row',
     gap: Spacing.sm,
   },
-  tipsCardText: {
-    ...Typography.micro,
+  captureBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    gap: 6,
+  },
+  captureBtnText: {
+    ...Typography.caption,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  photoPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  photoThumbCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  photoThumbRect: {
+    width: 42,
+    height: 56,
+    borderRadius: 6,
+  },
+  photoPreviewInfo: {
+    flex: 1,
+  },
+  photoCapturedText: {
+    ...Typography.caption,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  photoCapturedSub: {
+    ...Typography.micro,
+    fontSize: 10,
+    marginTop: 1,
+  },
+  btnRemovePhoto: {
+    padding: 4,
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    gap: Spacing.md,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  summaryTitle: {
+    ...Typography.caption,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  summaryDesc: {
+    ...Typography.micro,
+    fontSize: 11,
+    marginTop: 2,
     lineHeight: 15,
   },
   footer: {
@@ -735,7 +858,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  // Processing & Success Styles
   processingCard: {
     flex: 1,
     margin: Spacing.xl,
@@ -744,24 +866,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  photoThumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    overflow: 'hidden',
-    borderWidth: 2,
-    marginBottom: Spacing.md,
-  },
-  thumbnailImg: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
   },
   stateCircle: {
     width: 88,
@@ -771,6 +875,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     marginBottom: Spacing.xl,
+  },
+  resultBox: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  activeBox: {
+    width: '100%',
+    alignItems: 'center',
   },
   processingTitle: {
     ...Typography.title2,
@@ -796,47 +908,11 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 3,
   },
-  stepsList: {
-    width: '100%',
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-    paddingHorizontal: Spacing.sm,
-  },
-  stepItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  stepDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepDotPassed: {
-    backgroundColor: '#15803D',
-  },
-  stepDotCurrent: {},
-  stepDotPending: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
-  },
-  stepLabel: {
-    ...Typography.caption,
-  },
   latencyHint: {
     ...Typography.micro,
     textAlign: 'center',
     lineHeight: 14,
     paddingHorizontal: Spacing.sm,
-  },
-  resultBox: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  activeBox: {
-    width: '100%',
-    alignItems: 'center',
   },
   successActions: {
     width: '100%',
@@ -858,7 +934,6 @@ const styles = StyleSheet.create({
   },
   btnActionText: {
     ...Typography.callout,
-    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
   btnActionSecondary: {
@@ -871,7 +946,6 @@ const styles = StyleSheet.create({
   },
   btnActionSecondaryText: {
     ...Typography.callout,
-    fontFamily: Typography.outfit.semiBold,
     fontWeight: '600',
   },
 });
