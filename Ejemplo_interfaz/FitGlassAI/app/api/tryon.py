@@ -17,10 +17,6 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
     3. Optimización 3D: comprime la malla y texturas para alto rendimiento móvil.
     4. Retorna las URLs resultantes y el estado completado.
     """
-    SAMPLE_3D_MODEL_FALLBACK = (
-        "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
-    )
-
     image_2d_url = None
     model_3d_url = None
 
@@ -49,24 +45,14 @@ async def generate_tryon(payload: TryOnRequest, request: Request = None) -> TryO
                     detail="El servicio VTON no generó una URL de imagen válida."
                 )
 
-        # Paso 2: Generar el modelo 3D a partir de la imagen 2D fusionada
-        try:
-            model_3d_url = await generate_3d_model(image_url=image_2d_url)
-        except Exception as tripo_err:
-            if payload.allow_fallback:
-                # Si Tripo3D no tiene créditos o falla, aplicar modelo de respaldo sin romper la UX
-                model_3d_url = SAMPLE_3D_MODEL_FALLBACK
-            else:
-                raise
+        # Paso 2: Generar el modelo 3D real a partir de la imagen 2D fusionada
+        model_3d_url = await generate_3d_model(image_url=image_2d_url)
 
         if not model_3d_url:
-            if payload.allow_fallback:
-                model_3d_url = SAMPLE_3D_MODEL_FALLBACK
-            else:
-                raise HTTPException(
-                    status_code=502,
-                    detail="El servicio Tripo3D no generó una URL de modelo 3D válida."
-                )
+            raise HTTPException(
+                status_code=502,
+                detail="El servicio Tripo3D no generó una URL de modelo 3D válida."
+            )
 
         # Paso 3: Optimización automática del modelo 3D (Draco + WebP)
         base_url = None
