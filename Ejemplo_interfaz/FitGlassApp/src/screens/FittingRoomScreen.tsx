@@ -514,6 +514,52 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                 </TouchableOpacity>
               );
             }}
+            ListEmptyComponent={
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 18,
+                  paddingHorizontal: 24,
+                  gap: 6,
+                }}
+              >
+                <Ionicons name="shirt-outline" size={26} color={colors.tertiaryText} />
+                <Text
+                  style={{
+                    fontFamily: Typography.outfit.medium,
+                    fontSize: 12,
+                    color: colors.secondaryText,
+                    textAlign: 'center',
+                  }}
+                >
+                  No hay prendas en tu armario aún.
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    borderRadius: Radius.pill,
+                    borderWidth: 1,
+                    borderColor: colors.borderLight,
+                    backgroundColor: colors.surfaceSubtle,
+                    marginTop: 4,
+                  }}
+                  onPress={handleLaunchAddGarment}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={{
+                      fontFamily: Typography.outfit.bold,
+                      fontSize: 11,
+                      color: colors.primaryText,
+                    }}
+                  >
+                    + Escanear Prenda
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            }
           />
         </GlassCard>
       </View>

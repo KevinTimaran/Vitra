@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius } from '../theme';
 import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
+import { Garment } from '../types';
 import { analyzeGarment, generateTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
 import { GarmentMetadata } from '../services/ai/types';
  
@@ -43,6 +45,7 @@ const PIPELINE_STEPS = [
 
 export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (props) => {
   const { colors, isDark } = useTheme();
+  const { addGarmentToWardrobe } = useUser();
 
   const imageBase64 = props.imageBase64 || props.route?.params?.imageBase64 || '';
   const imageUri = props.imageUri || props.route?.params?.imageUri || '';
@@ -146,13 +149,96 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
         }
       }
 
-      // Paso 5: Finalización
+      // Paso 5: Finalización y guardado en Armario
       setCurrentStepIndex(4);
       Animated.timing(progressAnim, {
         toValue: 1.0,
         duration: 800,
         useNativeDriver: false,
       }).start();
+
+      // Construcción del objeto Garment para la biblioteca permanente del usuario
+      const rawHexMatch = metadata?.color_dominante?.match(/#[0-9A-Fa-f]{6}/);
+      const colorHex = rawHexMatch ? rawHexMatch[0] : '#2C2C2C';
+
+      const tipo = (metadata?.tipo_prenda || '').toLowerCase();
+      let category: 'Outerwear' | 'Tops' | 'Pants' | 'Shoes' | 'Accessories' = 'Tops';
+      let silhouetteType: 'tshirt' | 'jacket' | 'trousers' | 'shoes' | 'coat' | 'accessory' = 'tshirt';
+
+      if (
+        tipo.includes('chaqueta') ||
+        tipo.includes('hoodie') ||
+        tipo.includes('abrigo') ||
+        tipo.includes('blazer') ||
+        tipo.includes('jacket') ||
+        tipo.includes('parka')
+      ) {
+        category = 'Outerwear';
+        silhouetteType = 'jacket';
+      } else if (
+        tipo.includes('pantal') ||
+        tipo.includes('jean') ||
+        tipo.includes('falda') ||
+        tipo.includes('trouser') ||
+        tipo.includes('short')
+      ) {
+        category = 'Pants';
+        silhouetteType = 'trousers';
+      } else if (
+        tipo.includes('zapato') ||
+        tipo.includes('sneaker') ||
+        tipo.includes('bota') ||
+        tipo.includes('shoe')
+      ) {
+        category = 'Shoes';
+        silhouetteType = 'shoes';
+      } else if (
+        tipo.includes('gorra') ||
+        tipo.includes('sombrero') ||
+        tipo.includes('accesorio') ||
+        tipo.includes('bolso') ||
+        tipo.includes('reloj')
+      ) {
+        category = 'Accessories';
+        silhouetteType = 'accessory';
+      }
+
+      const createdGarment: Garment = {
+        id: `garment-${Date.now()}`,
+        name: metadata?.tipo_prenda
+          ? `${metadata.tipo_prenda} ${metadata.corte || ''}`.trim()
+          : 'Prenda Escaneada',
+        category,
+        colorName: metadata?.color_dominante
+          ? metadata.color_dominante.split('(')[0].trim()
+          : 'Color analizado',
+        colorHex,
+        size: 'M',
+        fit: (metadata?.corte as any) || 'Regular',
+        brand: 'Mi Armario',
+        material: metadata?.detalles || 'Tejido analizado por IA',
+        addedDate: new Date().toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+        imageUrl: imageUri || imageBase64,
+        model3dUrl: model3dUrl || undefined,
+        image2dUrl: image2dUrl || undefined,
+        silhouetteType,
+        paletteHarmony: true,
+        isFavorite: false,
+        details: metadata?.detalles,
+        style: metadata?.estilo_recomendado,
+        occasion: metadata?.ocasion_recomendada,
+      };
+
+      try {
+        addGarmentToWardrobe(createdGarment);
+        console.log('[Processing] Prenda guardada exitosamente en el Armario:', createdGarment.name);
+      } catch (saveErr) {
+        console.warn('[Processing] Error al guardar prenda en contexto:', saveErr);
+      }
 
       setIsProcessing(false);
 
@@ -164,22 +250,13 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
             metadata,
           });
         } else if (props.navigation) {
-          // Navegar a la pantalla del Probador (FittingRoom) pasando los parámetros del resultado
+          // Navegar a la pantalla del Armario para visualizar la biblioteca con el nuevo modelo 3D
           try {
             props.navigation.navigate('MainTabs', {
-              screen: 'FittingRoom',
-              params: {
-                model_3d_url: model3dUrl,
-                image_2d_url: image2dUrl,
-                metadata,
-              },
+              screen: 'Wardrobe',
             });
           } catch {
-            props.navigation.navigate('FittingRoom', {
-              model_3d_url: model3dUrl,
-              image_2d_url: image2dUrl,
-              metadata,
-            });
+            props.navigation.navigate('Wardrobe');
           }
         }
       }, 1000);
