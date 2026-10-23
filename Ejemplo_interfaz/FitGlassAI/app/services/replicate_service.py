@@ -14,17 +14,24 @@ logger = logging.getLogger(__name__)
 REPLICATE_VTON_MODEL = "cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985"
 REPLICATE_API_BASE_URL = "https://api.replicate.com/v1"
 
+# Modificadores de prompt para forzar texturas de tela mate natural y evitar acabados plásticos/brillantes
+POSITIVE_MATTE_PROMPT = "matte fabric, cotton texture, soft studio lighting, diffused light, flat colors"
+NEGATIVE_MATTE_PROMPT = "shiny, glossy, plastic, latex, metallic, specular highlights, bright reflections, overexposed"
+
 
 async def generate_vton(
     human_image_url: str,
     garment_image_url: str,
     category: str = "upper_body",
     garment_description: str = "clothing",
+    negative_prompt: str = NEGATIVE_MATTE_PROMPT,
 ) -> str:
     """
     Genera una prueba de ropa virtual (Virtual Try-On / VTON) fusionando la foto de una persona
     con la foto de una prenda de ropa utilizando el modelo cuuupid/idm-vton en Replicate.
     
+    Aplica modificadores de texturas de tela mate (algodón, iluminación suave) tanto en el
+    prompt positivo como negativo para eliminar cualquier brillo plástico o reflectivo.
     Retorna la URL de la imagen 2D fusionada resultante.
     """
     if not settings.has_replicate:
@@ -48,10 +55,19 @@ async def generate_vton(
             detail="La URL de la imagen de la prenda (garment_image_url) es obligatoria."
         )
 
+    desc_base = garment_description.strip() if garment_description and garment_description.strip() else "clothing"
+    if POSITIVE_MATTE_PROMPT not in desc_base:
+        enhanced_description = f"{desc_base}, {POSITIVE_MATTE_PROMPT}"
+    else:
+        enhanced_description = desc_base
+
+    neg_prompt = negative_prompt.strip() if negative_prompt and negative_prompt.strip() else NEGATIVE_MATTE_PROMPT
+
     input_payload = {
         "garm_img": garment_image_url.strip(),
         "human_img": human_image_url.strip(),
-        "garment_des": garment_description,
+        "garment_des": enhanced_description,
+        "negative_prompt": neg_prompt,
         "category": category,
         "crop": False,
         "steps": 30,
@@ -60,7 +76,7 @@ async def generate_vton(
     logger.info(
         f"[Replicate VTON] Enviando solicitud a IDM-VTON: "
         f"persona='{human_image_url[:80]}...', prenda='{garment_image_url[:80]}...', "
-        f"categoría='{category}', desc='{garment_description}'"
+        f"categoría='{category}', desc='{enhanced_description}', negative='{neg_prompt}'"
     )
 
     try:
@@ -69,10 +85,22 @@ async def generate_vton(
             api_token=settings.REPLICATE_API_TOKEN,
             timeout=httpx.Timeout(180.0, connect=30.0),
         )
-        output = await client.async_run(
-            REPLICATE_VTON_MODEL,
-            input=input_payload,
-        )
+        try:
+            output = await client.async_run(
+                REPLICATE_VTON_MODEL,
+                input=input_payload,
+            )
+        except Exception as run_err:
+            err_str = str(run_err).lower()
+            if "negative_prompt" in err_str or "unexpected" in err_str or "extra" in err_str:
+                logger.info("[Replicate VTON] Schema no admite negative_prompt directo, reintentando con garment_des enriquecido...")
+                clean_payload = {k: v for k, v in input_payload.items() if k != "negative_prompt"}
+                output = await client.async_run(
+                    REPLICATE_VTON_MODEL,
+                    input=clean_payload,
+                )
+            else:
+                raise run_err
 
         if not output:
             logger.error("[Replicate VTON] El modelo devolvió un output nulo o vacío.")
@@ -132,6 +160,16 @@ async def _generate_vton_via_rest(input_payload: dict) -> str:
     logger.info(f"[Replicate REST] Conectando a {url} con timeout de 180 segundos...")
     async with httpx.AsyncClient(timeout=180.0, follow_redirects=True) as http_client:
         response = await http_client.post(url, headers=headers, json=post_body)
+
+        # Si el schema REST estricto rechaza negative_prompt con 422, reintentar sin ese campo
+        if response.status_code == 422 and "negative_prompt" in response.text.lower():
+            logger.info("[Replicate REST] 422 por negative_prompt en schema, reintentando sin ese campo...")
+            clean_input = {k: v for k, v in input_payload.items() if k != "negative_prompt"}
+            if ":" in REPLICATE_VTON_MODEL:
+                post_body = {"version": version_hash, "input": clean_input}
+            else:
+                post_body = {"input": clean_input}
+            response = await http_client.post(url, headers=headers, json=post_body)
 
         if response.status_code not in (200, 201, 202):
             logger.error(f"[Replicate REST] Error HTTP {response.status_code}: {response.text}")
