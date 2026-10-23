@@ -10,7 +10,11 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.schemas.avatar import AvatarGenerateRequest, AvatarGenerateResponse
 from app.services.tripo_service import generate_3d_model
-from app.services.optimizer_service import optimize_3d_model, STATIC_MODELS_DIR
+from app.services.optimizer_service import (
+    optimize_3d_model,
+    get_or_create_optimized_default_avatar,
+    STATIC_MODELS_DIR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -275,17 +279,31 @@ async def delete_avatar():
     }
 
 
+@router.get("/default")
+async def get_default_avatar_model(gender: Optional[str] = "female", request: Request = None):
+    """
+    Retorna la URL del modelo 3D por defecto optimizado según el género solicitado ('female' o 'male').
+    Aplica la misma canalización de optimización de malla 3D de gltf-transform.
+    """
+    base_url = _resolve_base_url(request)
+    optimized_url = await get_or_create_optimized_default_avatar(gender, base_url=base_url)
+    return {
+        "avatar_url": optimized_url,
+        "gender": gender or "female",
+        "avatar_type": "preset",
+        "status": "completed",
+    }
+
+
 @router.get("/presets")
 async def get_avatar_presets(request: Request = None):
     """
-    Retorna la lista de avatares predeterminados calibrados por género y silueta.
+    Retorna la lista de avatares predeterminados calibrados por género y silueta,
+    con sus URLs a los modelos 3D optimizados reales.
     """
-    from app.config import settings
-    base_url = "http://127.0.0.1:8000"
-    if request and request.base_url:
-        base_url = str(request.base_url).rstrip("/")
-    elif settings.EXPO_PUBLIC_API_BASE_URL:
-        base_url = settings.EXPO_PUBLIC_API_BASE_URL.rstrip("/")
+    base_url = _resolve_base_url(request)
+    female_url = await get_or_create_optimized_default_avatar("female", base_url=base_url)
+    male_url = await get_or_create_optimized_default_avatar("male", base_url=base_url)
 
     presets = [
         {
@@ -294,7 +312,7 @@ async def get_avatar_presets(request: Request = None):
             "name": "Atelier Silueta Femenina",
             "description": "Proporciones esbeltas con calibración para vestidos y sastrería.",
             "image_2d": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80",
-            "model_3d_url": f"{base_url}/static/models/tshirt.glb",
+            "model_3d_url": female_url,
         },
         {
             "id": "preset-male",
@@ -302,7 +320,7 @@ async def get_avatar_presets(request: Request = None):
             "name": "Atelier Silueta Masculina",
             "description": "Estructura atlética con hombros definidos y caída recta.",
             "image_2d": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80",
-            "model_3d_url": f"{base_url}/static/models/tshirt.glb",
+            "model_3d_url": male_url,
         },
         {
             "id": "preset-neutral",
@@ -310,7 +328,7 @@ async def get_avatar_presets(request: Request = None):
             "name": "Atelier Silueta Fluida / Neutra",
             "description": "Líneas minimalistas y proporciones universales contemporáneas.",
             "image_2d": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
-            "model_3d_url": f"{base_url}/static/models/tshirt.glb",
+            "model_3d_url": female_url,
         },
     ]
 
