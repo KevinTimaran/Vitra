@@ -6,7 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.schemas.user import UserProfileSetup, UserProfileSetupResponse
 from app.services.auth_service import decode_access_token
-from app.api.auth import users_db
+from app.api.auth import users_db, save_users_db
 from app.services.optimizer_service import get_or_create_optimized_default_avatar
 from app.api.avatar import _resolve_base_url, _execute_avatar_generation
 
@@ -128,6 +128,7 @@ async def setup_user_profile(
             "face_image": payload.face_image[:50] + "..." if payload.face_image and len(payload.face_image) > 50 else payload.face_image,
             "body_image": payload.body_image[:50] + "..." if payload.body_image and len(payload.body_image) > 50 else payload.body_image,
         })
+        save_users_db()
         logger.info(f"[Users] Registro de base de datos actualizado para {user_email} con avatar_url: {avatar_url}")
 
     return UserProfileSetupResponse(
@@ -195,6 +196,7 @@ async def update_user_avatar(
             "avatar_url": new_avatar_url,
             "avatar_type": "custom_3d",
         })
+        save_users_db()
         logger.info(f"[Users] [Flow 3] Base de datos actualizada con nuevo avatar_url: {new_avatar_url}")
 
     return {

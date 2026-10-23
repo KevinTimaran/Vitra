@@ -14,6 +14,11 @@ export interface RegisterResponse {
 export interface UserMeResponse {
   email: string;
   name?: string;
+  gender?: string;
+  age?: number;
+  avatar_url?: string;
+  avatar_type?: string;
+  base_garments?: any[];
 }
 
 /**
@@ -139,7 +144,7 @@ export async function registerUser(email: string, password: string, name?: strin
 /**
  * Valida el token JWT actual y recupera datos del usuario
  */
-export async function fetchCurrentUser(token: string): Promise<UserMeResponse> {
+export async function fetchCurrentUser(token: string): Promise<UserMeResponse | null> {
   const baseUrl = await resolveServerUrl();
   const url = `${baseUrl}/api/auth/me`;
 
@@ -158,13 +163,14 @@ export async function fetchCurrentUser(token: string): Promise<UserMeResponse> {
     });
 
     if (!response.ok) {
-      throw new Error('Token expirado o sesión inválida');
+      console.log(`[authClient] Sesión no activa o token expirado en ${url} (HTTP ${response.status})`);
+      return null;
     }
 
     return await response.json();
   } catch (err: any) {
-    console.error(`[authClient] Error al validar sesión en ${url}:`, err);
-    throw err;
+    console.log(`[authClient] Consulta de sesión en ${url} omitida:`, err?.message || err);
+    return null;
   } finally {
     clearTimeout(timeoutId);
   }
