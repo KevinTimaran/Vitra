@@ -16,3 +16,8 @@ class UserProfileSetupResponse(BaseModel):
     full_name: Optional[str] = Field(default=None, description="Nombre configurado")
     age: Optional[int] = Field(default=None, description="Edad configurada")
     gender: Optional[str] = Field(default=None, description="Género configurado")
+    avatar_url: Optional[str] = Field(default=None, description="URL del modelo 3D (.glb) asignado u optimizado")
+    avatar_type: Optional[str] = Field(default=None, description="Tipo de avatar: 'custom_3d' o 'preset'")
+    base_garments: Optional[list] = Field(default_factory=list, description="Lista de prendas base asignadas al avatar")
+    color_profile: Optional[dict] = Field(default=None, description="Perfil de colorimetría facial del usuario")
+
