@@ -4,8 +4,8 @@ import * as SecureStore from 'expo-secure-store';
 import { File, Paths } from 'expo-file-system';
 import { UserProfile, ColorProfile, BodyProfile, Garment, SavedLookItem } from '../types';
 import { INITIAL_BODY_PROFILE, MOCK_GARMENTS, MOCK_SAVED_LOOKS } from '../data/mockData';
-import { generateAvatar, deleteCurrentAvatar } from '../services/ai/garmentAnalyzer';
-import { getDefaultAvatarModel, updateUserAvatar } from '../services/auth/authClient';
+import { generateAvatar, deleteCurrentAvatar, getLatestAvatarModel } from '../services/ai/garmentAnalyzer';
+import { getDefaultAvatarModel, updateUserAvatar, fetchCurrentUser } from '../services/auth/authClient';
 import { getAuthToken } from '../services/auth/secureStorage';
 
 const ONBOARDING_KEY = 'vitra_user_onboarding_v2';
@@ -149,6 +149,7 @@ export interface UserContextValue {
   setUserPhotoUri: (uri: string) => void;
   updateBodyProfile: (body: BodyProfile) => void;
   completeOnboarding: (data?: CompleteOnboardingData) => void;
+  syncProfileWithBackend: () => Promise<void>;
   resetProfile: () => void;
 }
 
@@ -170,7 +171,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [completedOnboarding, setCompletedOnboarding] = useState<boolean>(false);
 
   const [wardrobeItems, setWardrobeItems] = useState<Garment[]>(MOCK_GARMENTS);
-  const [savedLooks, setSavedLooks] = useState<SavedLookItem[]>(MOCK_SAVED_LOOKS);
+  const [savedLooks, setSavedLooks] = useState<SavedLookItem[]>([]);
 
   // 1. Cargar estado de Onboarding y Género
   useEffect(() => {
@@ -225,6 +226,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (saved === 'true') {
           setCompletedOnboarding(true);
         }
+
+        // Sincronizar en segundo plano con el backend para recuperar el avatar 3D más reciente
+        syncProfileWithBackend().catch(() => {});
       } catch (err) {
         console.warn('[UserContext] Error al leer estado de onboarding:', err);
       }
@@ -354,13 +358,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const content = await file.text();
           if (content) {
             const parsed = JSON.parse(content);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const normalized = parsed.map((l: SavedLookItem, idx: number) => ({
-                ...l,
-                category: l.category || (idx % 2 === 0 ? 'Elegante' : 'Fiesta'),
-                isFavorite: Boolean(l.isFavorite),
-              }));
-              setSavedLooks(normalized);
+            if (Array.isArray(parsed)) {
+              const realLooks = parsed
+                .filter((l: SavedLookItem) => l.id !== 'look-1' && l.id !== 'look-2')
+                .map((l: SavedLookItem, idx: number) => ({
+                  ...l,
+                  category: l.category || (idx % 2 === 0 ? 'Elegante' : 'Fiesta'),
+                  isFavorite: Boolean(l.isFavorite),
+                }));
+              setSavedLooks(realLooks);
               return;
             }
           }
@@ -369,19 +375,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const webSaved = localStorage.getItem('vitra_saved_looks_v1');
           if (webSaved) {
             const parsed = JSON.parse(webSaved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const normalized = parsed.map((l: SavedLookItem, idx: number) => ({
-                ...l,
-                category: l.category || (idx % 2 === 0 ? 'Elegante' : 'Fiesta'),
-                isFavorite: Boolean(l.isFavorite),
-              }));
-              setSavedLooks(normalized);
+            if (Array.isArray(parsed)) {
+              const realLooks = parsed
+                .filter((l: SavedLookItem) => l.id !== 'look-1' && l.id !== 'look-2')
+                .map((l: SavedLookItem, idx: number) => ({
+                  ...l,
+                  category: l.category || (idx % 2 === 0 ? 'Elegante' : 'Fiesta'),
+                  isFavorite: Boolean(l.isFavorite),
+                }));
+              setSavedLooks(realLooks);
               return;
             }
           }
         }
-        // Si no hay datos guardados, inicializar con mock
-        setSavedLooks(MOCK_SAVED_LOOKS);
+        // Inicializar sin looks adicionales ficticios (solo el avatar principal del usuario)
+        setSavedLooks([]);
       } catch (err) {
         console.warn('[UserContext] Error al cargar looks guardados:', err);
       }
@@ -616,6 +624,61 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBodyProfile(body);
   };
 
+  const syncProfileWithBackend = async (): Promise<void> => {
+    try {
+      let avatarFound = false;
+      const token = await getAuthToken();
+      if (token) {
+        try {
+          const me = await fetchCurrentUser(token);
+          if (me) {
+            if (me.name) setUserName(me.name);
+            if (me.gender) setGender(me.gender);
+            if (me.age) setUserAge(me.age);
+            if (me.avatar_url) {
+              console.log('[UserContext] Avatar 3D sincronizado desde backend (/me):', me.avatar_url);
+              setAvatarUrl(me.avatar_url);
+              setAvatarType((me.avatar_type as any) || 'custom_3d');
+              avatarFound = true;
+              if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+                localStorage.setItem('vitra_avatar_url', me.avatar_url);
+                localStorage.setItem('vitra_avatar_type', me.avatar_type || 'custom_3d');
+              } else if (typeof SecureStore?.setItemAsync === 'function') {
+                SecureStore.setItemAsync('vitra_avatar_url', me.avatar_url).catch(() => {});
+                SecureStore.setItemAsync('vitra_avatar_type', me.avatar_type || 'custom_3d').catch(() => {});
+              }
+            }
+          }
+        } catch (authErr) {
+          console.log('[UserContext] Token no activo en /me, verificando modelo en /api/avatar/latest...');
+        }
+      }
+
+      // Si /me no trajo avatar o el token estaba expirado, consultar directamente /api/avatar/latest
+      if (!avatarFound) {
+        try {
+          const latest = await getLatestAvatarModel();
+          if (latest?.avatar_url && latest.avatar_url.includes('tripo_pbr_model')) {
+            console.log('[UserContext] ¡Modelo 3D personalizado recuperado con éxito desde latest!:', latest.avatar_url);
+            setAvatarUrl(latest.avatar_url);
+            setAvatarType('custom_3d');
+            if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+              localStorage.setItem('vitra_avatar_url', latest.avatar_url);
+              localStorage.setItem('vitra_avatar_type', 'custom_3d');
+            } else if (typeof SecureStore?.setItemAsync === 'function') {
+              SecureStore.setItemAsync('vitra_avatar_url', latest.avatar_url).catch(() => {});
+              SecureStore.setItemAsync('vitra_avatar_type', 'custom_3d').catch(() => {});
+            }
+          }
+        } catch (latestErr) {
+          console.warn('[UserContext] Error consultando avatar latest:', latestErr);
+        }
+      }
+    } catch (e) {
+      console.warn('[UserContext] Error sincronizando con backend:', e);
+    }
+  };
+
   const completeOnboarding = (data?: CompleteOnboardingData) => {
     if (data?.fullName) setUserName(data.fullName);
     if (data?.age !== undefined && data?.age !== null) setUserAge(data.age);
@@ -787,6 +850,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserPhotoUri,
         updateBodyProfile,
         completeOnboarding,
+        syncProfileWithBackend,
         resetProfile,
       }}
     >

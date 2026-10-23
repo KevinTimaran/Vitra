@@ -1,0 +1,24 @@
+{
+  "demo@vitra.ai": {
+    "email": "demo@vitra.ai",
+    "hashed_password": "$2b$12$K80f5sI8JhkDgWib6OrTuewhMobTQV35lrVfaWUAnZhxnrLRhPGQ6",
+    "name": "Usuario Vitra",
+    "created_at": "2026-10-23T21:33:17.764417+00:00"
+  },
+  "stivenbuesquillo731@gmail.com": {
+    "email": "stivenbuesquillo731@gmail.com",
+    "hashed_password": "$2b$12$RSPW8JgfIkIdgd3vGvqn..U0o6mceMnDa7SI51lmoiln37mBBC2d2",
+    "name": "Stiven",
+    "gender": "male",
+    "age": 21,
+    "avatar_url": "https://fitglass-ai-kevin.loca.lt/static/models/tripo_pbr_model_703f4065-d560-_7a1d4ddc_opt.glb",
+    "avatar_type": "custom_3d",
+    "created_at": "2026-10-23T21:33:18.305239+00:00"
+  },
+  "newuser@vitra.ai": {
+    "email": "newuser@vitra.ai",
+    "hashed_password": "$2b$12$S4/EmCdhxXmRAzgl7/j/gOFq9rhXG5CCRqzas1QP8CLF7muSSCVmK",
+    "name": "Nuevo Usuario",
+    "created_at": "2026-10-23T21:35:26.421466+00:00"
+  }
+}
