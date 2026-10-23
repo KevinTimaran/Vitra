@@ -293,7 +293,36 @@ const DynamicGarmentModel: React.FC<{
   const scene = useMemo(() => {
     const rawScene = (gltf as any)?.scene;
     if (!rawScene) return null;
-    return rawScene.clone(true);
+    const cloned = rawScene.clone(true);
+
+    // Override physical material properties on all meshes: roughness 0.9, metalness 0.0 (matte fabric)
+    cloned.traverse((node: any) => {
+      if (node.isMesh && node.material) {
+        const applyMatte = (mat: any) => {
+          if (!mat) return;
+          mat.roughness = 0.9;
+          mat.metalness = 0.0;
+          if ('specular' in mat && mat.specular?.set) {
+            mat.specular.set(0x000000);
+          }
+          if ('shininess' in mat) {
+            mat.shininess = 0;
+          }
+          if ('clearcoat' in mat) {
+            mat.clearcoat = 0;
+          }
+          mat.needsUpdate = true;
+        };
+
+        if (Array.isArray(node.material)) {
+          node.material.forEach(applyMatte);
+        } else {
+          applyMatte(node.material);
+        }
+      }
+    });
+
+    return cloned;
   }, [gltf]);
 
   if (!scene) return null;
@@ -320,17 +349,21 @@ const PlaceholderTShirt: React.FC<{
     if (!rawScene) return null;
     const cloned = rawScene.clone(true);
 
-    if (colorHex) {
-      cloned.traverse((node: any) => {
-        if (node.isMesh && node.material) {
+    cloned.traverse((node: any) => {
+      if (node.isMesh && node.material) {
+        node.material.roughness = 0.9;
+        node.material.metalness = 0.0;
+        if (colorHex) {
           if (node.material.name === 'ShirtFabric' || !node.material.map) {
             node.material = node.material.clone();
             node.material.color.set(colorHex);
+            node.material.roughness = 0.9;
+            node.material.metalness = 0.0;
             node.material.needsUpdate = true;
           }
         }
-      });
-    }
+      }
+    });
 
     return cloned;
   }, [gltf, colorHex]);
@@ -358,8 +391,11 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
   useEffect(() => {
     let isCancelled = false;
 
+    // Resetear URI previa de inmediato para evitar mostrar el modelo viejo mientras se descarga o procesa el nuevo
+    setLocalUri(null);
+    setDownloadError(null);
+
     if (!remoteUrl) {
-      setLocalUri(null);
       setIsLoading(false);
       return;
     }
@@ -370,6 +406,8 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
       setIsLoading(false);
       return;
     }
+
+    setIsLoading(true);
 
     const downloadModel = async () => {
       try {
@@ -535,19 +573,27 @@ const Interactive3DScene: React.FC<{
         ) : localUri ? (
           <InnerModelErrorBoundary
             key={localUri}
-            fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
+            fallback={
+              isAvatarMode ? (
+                <StylizedAvatarSilhouette gender={avatarGender} colorHex={garmentColorHex || '#8EB6C7'} />
+              ) : (
+                <StylizedGarmentMannequin colorHex={garmentColorHex} />
+              )
+            }
             onError={onError}
           >
             <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
               <DynamicGarmentModel modelUrl={localUri} />
             </Suspense>
           </InnerModelErrorBoundary>
+        ) : isAvatarMode ? (
+          <StylizedAvatarSilhouette gender={avatarGender} colorHex={garmentColorHex || '#8EB6C7'} />
         ) : (
           <StylizedGarmentMannequin colorHex={garmentColorHex} />
         )
       ) : isAvatarMode ? (
         <InnerModelErrorBoundary
-          fallback={<StylizedGarmentMannequin colorHex={garmentColorHex} />}
+          fallback={<StylizedAvatarSilhouette gender={avatarGender} colorHex={garmentColorHex || '#8EB6C7'} />}
           onError={onError}
         >
           <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
@@ -663,10 +709,13 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
     []
   );
 
-  // Priorizamos activeModelUrl; si se provee modelUrl como string HTTP, también es válida
+  // Priorizamos activeModelUrl; si se provee modelUrl como string HTTP o file://, también es válida
   const resolvedDynamicUrl = useMemo(() => {
     const candidate = activeModelUrl !== undefined ? activeModelUrl : modelUrl;
-    if (typeof candidate === 'string' && (candidate.startsWith('http://') || candidate.startsWith('https://'))) {
+    if (
+      typeof candidate === 'string' &&
+      (candidate.startsWith('http://') || candidate.startsWith('https://') || candidate.startsWith('file:'))
+    ) {
       return candidate;
     }
     return null;
@@ -675,13 +724,14 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
       <Canvas
+        key={resolvedDynamicUrl || `avatar-scene-${avatarGender || 'default'}`}
         style={styles.canvas}
         camera={{ position: [0, 0, 2.9], fov: 45 }}
       >
-        <ambientLight intensity={1.8} />
-        <directionalLight position={[10, 15, 10]} intensity={2.0} />
-        <directionalLight position={[-10, -10, -10]} intensity={0.8} />
-        <directionalLight position={[0, 5, -10]} intensity={0.8} />
+        {/* Iluminación de estudio suave y difusa para texturas de tela mate sin reflejos especulares plásticos */}
+        <ambientLight intensity={1.2} />
+        <directionalLight position={[3, 5, 4]} intensity={0.8} />
+        <directionalLight position={[-3, 2, -3]} intensity={0.4} />
 
         <Interactive3DScene
           gestureRef={gestureState}
