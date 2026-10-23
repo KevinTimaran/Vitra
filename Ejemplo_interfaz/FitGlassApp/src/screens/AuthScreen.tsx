@@ -17,12 +17,14 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
 import { loginUser, registerUser, setupUserProfile } from '../services/auth/authClient';
+import { getLatestAvatarModel } from '../services/ai/garmentAnalyzer';
 import { Typography, Spacing, Radius } from '../theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -112,9 +114,23 @@ export const AuthScreen: React.FC = () => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const base64Formatted = asset.base64
+        let base64Formatted = asset.base64
           ? `data:image/jpeg;base64,${asset.base64}`
           : asset.uri;
+
+        // Comprimir y redimensionar la fotografía para mantener el payload bajo (<250KB)
+        try {
+          const manipulated = await ImageManipulator.manipulateAsync(
+            asset.uri,
+            [{ resize: { width: 1024 } }],
+            { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          if (manipulated.base64) {
+            base64Formatted = `data:image/jpeg;base64,${manipulated.base64}`;
+          }
+        } catch (mErr) {
+          console.warn('[AuthScreen] Advertencia optimizando imagen con ImageManipulator:', mErr);
+        }
 
         if (target === 'face') {
           setFaceImageUri(asset.uri);
@@ -184,7 +200,7 @@ export const AuthScreen: React.FC = () => {
   };
 
   // Finalizar Registro Unificado (Crea cuenta + Biometría + Login sin pantallas intermedias)
-  const handleFinishRegister = async () => {
+  const handleFinishRegister = async (skipPhotos: boolean = false) => {
     setErrorMessage(null);
     setSuccessMessage(null);
     setLoading(true);
@@ -196,36 +212,71 @@ export const AuthScreen: React.FC = () => {
     try {
       // 1. Registrar usuario en backend
       await registerUser(cleanEmail, password, cleanName);
-      setSuccessMessage('¡Cuenta creada exitosamente! Configurando gemelo digital...');
+      setSuccessMessage(
+        skipPhotos
+          ? '¡Cuenta creada! Asignando silueta atelier optimizada...'
+          : '¡Cuenta creada exitosamente! Configurando gemelo digital...'
+      );
 
       // 2. Iniciar sesión para obtener token JWT
       const loginResult = await loginUser(cleanEmail, password);
       const token = loginResult.access_token;
 
-      // 3. Enviar datos de perfil y biometría al backend (si está disponible)
+      // 3. Enviar datos de perfil y biometría al backend
+      // Si el usuario omitió fotos, NO enviamos face_image ni body_image
+      const shouldIncludePhotos = !skipPhotos;
+      const sendFace = shouldIncludePhotos ? (faceImageBase64 || undefined) : undefined;
+      const sendBody = shouldIncludePhotos ? (bodyImageBase64 || undefined) : undefined;
+
+      let setupRes: any = null;
       try {
-        await setupUserProfile(
+        console.log('[AuthScreen] Registrando y configurando perfil en backend...', {
+          email: cleanEmail,
+          skipPhotos,
+          hasFace: Boolean(sendFace),
+          hasBody: Boolean(sendBody),
+        });
+        setupRes = await setupUserProfile(
           {
             full_name: cleanName,
             age: parsedAge,
             gender: gender,
-            face_image: faceImageBase64 || undefined,
-            body_image: bodyImageBase64 || undefined,
+            face_image: sendFace,
+            body_image: sendBody,
           },
           token
         );
+        console.log('[AuthScreen] Respuesta de setupUserProfile recibida:', setupRes);
       } catch (setupErr) {
         console.warn('[AuthScreen] Advertencia en setup de perfil en backend:', setupErr);
+        // Recuperación inteligente: si el backend alcanzó a generar el avatar 3D pero la conexión móvil parpadeó
+        if (sendBody) {
+          try {
+            const latest = await getLatestAvatarModel();
+            if (latest?.avatar_url) {
+              console.log('[AuthScreen] Avatar 3D recuperado exitosamente tras advertencia de red:', latest.avatar_url);
+              setupRes = {
+                avatar_url: latest.avatar_url,
+                avatar_type: 'custom_3d',
+              };
+            }
+          } catch (recErr) {
+            console.warn('[AuthScreen] No se pudo recuperar avatar más reciente:', recErr);
+          }
+        }
       }
 
-      // 4. Guardar datos en el estado global (Context)
+      // 4. Guardar datos en el estado global (Context) con avatarUrl obtenido del backend
       completeOnboarding({
         fullName: cleanName,
         age: parsedAge,
         gender: gender,
-        facePhotoUri: faceImageUri || undefined,
-        bodyPhotoUri: bodyImageUri || undefined,
-        photoUri: bodyImageUri || undefined,
+        facePhotoUri: shouldIncludePhotos ? (faceImageUri || undefined) : undefined,
+        bodyPhotoUri: shouldIncludePhotos ? (bodyImageUri || undefined) : undefined,
+        photoUri: shouldIncludePhotos ? (bodyImageUri || undefined) : undefined,
+        avatarUrl: setupRes?.avatar_url || undefined,
+        avatarType: setupRes?.avatar_type || (sendBody ? 'custom_3d' : 'preset'),
+        colorProfile: setupRes?.color_profile || undefined,
       });
 
       // 5. Establecer sesión activa (navega inmediatamente a Home sin intermediarios)
@@ -934,6 +985,19 @@ export const AuthScreen: React.FC = () => {
                       <Text style={styles.sampleBiometricsText}>Cargar fotografías de muestra (Demo)</Text>
                     </TouchableOpacity>
 
+                    {/* Botón explícito para Omitir Fotos y usar Avatar 3D por Defecto */}
+                    <TouchableOpacity
+                      style={styles.skipBiometricsBtn}
+                      onPress={() => handleFinishRegister(true)}
+                      disabled={loading}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="play-skip-forward-outline" size={15} color="#475569" style={{ marginRight: 6 }} />
+                      <Text style={styles.skipBiometricsBtnText}>
+                        Omitir fotos y usar avatar 3D por defecto
+                      </Text>
+                    </TouchableOpacity>
+
                     {/* Botones de Finalización */}
                     <View style={styles.wizardButtonsRow}>
                       <TouchableOpacity
@@ -948,7 +1012,7 @@ export const AuthScreen: React.FC = () => {
 
                       <TouchableOpacity
                         style={[styles.btnPrimaryStep, { flex: 1 }]}
-                        onPress={handleFinishRegister}
+                        onPress={() => handleFinishRegister(false)}
                         disabled={loading}
                         activeOpacity={0.88}
                       >
@@ -1513,6 +1577,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#3C6473',
     textDecorationLine: 'underline',
+  },
+  skipBiometricsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  skipBiometricsBtnText: {
+    fontFamily: Typography.outfit.medium,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
   },
 
   dividerRow: {
