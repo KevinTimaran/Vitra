@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert,
   Animated,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +46,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     addLookCategory,
     updateLookCategory,
     toggleFavoriteLook,
+    syncProfileWithBackend,
   } = useUser();
 
   const avatar_3d_url = avatar_3d_base_url || avatarUrl || userProfile?.avatar_url || null;
@@ -56,6 +58,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
   const scrollTopAnim = useRef(new Animated.Value(0)).current;
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Sincronización automática con el backend al entrar a Home
+  useEffect(() => {
+    syncProfileWithBackend?.().catch(() => {});
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (syncProfileWithBackend) {
+        await syncProfileWithBackend();
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     Animated.spring(scrollTopAnim, {
@@ -136,6 +156,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <ScrollView
         ref={scrollViewRef}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         style={styles.mainScrollView}
         contentContainerStyle={[
           styles.mainScrollContent,
