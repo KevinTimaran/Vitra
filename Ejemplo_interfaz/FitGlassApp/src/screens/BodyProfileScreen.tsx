@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import { Typography, Spacing, Radius } from '../theme';
 import { PrimaryButton, SecondaryButton, TextButton } from '../components/Buttons';
@@ -151,7 +152,21 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        let b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+
+        // Comprimir y redimensionar la fotografía para mantener el payload bajo (<250KB)
+        try {
+          const manipulated = await ImageManipulator.manipulateAsync(
+            asset.uri,
+            [{ resize: { width: 1024 } }],
+            { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          if (manipulated.base64) {
+            b64 = `data:image/jpeg;base64,${manipulated.base64}`;
+          }
+        } catch (mErr) {
+          console.warn('[BodyProfileScreen] Advertencia optimizando imagen:', mErr);
+        }
 
         if (target === 'face') {
           setFaceImageUri(asset.uri);
@@ -176,11 +191,10 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
 
     // Si no hay fotos, asignar de inmediato el avatar preset y completar
     if (!hasFace && !hasBody) {
-      setPresetAvatar(selectedGender);
+      await setPresetAvatar(selectedGender);
       completeOnboarding({
         gender: selectedGender,
         avatarType: 'preset',
-        avatarUrl: '',
       });
       if (onComplete) {
         onComplete();

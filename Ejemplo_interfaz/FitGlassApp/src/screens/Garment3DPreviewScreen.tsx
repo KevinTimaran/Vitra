@@ -92,13 +92,13 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
 
       console.log(TAG, '2) Renderer, Escena y Cámara creados');
 
-      // Iluminación (la camiseta usa MeshStandardMaterial)
-      scene.add(new THREE.AmbientLight(0xffffff, 1.4));
-      const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
-      keyLight.position.set(2, 3, 4);
+      // Iluminación suave y difusa de estudio fotográfico para texturas de tela mate
+      scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      keyLight.position.set(3, 4, 3);
       scene.add(keyLight);
-      const backLight = new THREE.DirectionalLight(0xffffff, 1.4);
-      backLight.position.set(-2, 1, -4);
+      const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
+      backLight.position.set(-3, 2, -3);
       scene.add(backLight);
 
       // 3) Cargar la camiseta .glb local
@@ -127,7 +127,31 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
       scene.add(pivot);
 
       let meshCount = 0;
-      model.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshCount++; });
+      model.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) {
+          meshCount++;
+          const mesh = o as THREE.Mesh;
+          if (mesh.material) {
+            const applyMatte = (mat: any) => {
+              if (!mat) return;
+              mat.roughness = 0.9;
+              mat.metalness = 0.0;
+              if ('specular' in mat && mat.specular?.set) {
+                mat.specular.set(0x000000);
+              }
+              if ('shininess' in mat) {
+                mat.shininess = 0;
+              }
+              mat.needsUpdate = true;
+            };
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(applyMatte);
+            } else {
+              applyMatte(mesh.material);
+            }
+          }
+        }
+      });
       console.log(TAG, `3c) Camiseta cargada: ${meshCount} mallas, tamaño original ${size.x.toFixed(2)}x${size.y.toFixed(2)}x${size.z.toFixed(2)}`);
 
       let frame = 0;

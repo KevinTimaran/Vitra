@@ -1,5 +1,6 @@
+import asyncio
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -70,43 +71,49 @@ async def setup_user_profile(
             logger.warning(f"[Users] Token de autorización no decodificado: {e}")
 
     gender_val = payload.gender or "female"
-    avatar_url: Optional[str] = None
-    avatar_type = "preset"
 
-    # FLOW 1: Creación de Avatar Personalizado si se suministró body_image
-    if payload.body_image and payload.body_image.strip():
-        logger.info(f"[Users] [Flow 1] Creando avatar 3D personalizado para: {user_email or payload.full_name}...")
-        try:
-            avatar_url = await _execute_avatar_generation(payload.body_image, base_url)
-            avatar_type = "custom_3d"
-            logger.info(f"[Users] [Flow 1] Avatar 3D personalizado generado con éxito: {avatar_url}")
-        except Exception as gen_err:
-            logger.warning(
-                f"[Users] [Flow 1] Falló generación con Tripo3D ({gen_err}). Usando avatar optimizado por defecto como fallback seguro."
+    async def _generate_avatar_task() -> Tuple[Optional[str], str]:
+        # FLOW 1: Creación de Avatar Personalizado si se suministró body_image
+        if payload.body_image and payload.body_image.strip():
+            logger.info(f"[Users] [Flow 1] Creando avatar 3D personalizado para: {user_email or payload.full_name}...")
+            try:
+                gen_url = await _execute_avatar_generation(payload.body_image, base_url)
+                logger.info(f"[Users] [Flow 1] Avatar 3D personalizado generado con éxito: {gen_url}")
+                return gen_url, "custom_3d"
+            except Exception as gen_err:
+                logger.warning(
+                    f"[Users] [Flow 1] Falló generación con Tripo3D ({gen_err}). Usando avatar optimizado por defecto como fallback seguro."
+                )
+                fallback_url = await get_or_create_optimized_default_avatar(gender_val, base_url)
+                return fallback_url, "preset"
+        else:
+            # FLOW 2: Omitir fotos y Asignar Avatar por Defecto según Género
+            logger.info(
+                f"[Users] [Flow 2] Usuario omitió fotos. Asignando avatar 3D por defecto optimizado para género '{gender_val}'..."
             )
-            avatar_url = await get_or_create_optimized_default_avatar(gender_val, base_url)
-            avatar_type = "preset"
-    else:
-        # FLOW 2: Omitir fotos y Asignar Avatar por Defecto según Género
-        logger.info(
-            f"[Users] [Flow 2] Usuario omitió fotos. Asignando avatar 3D por defecto optimizado para género '{gender_val}'..."
-        )
-        avatar_url = await get_or_create_optimized_default_avatar(gender_val, base_url)
-        avatar_type = "preset"
+            fallback_url = await get_or_create_optimized_default_avatar(gender_val, base_url)
+            return fallback_url, "preset"
 
+    async def _analyze_colorimetry_task() -> Optional[dict]:
+        # Análisis de colorimetría facial opcional si se proporcionó face_image
+        if payload.face_image and payload.face_image.strip():
+            try:
+                from app.services.gemini_service import analyze_colorimetry
+                color_res = await analyze_colorimetry(payload.face_image)
+                if color_res and isinstance(color_res, dict) and "season" in color_res:
+                    logger.info(f"[Users] Colorimetría facial analizada para setup: {color_res.get('season')}")
+                    return color_res
+            except Exception as c_err:
+                logger.warning(f"[Users] Advertencia en colorimetría durante setup: {c_err}")
+        return None
+
+    # Ejecución en paralelo de Tripo3D y Gemini para reducir el tiempo total a la mitad
+    (avatar_res, color_profile) = await asyncio.gather(
+        _generate_avatar_task(),
+        _analyze_colorimetry_task(),
+    )
+    avatar_url, avatar_type = avatar_res
     base_garments = get_default_base_garments(gender_val)
-
-    # Análisis de colorimetría facial opcional si se proporcionó face_image
-    color_profile = None
-    if payload.face_image and payload.face_image.strip():
-        try:
-            from app.services.gemini_service import analyze_colorimetry
-            color_res = await analyze_colorimetry(payload.face_image)
-            if color_res and isinstance(color_res, dict) and "season" in color_res:
-                color_profile = color_res
-                logger.info(f"[Users] Colorimetría facial analizada para setup: {color_res.get('season')}")
-        except Exception as c_err:
-            logger.warning(f"[Users] Advertencia en colorimetría durante setup: {c_err}")
 
     # Persistencia en base de datos de usuario
     if user_email and user_email.lower() in users_db:
