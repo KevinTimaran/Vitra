@@ -137,3 +137,77 @@ async def optimize_3d_model(
                 os.remove(temp_input_file)
             except OSError:
                 pass
+
+
+async def get_or_create_optimized_default_avatar(
+    gender: Optional[str] = None,
+    base_url: Optional[str] = None
+) -> str:
+    """
+    Asigna y asegura la versión optimizada del avatar 3D por defecto según el género ('female' o 'male').
+    Aplica exactamente la misma canalización de optimización de malla 3D utilizada para prendas.
+    """
+    effective_base = (
+        base_url.rstrip("/")
+        if base_url
+        else (settings.EXPO_PUBLIC_API_BASE_URL.rstrip("/") if settings.EXPO_PUBLIC_API_BASE_URL else "http://127.0.0.1:8000")
+    )
+
+    is_male = bool(gender and gender.strip().lower() == "male")
+    source_filename = "default_men.glb" if is_male else "default_girl.glb"
+    opt_filename = "default_men_opt.glb" if is_male else "default_girl_opt.glb"
+
+    if is_male:
+        logger.info("[Optimizer] Assigning default male avatar: default_men.glb")
+    else:
+        logger.info("[Optimizer] Assigning default female avatar: default_girl.glb")
+
+    default_avatar_dir = os.path.join(STATIC_MODELS_DIR, "default_avatar")
+    source_path = os.path.join(default_avatar_dir, source_filename)
+    opt_path = os.path.join(STATIC_MODELS_DIR, opt_filename)
+
+    # 1. Si ya existe el modelo optimizado válido, retornarlo de inmediato sin recompilar
+    if os.path.exists(opt_path) and os.path.getsize(opt_path) > 100_000:
+        logger.info(
+            f"[Optimizer] Reusando avatar por defecto optimizado existente ({opt_filename}, {os.path.getsize(opt_path) / 1024:.1f} KB)"
+        )
+        return f"{effective_base}/static/models/{opt_filename}"
+
+    # 2. Si no existe, ejecutar la canalización de optimización 3D gltf-transform
+    logger.info(f"[Optimizer] Starting 3D optimization for default avatar: {source_path} -> {opt_path}...")
+    if not os.path.exists(source_path):
+        logger.warning(f"[Optimizer] No se encontró el archivo base de avatar en: {source_path}")
+        return f"{effective_base}/static/models/{source_filename}"
+
+    cmd = [
+        "npx",
+        "-y",
+        "@gltf-transform/cli",
+        "optimize",
+        source_path,
+        opt_path,
+        "--compress",
+        "false",
+        "--texture-compress",
+        "false",
+        "--texture-size",
+        "1024",
+    ]
+
+    def _run():
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+
+    res = await asyncio.to_thread(_run)
+
+    if res.returncode == 0 and os.path.exists(opt_path) and os.path.getsize(opt_path) > 0:
+        logger.info(
+            f"[Optimizer] Default avatar 3D optimization completed successfully: {opt_filename} ({os.path.getsize(opt_path) / 1024:.1f} KB)"
+        )
+        return f"{effective_base}/static/models/{opt_filename}"
+
+    logger.warning(
+        f"[Optimizer] Falló optimización de avatar por defecto ({res.returncode}): {res.stderr or res.stdout}. "
+        f"Retornando modelo original como fallback."
+    )
+    return f"{effective_base}/static/models/default_avatar/{source_filename}"
+
