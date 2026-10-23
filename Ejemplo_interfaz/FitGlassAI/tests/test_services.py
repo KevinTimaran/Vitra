@@ -101,9 +101,21 @@ async def test_generate_vton_success():
         with patch("app.services.replicate_service.replicate.Client", return_value=mock_client):
             result = await generate_vton(
                 "https://example.com/human.jpg",
-                "https://example.com/garment.jpg"
+                "https://example.com/garment.jpg",
+                garment_description="cotton t-shirt",
             )
             assert result == expected_url
+
+            # Verificar que se inyectaron los modificadores para evitar acabados plásticos/brillosos
+            called_input = mock_client.async_run.call_args[1]["input"]
+            assert "matte fabric" in called_input["garment_des"]
+            assert "cotton texture" in called_input["garment_des"]
+            assert "soft studio lighting" in called_input["garment_des"]
+            assert "shiny" in called_input["negative_prompt"]
+            assert "glossy" in called_input["negative_prompt"]
+            assert "plastic" in called_input["negative_prompt"]
+            assert "latex" in called_input["negative_prompt"]
+
 
 
 # ---------------------------------------------------------

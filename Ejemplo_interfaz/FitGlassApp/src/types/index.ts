@@ -122,4 +122,6 @@ export interface SavedLookItem {
   paletteTheme: string;
   model3dUrl?: string;
   image2dUrl?: string;
+  category?: string;
+  isFavorite?: boolean;
 }

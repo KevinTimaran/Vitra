@@ -29,8 +29,8 @@ export const ensureBase64DataUri = async (imageUriOrBase64: string): Promise<str
     return img;
   }
 
-  // Si es un archivo local file://, redimensionar y comprimir para reducir el payload de red
-  if (img.startsWith('file://')) {
+  // Si es un archivo local (file://, content://, ph://), redimensionar y comprimir para reducir el payload de red
+  if (img.startsWith('file://') || img.startsWith('content://') || img.startsWith('ph://')) {
     try {
       const manipulated = await ImageManipulator.manipulateAsync(
         img,
@@ -200,11 +200,7 @@ export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentA
     throw new Error('La imagen de la prenda está vacía.');
   }
 
-  // Si es Base64 puro sin cabecera de datos, añadir esquema Data URI
-  let formattedImage = imageBase64OrUrl.trim();
-  if (!formattedImage.startsWith('http://') && !formattedImage.startsWith('https://') && !formattedImage.startsWith('data:')) {
-    formattedImage = `data:image/jpeg;base64,${formattedImage}`;
-  }
+  const formattedImage = await ensureBase64DataUri(imageBase64OrUrl);
 
   try {
     console.log('[analyzeGarment] Enviando imagen a:', `${baseUrl}/api/garments/analyze`);
@@ -440,14 +436,7 @@ export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<Colo
     throw new Error('La imagen para colorimetría está vacía.');
   }
 
-  let formattedImage = imageBase64OrUrl.trim();
-  if (
-    !formattedImage.startsWith('http://') &&
-    !formattedImage.startsWith('https://') &&
-    !formattedImage.startsWith('data:')
-  ) {
-    formattedImage = `data:image/jpeg;base64,${formattedImage}`;
-  }
+  const formattedImage = await ensureBase64DataUri(imageBase64OrUrl);
 
   try {
     console.log('[analyzeColorimetry] Enviando imagen a:', `${baseUrl}/api/colorimetry/analyze`);

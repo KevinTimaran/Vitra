@@ -1,4 +1,4 @@
-import { getBaseUrl, getActiveWorkingUrl, checkHealth } from '../ai/garmentAnalyzer';
+import { getBaseUrl, getActiveWorkingUrl, checkHealth, ensureBase64DataUri } from '../ai/garmentAnalyzer';
 
 export interface AuthResponse {
   access_token: string;
@@ -184,6 +184,9 @@ export interface UserProfileSetupResponse {
   full_name?: string;
   age?: number;
   gender?: string;
+  avatar_url?: string;
+  avatar_type?: string;
+  base_garments?: any[];
 }
 
 /**
@@ -196,10 +199,18 @@ export async function setupUserProfile(
   const baseUrl = await resolveServerUrl();
   const url = `${baseUrl}/api/users/profile/setup`;
 
-  console.log('[authClient] Enviando configuración de perfil a:', url);
+  console.log('[authClient] Enviando configuración de perfil a:', url, {
+    full_name: payload.full_name,
+    age: payload.age,
+    gender: payload.gender,
+    hasFace: Boolean(payload.face_image),
+    hasBody: Boolean(payload.body_image),
+  });
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  // Mayor tiempo límite si se envía imagen de cuerpo para generación 3D (hasta 180s para evitar FetchRequestCanceledException en iOS)
+  const timeoutMs = payload.body_image ? 180000 : 35000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const headers: Record<string, string> = {
@@ -211,10 +222,16 @@ export async function setupUserProfile(
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const processedPayload: UserProfileSetupPayload = {
+      ...payload,
+      face_image: payload.face_image ? await ensureBase64DataUri(payload.face_image) : undefined,
+      body_image: payload.body_image ? await ensureBase64DataUri(payload.body_image) : undefined,
+    };
+
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(processedPayload),
       signal: controller.signal,
     });
 
@@ -229,7 +246,13 @@ export async function setupUserProfile(
       throw new Error(errorDetail);
     }
 
-    return await response.json();
+    const data: UserProfileSetupResponse = await response.json();
+    console.log('[authClient] Respuesta de setup de perfil recibida exitosamente:', {
+      status: data.status,
+      avatar_url: data.avatar_url,
+      avatar_type: data.avatar_type,
+    });
+    return data;
   } catch (err: any) {
     console.error(`[authClient] Error al configurar perfil en ${url}:`, err);
     throw err;
@@ -237,3 +260,73 @@ export async function setupUserProfile(
     clearTimeout(timeoutId);
   }
 }
+
+/**
+ * Consulta la URL del modelo 3D por defecto optimizado según el género solicitado.
+ */
+export async function getDefaultAvatarModel(
+  gender: string = 'female'
+): Promise<{ avatar_url: string; gender: string; avatar_type: string }> {
+  const baseUrl = await resolveServerUrl();
+  const url = `${baseUrl}/api/avatar/default?gender=${encodeURIComponent(gender)}`;
+  console.log('[authClient] Consultando avatar por defecto en:', url);
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      'Bypass-Tunnel-Reminder': 'true',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error al obtener avatar por defecto (HTTP ${res.status})`);
+  }
+
+  const data = await res.json();
+  console.log('[authClient] Avatar por defecto obtenido:', data);
+  return data;
+}
+
+/**
+ * FLOW 3: Actualiza el avatar 3D del usuario desde Ajustes / Perfil (Post-Registro)
+ */
+export async function updateUserAvatar(
+  imagePayload: string,
+  token?: string | null
+): Promise<{ avatar_url: string; avatar_type: string }> {
+  const baseUrl = await resolveServerUrl();
+  const url = `${baseUrl}/api/users/avatar`;
+  console.log('[authClient] Actualizando avatar 3D en:', url, 'Payload length:', imagePayload.length);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'Bypass-Tunnel-Reminder': 'true',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const processedImage = await ensureBase64DataUri(imagePayload);
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ body_image: processedImage }),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Error actualizando avatar 3D (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.detail) errorDetail = errJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const data = await res.json();
+  console.log('[authClient] Avatar 3D actualizado exitosamente:', data);
+  return data;
+}
+
