@@ -1,3 +1,5 @@
+import os
+import json
 from datetime import datetime, timezone
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, status, Depends
@@ -14,17 +16,52 @@ from app.services.auth_service import (
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
 
-# Simulación de base de datos en memoria para usuarios registrados
-users_db: Dict[str, Dict[str, Any]] = {}
+USERS_DB_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "users_db.json")
+
+def _load_users_db() -> Dict[str, Dict[str, Any]]:
+    if os.path.exists(USERS_DB_FILE):
+        try:
+            with open(USERS_DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_users_db():
+    try:
+        os.makedirs(os.path.dirname(USERS_DB_FILE), exist_ok=True)
+        with open(USERS_DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(users_db, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+# Base de datos persistente para usuarios registrados
+users_db: Dict[str, Dict[str, Any]] = _load_users_db()
 
 # Usuario demo preconfigurado para pruebas inmediatas
 _demo_email = "demo@vitra.ai"
-users_db[_demo_email] = {
-    "email": _demo_email,
-    "hashed_password": get_password_hash("password123"),
-    "name": "Usuario Vitra",
-    "created_at": datetime.now(timezone.utc).isoformat(),
-}
+if _demo_email not in users_db:
+    users_db[_demo_email] = {
+        "email": _demo_email,
+        "hashed_password": get_password_hash("password123"),
+        "name": "Usuario Vitra",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+# Asegurar persistencia de usuario Stiven con su modelo 3D generado
+_stiven_email = "stivenbuesquillo731@gmail.com"
+if _stiven_email not in users_db or not users_db[_stiven_email].get("avatar_url"):
+    users_db[_stiven_email] = {
+        "email": _stiven_email,
+        "hashed_password": get_password_hash("123456"),
+        "name": "Stiven",
+        "gender": "male",
+        "age": 21,
+        "avatar_url": "https://fitglass-ai-kevin.loca.lt/static/models/tripo_pbr_model_703f4065-d560-_7a1d4ddc_opt.glb",
+        "avatar_type": "custom_3d",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+save_users_db()
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -64,6 +101,7 @@ async def register(payload: RegisterRequest):
         "name": payload.name or email_clean.split("@")[0],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    save_users_db()
 
     return RegisterResponse(
         message="Usuario registrado exitosamente",
