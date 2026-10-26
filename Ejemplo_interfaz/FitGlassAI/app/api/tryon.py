@@ -24,8 +24,9 @@ def _resolve_base_url(request: Optional[Request] = None) -> str:
     if request:
         forwarded_host = request.headers.get("x-forwarded-host")
         if forwarded_host:
-            scheme = request.headers.get("x-forwarded-proto", "https")
-            return f"{scheme}://{forwarded_host}"
+            clean_host = forwarded_host.split(",")[0].strip()
+            scheme = request.headers.get("x-forwarded-proto", "https").split(",")[0].strip()
+            return f"{scheme}://{clean_host}"
         if request.base_url:
             return str(request.base_url).rstrip("/")
     if settings.EXPO_PUBLIC_API_BASE_URL:
@@ -46,8 +47,9 @@ async def get_latest_model(request: Request = None):
         raise HTTPException(status_code=404, detail="Directorio de modelos no encontrado.")
 
     candidates = []
+    excluded_prefixes = ("tshirt", "default_", "test_")
     for f in os.listdir(STATIC_MODELS_DIR):
-        if f.endswith(".glb") and not f.startswith("tshirt"):
+        if f.endswith(".glb") and not any(f.startswith(p) for p in excluded_prefixes):
             full_path = os.path.join(STATIC_MODELS_DIR, f)
             try:
                 st = os.stat(full_path)
@@ -56,6 +58,7 @@ async def get_latest_model(request: Request = None):
                     candidates.append((st.st_mtime, f, st.st_size))
             except OSError:
                 pass
+
 
     if not candidates:
         raise HTTPException(status_code=404, detail="No hay modelos 3D generados recientemente.")
@@ -131,7 +134,7 @@ async def _execute_tryon_pipeline(
             vton_category = "upper_body"
             if g_cat in ("lower_body", "Pants"):
                 vton_category = "lower_body"
-            elif g_cat in ("dresses", "Dress"):
+            elif g_cat in ("dresses", "Dress", "Dresses"):
                 vton_category = "dresses"
             elif g_cat in ("shoes", "Shoes", "accessories", "Accessories"):
                 # Omitir categorías sin endpoint en IDM-VTON
@@ -155,19 +158,26 @@ async def _execute_tryon_pipeline(
                     logger.info(f"[TryOn Pipeline] Pieza {idx+1} fusionada con éxito: {fused_url[:70]}...")
             except Exception as part_err:
                 logger.warning(f"[TryOn Pipeline] Advertencia en fusión de {g_name}: {part_err}")
-                if not allow_fallback and not last_success_url:
+                if not allow_fallback:
                     status_code = part_err.status_code if isinstance(part_err, HTTPException) else 502
                     err_msg = part_err.detail if isinstance(part_err, HTTPException) else str(part_err)
                     raise HTTPException(status_code=status_code, detail=f"[Replicate VTON Error] {err_msg}")
 
-        image_2d_url = last_success_url or current_canvas
+
+        image_2d_url = last_success_url or (garment_list[0].get("image", "").strip() if garment_list else current_canvas)
     else:
         logger.info("[TryOn Pipeline] [PASO 1/3] Iniciando fusión 2D con Replicate IDM-VTON...")
+        single_vton_cat = category or "upper_body"
+        if single_vton_cat in ("lower_body", "Pants"):
+            single_vton_cat = "lower_body"
+        elif single_vton_cat in ("dresses", "Dress", "Dresses"):
+            single_vton_cat = "dresses"
+
         try:
             image_2d_url = await generate_vton(
                 human_image_url=human_image.strip(),
                 garment_image_url=garment_image.strip(),
-                category=category or "upper_body",
+                category=single_vton_cat,
                 garment_description=garment_description or "clothing",
             )
             logger.info(f"[TryOn Pipeline] [PASO 1/3 ÉXITO] URL 2D fusionada de Replicate: {image_2d_url}")
@@ -213,8 +223,8 @@ async def _execute_tryon_pipeline(
         _async_tasks[task_id].update({"step": "tripo3d", "progress": 0.60, "image_2d_url": image_2d_url})
 
     if garment_list and len(garment_list) > 0:
-        # Para look completo terminado, el modelo 3D representa el conjunto fusionado (image_2d_url)
-        image_3d_input = image_2d_url if (image_2d_url and str(image_2d_url).strip()) else garment_list[0].get("image", "").strip()
+        # Si hubo fusión VTON exitosa, usar el resultado de fusión; si hubo fallback, usar la prenda
+        image_3d_input = last_success_url if last_success_url else garment_list[0].get("image", "").strip()
     elif garment_image and garment_image.strip():
         image_3d_input = garment_image.strip()
     else:
@@ -317,6 +327,12 @@ async def start_tryon_job(payload: TryOnRequest, request: Request = None):
     Inicia el pipeline de generación 3D en segundo plano y retorna de inmediato un task_id.
     El cliente hace polling a /api/tryon/status/{task_id} cada 2s sin riesgo de timeouts de proxy.
     """
+    # Limpieza de tareas antiguas (> 2 horas)
+    now = time.time()
+    expired = [tid for tid, t in _async_tasks.items() if now - t.get("created_at", now) > 7200]
+    for tid in expired:
+        _async_tasks.pop(tid, None)
+
     task_id = uuid.uuid4().hex[:12]
     base_url = _resolve_base_url(request)
 
