@@ -5,10 +5,13 @@ import asyncio
 import logging
 import traceback
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
 from app.schemas.avatar import AvatarGenerateRequest, AvatarGenerateResponse
+from app.services.auth_service import decode_access_token
+from app.api.auth import users_db, save_users_db
 from app.services.tripo_service import generate_3d_model
 from app.services.optimizer_service import (
     optimize_3d_model,
@@ -19,6 +22,7 @@ from app.services.optimizer_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+security = HTTPBearer(auto_error=False)
 
 # Almacén en memoria de tareas asíncronas para polling de avatares
 _async_avatar_tasks: Dict[str, Dict[str, Any]] = {}
@@ -28,8 +32,9 @@ def _resolve_base_url(request: Optional[Request] = None) -> str:
     if request:
         forwarded_host = request.headers.get("x-forwarded-host")
         if forwarded_host:
-            scheme = request.headers.get("x-forwarded-proto", "https")
-            return f"{scheme}://{forwarded_host}"
+            clean_host = forwarded_host.split(",")[0].strip()
+            scheme = request.headers.get("x-forwarded-proto", "https").split(",")[0].strip()
+            return f"{scheme}://{clean_host}"
         if request.base_url:
             return str(request.base_url).rstrip("/")
     if settings.EXPO_PUBLIC_API_BASE_URL:
@@ -49,8 +54,9 @@ async def get_latest_avatar_model(request: Request = None):
         raise HTTPException(status_code=404, detail="Directorio de modelos no encontrado.")
 
     candidates = []
+    excluded_prefixes = ("tshirt", "DamagedHelmet", "default_", "outfit_", "multi_outfit_", "test_")
     for f in os.listdir(STATIC_MODELS_DIR):
-        if f.endswith(".glb") and not f.startswith("tshirt"):
+        if f.endswith(".glb") and not any(f.startswith(p) for p in excluded_prefixes):
             full_path = os.path.join(STATIC_MODELS_DIR, f)
             try:
                 st = os.stat(full_path)
@@ -59,6 +65,7 @@ async def get_latest_avatar_model(request: Request = None):
                     candidates.append((st.st_mtime, f, st.st_size))
             except OSError:
                 pass
+
 
     if not candidates:
         raise HTTPException(status_code=404, detail="No hay modelos 3D generados recientemente.")
@@ -136,10 +143,10 @@ async def start_avatar_job(request: Request):
             return JSONResponse(status_code=400, content={"detail": str(ve)})
         except Exception as e:
             return JSONResponse(status_code=400, content={"detail": f"JSON inválido: {str(e)}"})
-    elif "multipart/form-data" in content_type:
+    elif "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
         try:
             form = await request.form()
-            image_str = form.get("image") or form.get("image_data")
+            image_str = form.get("image") or form.get("body_image") or form.get("image_data")
             file_obj = form.get("file")
             if file_obj and hasattr(file_obj, "read"):
                 import base64
@@ -156,6 +163,12 @@ async def start_avatar_job(request: Request):
             content={"detail": "No se proporcionó imagen de cuerpo entero válida."}
         )
 
+    now = time.time()
+    # Evicción preventiva de tareas anteriores vencidas (> 2 horas)
+    expired_ids = [tid for tid, t in _async_avatar_tasks.items() if now - t.get("created_at", 0) > 7200]
+    for tid in expired_ids:
+        _async_avatar_tasks.pop(tid, None)
+
     task_id = uuid.uuid4().hex[:12]
     _async_avatar_tasks[task_id] = {
         "task_id": task_id,
@@ -164,7 +177,7 @@ async def start_avatar_job(request: Request):
         "progress": 0.1,
         "avatar_url": None,
         "error": None,
-        "created_at": time.time(),
+        "created_at": now,
     }
 
     async def _avatar_worker():
@@ -232,14 +245,14 @@ async def generate_avatar_endpoint(request: Request):
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
 
-    # Caso 2: Multipart/form-data
-    if "multipart/form-data" in content_type:
+    # Caso 2: Multipart/form-data o form-urlencoded
+    if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
         try:
             form = await request.form()
         except Exception as e:
             return JSONResponse(status_code=400, content={"detail": f"Error en formulario: {str(e)}"})
 
-        image_str = form.get("image") or form.get("image_data")
+        image_str = form.get("image") or form.get("body_image") or form.get("image_data")
         file_obj = form.get("file")
 
         if file_obj and hasattr(file_obj, "read"):
@@ -262,20 +275,43 @@ async def generate_avatar_endpoint(request: Request):
 
     return JSONResponse(
         status_code=400,
-        content={"detail": "Content-Type debe ser 'application/json' o 'multipart/form-data'."}
+        content={"detail": "Content-Type debe ser 'application/json', 'multipart/form-data' o 'application/x-www-form-urlencoded'."}
     )
 
 
 @router.delete("/current")
 @router.delete("")
-async def delete_avatar():
+async def delete_avatar(
+    request: Request = None,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+):
     """
     Elimina o desvincula el avatar 3D personalizado activo del usuario,
     revertiendo la silueta al modelo base estilizado predeterminado.
     """
+    user_email = None
+    if credentials:
+        try:
+            token_data = decode_access_token(credentials.credentials)
+            user_email = token_data.get("sub") or token_data.get("email")
+        except Exception:
+            pass
+
+    default_url = None
+    if user_email and user_email.lower() in users_db:
+        user_gender = users_db[user_email.lower()].get("gender", "female")
+        base_url = _resolve_base_url(request)
+        default_url = await get_or_create_optimized_default_avatar(user_gender, base_url)
+        users_db[user_email.lower()]["avatar_url"] = default_url
+        users_db[user_email.lower()]["avatar_type"] = "preset"
+        save_users_db()
+        logger.info(f"[Avatar] Avatar personalizado restablecido a preset ({default_url}) para {user_email}")
+
     return {
         "status": "deleted",
         "message": "Avatar personalizado eliminado. Se ha restablecido la silueta predeterminada.",
+        "avatar_type": "preset",
+        "avatar_url": default_url,
     }
 
 
