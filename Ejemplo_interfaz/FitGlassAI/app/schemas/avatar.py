@@ -5,11 +5,12 @@ from typing import Optional
 class AvatarGenerateRequest(BaseModel):
     image: Optional[str] = Field(None, description="Fotografía de cuerpo entero del usuario en Base64 o URL")
     image_data: Optional[str] = Field(None, description="Alias para imagen en Base64 o URL")
+    body_image: Optional[str] = Field(None, description="Alias para imagen de cuerpo entero")
 
     def get_image(self) -> str:
-        img = self.image or self.image_data
+        img = self.image or self.image_data or self.body_image
         if not img or not img.strip():
-            raise ValueError("Se requiere 'image' o 'image_data' con una fotografía de cuerpo entero.")
+            raise ValueError("Se requiere 'image', 'image_data' o 'body_image' con una fotografía de cuerpo entero.")
         return img.strip()
 
 
