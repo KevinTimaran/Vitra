@@ -245,5 +245,21 @@
   "fit.Slim": "Ajustado",
   "fit.Regular": "Regular",
   "fit.Relaxed": "Relajado",
-  "fit.Oversized": "Holgado"
+  "fit.Oversized": "Holgado",
+  "wardrobe.pieces": "piezas",
+  "color.Charcoal Black": "Negro Carbón",
+  "color.Slate Graphite": "Grafito Pizarra",
+  "color.Cool Greige": "Greige Frío",
+  "color.Warm Sand": "Arena Cálida",
+  "color.Jet Black": "Negro Azabache",
+  "color.Off-White Ivory": "Blanco Marfil",
+  "color.Midnight Charcoal": "Carbón Medianoche",
+  "color.Slate Charcoal": "Carbón Pizarra",
+  "color.Indigo Deep Navy": "Azul Marino Índigo",
+  "color.Chalk White": "Blanco Tiza",
+  "color.Obsidian Black": "Negro Obsidiana",
+  "color.Pure White": "Blanco Puro",
+  "color.Natural Ecru": "Crudo Natural",
+  "color.Raw Umber": "Sombra Natural",
+  "color.Deep Terracotta": "Terracota Profundo"
 }
