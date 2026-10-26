@@ -113,3 +113,53 @@ def test_get_default_avatar_endpoints():
     assert res_male.status_code == 200
     assert "default_men_opt.glb" in res_male.json()["avatar_url"]
 
+
+def test_delete_user_avatar():
+    """Verifica endpoint DELETE /api/users/avatar para restablecer avatar preset"""
+    # 1. Configurar perfil
+    payload = {
+        "full_name": "Reset Test User",
+        "age": 27,
+        "gender": "male",
+    }
+    setup_res = client.post("/api/users/profile/setup", json=payload)
+    assert setup_res.status_code == 200
+
+    # 2. Resetear avatar
+    del_res = client.delete("/api/users/avatar")
+    assert del_res.status_code == 200
+    data = del_res.json()
+    assert data["status"] == "deleted"
+    assert data["avatar_type"] == "preset"
+
+
+def test_delete_user_avatar_authenticated():
+    """Verifica DELETE /api/users/avatar autenticado restaura avatar_url predeterminado"""
+    from app.services.auth_service import create_access_token
+    from app.api.auth import users_db, save_users_db
+
+    test_email = "delete_avatar_user@vitra.ai"
+    users_db[test_email] = {
+        "email": test_email,
+        "name": "Avatar Reset Test",
+        "gender": "male",
+        "avatar_url": "http://testserver/static/models/custom_old_avatar.glb",
+        "avatar_type": "custom_3d",
+    }
+    save_users_db()
+
+    token = create_access_token({"sub": test_email, "email": test_email})
+    try:
+        del_res = client.delete("/api/users/avatar", headers={"Authorization": f"Bearer {token}"})
+        assert del_res.status_code == 200
+        data = del_res.json()
+        assert data["status"] == "deleted"
+        assert data["avatar_type"] == "preset"
+        assert "default_men_opt.glb" in data["avatar_url"]
+        assert users_db[test_email]["avatar_type"] == "preset"
+        assert "default_men_opt.glb" in users_db[test_email]["avatar_url"]
+    finally:
+        users_db.pop(test_email, None)
+        save_users_db()
+
+
