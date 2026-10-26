@@ -32,8 +32,9 @@ def save_users_db():
         os.makedirs(os.path.dirname(USERS_DB_FILE), exist_ok=True)
         with open(USERS_DB_FILE, "w", encoding="utf-8") as f:
             json.dump(users_db, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"[Auth] Error al guardar base de datos de usuarios: {e}")
 
 # Base de datos persistente para usuarios registrados
 users_db: Dict[str, Dict[str, Any]] = _load_users_db()
@@ -61,7 +62,8 @@ if _stiven_email not in users_db or not users_db[_stiven_email].get("avatar_url"
         "avatar_type": "custom_3d",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-save_users_db()
+    save_users_db()
+
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -163,10 +165,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
     token = credentials.credentials
     payload = decode_access_token(token)
-    email_key = payload.get("sub")
+    email_key = (payload.get("sub") or payload.get("email") or "").lower()
     user = users_db.get(email_key)
     if not user:
-        return {"email": payload.get("email"), "name": payload.get("name", "Usuario")}
+        return {"email": payload.get("email") or email_key, "name": payload.get("name", "Usuario")}
 
     return {
         "email": user["email"],
@@ -177,4 +179,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         "avatar_url": user.get("avatar_url"),
         "avatar_type": user.get("avatar_type", "preset"),
         "base_garments": user.get("base_garments", []),
+        "color_profile": user.get("color_profile"),
+        "body_profile": user.get("body_profile"),
     }
