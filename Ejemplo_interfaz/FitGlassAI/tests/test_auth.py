@@ -26,50 +26,57 @@ def test_jwt_creation_and_decoding():
 
 
 def test_auth_register_and_login_flow():
-    test_email = "newuser@vitra.ai"
+    import uuid
+    from app.api.auth import save_users_db
+    test_email = f"newuser_{uuid.uuid4().hex[:8]}@vitra.ai"
     test_pwd = "strongpassword123"
 
-    # 1. Registrar usuario nuevo
-    reg_res = client.post("/api/auth/register", json={
-        "email": test_email,
-        "password": test_pwd,
-        "name": "Nuevo Usuario",
-    })
-    assert reg_res.status_code == 201
-    data = reg_res.json()
-    assert data["email"] == test_email
-    assert "password" not in data
-    assert "hashed_password" not in data
+    try:
+        # 1. Registrar usuario nuevo
+        reg_res = client.post("/api/auth/register", json={
+            "email": test_email,
+            "password": test_pwd,
+            "name": "Nuevo Usuario",
+        })
+        assert reg_res.status_code == 201
+        data = reg_res.json()
+        assert data["email"] == test_email
+        assert "password" not in data
+        assert "hashed_password" not in data
 
-    # 2. Registrar el mismo email de nuevo debe fallar
-    dup_res = client.post("/api/auth/register", json={
-        "email": test_email,
-        "password": test_pwd,
-    })
-    assert dup_res.status_code == 400
+        # 2. Registrar el mismo email de nuevo debe fallar
+        dup_res = client.post("/api/auth/register", json={
+            "email": test_email,
+            "password": test_pwd,
+        })
+        assert dup_res.status_code == 400
 
-    # 3. Login con credenciales erróneas
-    bad_login = client.post("/api/auth/login", json={
-        "email": test_email,
-        "password": "wrongpassword",
-    })
-    assert bad_login.status_code == 401
+        # 3. Login con credenciales erróneas
+        bad_login = client.post("/api/auth/login", json={
+            "email": test_email,
+            "password": "wrongpassword",
+        })
+        assert bad_login.status_code == 401
 
-    # 4. Login con credenciales correctas
-    ok_login = client.post("/api/auth/login", json={
-        "email": test_email,
-        "password": test_pwd,
-    })
-    assert ok_login.status_code == 200
-    token_data = ok_login.json()
-    assert "access_token" in token_data
-    assert token_data["token_type"] == "bearer"
-    token = token_data["access_token"]
+        # 4. Login con credenciales correctas
+        ok_login = client.post("/api/auth/login", json={
+            "email": test_email,
+            "password": test_pwd,
+        })
+        assert ok_login.status_code == 200
+        token_data = ok_login.json()
+        assert "access_token" in token_data
+        assert token_data["token_type"] == "bearer"
+        token = token_data["access_token"]
 
-    # 5. Consultar /api/auth/me con el token
-    me_res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
-    assert me_res.status_code == 200
-    assert me_res.json()["email"] == test_email
+        # 5. Consultar /api/auth/me con el token
+        me_res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert me_res.status_code == 200
+        assert me_res.json()["email"] == test_email
+    finally:
+        if test_email in users_db:
+            users_db.pop(test_email, None)
+            save_users_db()
 
 
 def test_demo_user_login():
