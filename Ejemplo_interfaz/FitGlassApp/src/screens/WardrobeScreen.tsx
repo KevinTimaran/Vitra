@@ -27,6 +27,7 @@ const CATEGORY_FILTERS = [
   { id: 'Favoritas', label: 'Favoritas', icon: 'heart-outline' },
   { id: 'Outerwear', label: 'Chaquetas', icon: 'layers-outline' },
   { id: 'Tops', label: 'Tops', icon: 'shirt-outline' },
+  { id: 'Dresses', label: 'Vestidos', icon: 'woman-outline' },
   { id: 'Pants', label: 'Pantalones', icon: 'reorder-two-outline' },
   { id: 'Shoes', label: 'Calzado', icon: 'footsteps-outline' },
   { id: 'Accessories', label: 'Accesorios', icon: 'sparkles-outline' },
@@ -60,6 +61,11 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
     if (selectedFilter === 'Tops') {
       return wardrobeItems.filter(
         (g) => g.category === 'Tops' || g.silhouetteType === 'tshirt'
+      );
+    }
+    if (selectedFilter === 'Dresses') {
+      return wardrobeItems.filter(
+        (g) => g.category === 'Dresses' || (g.category as string) === 'Dress' || g.silhouetteType === 'dress'
       );
     }
     if (selectedFilter === 'Pants') {
