@@ -6,7 +6,7 @@ import { lightThemeColors as LightColors, darkThemeColors, ThemeColors } from '.
 
 const THEME_PREF_KEY = 'vitra_theme_mode_pref';
 
-// Canonical dark theme palette for Pearl & Tiffany Atelier
+// Canonical dark theme palette for Luxury Fashion Editorial Atelier
 export const darkColors: ThemeColors = darkThemeColors;
 
 export type ThemeMode = 'light' | 'dark';
