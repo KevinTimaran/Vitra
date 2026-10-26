@@ -101,3 +101,26 @@ export async function getUserEmail(): Promise<string | null> {
   }
   return null;
 }
+
+/**
+ * Elimina el email del usuario guardado
+ */
+export async function removeUserEmail(): Promise<void> {
+  try {
+    if (await isSecureStoreAvailable()) {
+      await SecureStore.deleteItemAsync(AUTH_USER_EMAIL_KEY);
+    }
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(AUTH_USER_EMAIL_KEY);
+    }
+  } catch (err) {
+    console.warn('[SecureStorage] Error eliminando email:', err);
+  }
+}
+
+/**
+ * Limpia todas las credenciales locales de autenticación (token y email)
+ */
+export async function clearAuthStorage(): Promise<void> {
+  await Promise.all([removeAuthToken(), removeUserEmail()]);
+}
