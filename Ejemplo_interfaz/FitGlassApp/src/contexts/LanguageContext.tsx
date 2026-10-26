@@ -325,7 +325,27 @@ export const translations: Record<Language, Record<string, string>> = {
     "fittingRoom.activeModel": "Active 3D Model (.glb)",
     "fittingRoom.newGarment": "New Garment",
     "fittingRoom.touchHint": "Drag to rotate 360° · Pinch to zoom",
-    "fittingRoom.rotationHint": "You can rotate the 3D garment from any angle to inspect its generated drape and proportions."
+    "fittingRoom.rotationHint": "You can rotate the 3D garment from any angle to inspect its generated drape and proportions.",
+    "wardrobe.pieces": "pieces",
+    "fit.Slim": "Slim",
+    "fit.Regular": "Regular",
+    "fit.Relaxed": "Relaxed",
+    "fit.Oversized": "Oversized",
+    "color.Charcoal Black": "Charcoal Black",
+    "color.Slate Graphite": "Slate Graphite",
+    "color.Cool Greige": "Cool Greige",
+    "color.Warm Sand": "Warm Sand",
+    "color.Jet Black": "Jet Black",
+    "color.Off-White Ivory": "Off-White Ivory",
+    "color.Midnight Charcoal": "Midnight Charcoal",
+    "color.Slate Charcoal": "Slate Charcoal",
+    "color.Indigo Deep Navy": "Indigo Deep Navy",
+    "color.Chalk White": "Chalk White",
+    "color.Obsidian Black": "Obsidian Black",
+    "color.Pure White": "Pure White",
+    "color.Natural Ecru": "Natural Ecru",
+    "color.Raw Umber": "Raw Umber",
+    "color.Deep Terracotta": "Deep Terracotta"
   },
   "es": {
     "common.back": "Atrás",
@@ -645,7 +665,27 @@ export const translations: Record<Language, Record<string, string>> = {
     "fittingRoom.activeModel": "Modelo 3D activo (.glb)",
     "fittingRoom.newGarment": "Nueva Prenda",
     "fittingRoom.touchHint": "Arrastra para rotar 360° · Pellizca para zoom",
-    "fittingRoom.rotationHint": "Puedes rotar la prenda tridimensional en cualquier ángulo para examinar su caída y proporciones generadas."
+    "fittingRoom.rotationHint": "Puedes rotar la prenda tridimensional en cualquier ángulo para examinar su caída y proporciones generadas.",
+    "wardrobe.pieces": "piezas",
+    "fit.Slim": "Ajustado",
+    "fit.Regular": "Regular",
+    "fit.Relaxed": "Relajado",
+    "fit.Oversized": "Holgado",
+    "color.Charcoal Black": "Negro Carbón",
+    "color.Slate Graphite": "Grafito Pizarra",
+    "color.Cool Greige": "Greige Frío",
+    "color.Warm Sand": "Arena Cálida",
+    "color.Jet Black": "Negro Azabache",
+    "color.Off-White Ivory": "Blanco Marfil",
+    "color.Midnight Charcoal": "Carbón Medianoche",
+    "color.Slate Charcoal": "Carbón Pizarra",
+    "color.Indigo Deep Navy": "Azul Marino Índigo",
+    "color.Chalk White": "Blanco Tiza",
+    "color.Obsidian Black": "Negro Obsidiana",
+    "color.Pure White": "Blanco Puro",
+    "color.Natural Ecru": "Crudo Natural",
+    "color.Raw Umber": "Sombra Natural",
+    "color.Deep Terracotta": "Terracota Profundo"
   }
 };
 
@@ -708,6 +748,12 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const dict = translations[language] || translations.en;
     if (dict[key]) return dict[key];
     if (translations.en[key]) return translations.en[key];
+    if (key.startsWith('fit.')) {
+      return key.replace('fit.', '');
+    }
+    if (key.startsWith('color.')) {
+      return key.replace('color.', '');
+    }
     return key;
   };
 
