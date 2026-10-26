@@ -849,15 +849,19 @@ export const fetchAvatarPresets = async (): Promise<AvatarPresetItem[]> => {
 /**
  * Elimina o desvincula el avatar 3D personalizado activo del usuario en el backend.
  */
-export const deleteCurrentAvatar = async (): Promise<{ status: string; message: string }> => {
+export const deleteCurrentAvatar = async (token?: string | null): Promise<{ status: string; message: string }> => {
   const baseUrl = getBaseUrl();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Bypass-Tunnel-Reminder': 'true',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   try {
     const response = await fetch(`${baseUrl}/api/avatar/current`, {
       method: 'DELETE',
-      headers: {
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-      },
+      headers,
     });
     if (response.ok) {
       return await response.json();
