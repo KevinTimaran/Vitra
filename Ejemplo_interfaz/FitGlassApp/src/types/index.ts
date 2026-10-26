@@ -21,7 +21,7 @@ export type TabName = 'HOME' | 'WARDROBE' | 'COLOR_STUDIO' | 'PROFILE';
 export interface Garment {
   id: string;
   name: string;
-  category: 'Tops' | 'Outerwear' | 'Pants' | 'Shoes' | 'Accessories';
+  category: 'Tops' | 'Outerwear' | 'Pants' | 'Shoes' | 'Accessories' | 'Dresses';
   colorName: string;
   colorHex: string;
   size: 'XS' | 'S' | 'M' | 'L' | 'XL' | 'U';
@@ -38,7 +38,7 @@ export interface Garment {
   style?: string;
   occasion?: string;
   rawAnalysis?: any;
-  silhouetteType: 'tshirt' | 'jacket' | 'trousers' | 'shoes' | 'coat' | 'accessory';
+  silhouetteType: 'tshirt' | 'jacket' | 'trousers' | 'shoes' | 'coat' | 'accessory' | 'dress';
   paletteHarmony: boolean;
 }
 
