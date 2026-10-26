@@ -19,6 +19,8 @@ export interface UserMeResponse {
   avatar_url?: string;
   avatar_type?: string;
   base_garments?: any[];
+  color_profile?: any;
+  body_profile?: any;
 }
 
 /**
