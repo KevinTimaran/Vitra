@@ -235,6 +235,39 @@ export const Loader3D: React.FC<{ colorHex?: string }> = ({ colorHex = '#8B5CF6'
   );
 };
 
+/**
+ * Error boundary interno dentro del Canvas de Three.js para capturar fallos
+ * de carga del GLTF en web sin desmontar la pantalla.
+ */
+class InnerModelErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode; onError?: (err: any) => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(err: any) {
+    console.warn('[InnerModelErrorBoundary.web] Error capturado en Canvas:', err);
+    this.props.onError?.(err);
+  }
+
+  componentDidUpdate(prevProps: any) {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
 const DynamicGarmentModel: React.FC<{
   modelUrl: string;
 }> = ({ modelUrl }) => {
@@ -387,9 +420,20 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
         <directionalLight position={[-3, 2, -3]} intensity={0.4} />
 
         {resolvedDynamicUrl ? (
-          <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
-            <DynamicGarmentModel key={resolvedDynamicUrl} modelUrl={resolvedDynamicUrl} />
-          </Suspense>
+          <InnerModelErrorBoundary
+            fallback={
+              isAvatar ? (
+                <StylizedAvatarSilhouette gender={avatarGender} colorHex={garmentColorHex || '#8EB6C7'} isRotating={true} />
+              ) : (
+                <StylizedGarmentMannequin colorHex={garmentColorHex} isRotating={true} />
+              )
+            }
+            onError={onLoadError}
+          >
+            <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
+              <DynamicGarmentModel key={resolvedDynamicUrl} modelUrl={resolvedDynamicUrl} />
+            </Suspense>
+          </InnerModelErrorBoundary>
         ) : isAvatar ? (
           <Suspense fallback={<Loader3D colorHex={garmentColorHex} />}>
             <StylizedAvatarSilhouette gender={avatarGender} colorHex={garmentColorHex || '#8EB6C7'} isRotating={true} />
