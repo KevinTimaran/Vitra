@@ -5,11 +5,12 @@ from typing import List, Optional
 class ColorimetryRequest(BaseModel):
     image: Optional[str] = Field(None, description="Fotografía facial o frontal del usuario en Base64 o URL")
     image_data: Optional[str] = Field(None, description="Alias para imagen en Base64 o URL")
+    face_image: Optional[str] = Field(None, description="Alias para fotografía facial en Base64 o URL")
 
     def get_image(self) -> str:
-        img = self.image or self.image_data
+        img = self.image or self.image_data or self.face_image
         if not img or not img.strip():
-            raise ValueError("Se requiere 'image' o 'image_data' con una imagen en Base64 o URL.")
+            raise ValueError("Se requiere 'image', 'image_data' o 'face_image' con una imagen en Base64 o URL.")
         return img.strip()
 
 
