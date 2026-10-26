@@ -73,6 +73,7 @@ async def generate_3d_model(
     image_url: str,
     polling_interval: float = 2.5,
     timeout_seconds: float = 180.0,
+    preprocess_image: bool = True,
 ) -> str:
     """
     Convierte una imagen 2D en un modelo 3D (.glb) utilizando la API de Tripo3D.
@@ -97,8 +98,17 @@ async def generate_3d_model(
             "Authorization": f"Bearer {settings.TRIPO_API_KEY}",
         }
 
-        # Paso 1: Descargar los bytes de la imagen y subirla a Tripo3D
+        # Paso 1: Descargar los bytes de la imagen
         image_bytes, mime_type, filename = await _fetch_image_bytes(image_url)
+
+        # Preprocesamiento estricto: Remoción de fondo y centrado en canvas 1024x1024
+        if preprocess_image:
+            try:
+                from app.services.image_preprocessor import preprocess_avatar_image
+                image_bytes, mime_type, filename = preprocess_avatar_image(image_bytes, target_size=1024)
+                logger.info(f"[Tripo3D] Imagen preprocesada con éxito para 3D (fondo limpio, centrada 1024x1024): {len(image_bytes)} bytes")
+            except Exception as prep_err:
+                logger.warning(f"[Tripo3D] Aviso en preprocesador de imagen: {prep_err}. Continuando con imagen original.")
 
         upload_url = f"{TRIPO_API_BASE_URL}/upload"
         task_url = f"{TRIPO_API_BASE_URL}/task"
