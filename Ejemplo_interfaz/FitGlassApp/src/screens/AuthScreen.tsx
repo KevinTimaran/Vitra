@@ -25,6 +25,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
 import { loginUser, registerUser, setupUserProfile } from '../services/auth/authClient';
 import { getLatestAvatarModel } from '../services/ai/garmentAnalyzer';
+import { CameraSilhouetteModal, ImageCropperModal } from '../components/camera';
 import { Typography, Spacing, Radius } from '../theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -60,6 +61,11 @@ export const AuthScreen: React.FC = () => {
   const [bodyImageUri, setBodyImageUri] = useState<string | null>(null);
   const [bodyImageBase64, setBodyImageBase64] = useState<string | null>(null);
 
+  // Modales de captura con guía de silueta A-Pose y recorte
+  const [showBodyCamera, setShowBodyCamera] = useState<boolean>(false);
+  const [showBodyCropper, setShowBodyCropper] = useState<boolean>(false);
+  const [galleryTempUri, setGalleryTempUri] = useState<string | null>(null);
+
   // Estados de proceso y feedback
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -79,6 +85,32 @@ export const AuthScreen: React.FC = () => {
   const handlePickImage = async (target: 'face' | 'body', source: 'camera' | 'gallery') => {
     try {
       setErrorMessage(null);
+
+      // Para fotografía corporal (Avatar 3D): Lanzar el visor con silueta translúcida A-pose o recortador
+      if (target === 'body') {
+        if (source === 'camera') {
+          setShowBodyCamera(true);
+          return;
+        }
+        if (source === 'gallery') {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permiso Requerido', 'Se requiere acceso a la galería para seleccionar la fotografía.');
+            return;
+          }
+          const galRes = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: false,
+            quality: 0.9,
+          });
+          if (!galRes.canceled && galRes.assets && galRes.assets.length > 0) {
+            setGalleryTempUri(galRes.assets[0].uri);
+            setShowBodyCropper(true);
+          }
+          return;
+        }
+      }
+
       if (source === 'camera') {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
@@ -1040,6 +1072,33 @@ export const AuthScreen: React.FC = () => {
           </View>
         )}
       </LinearGradient>
+
+      {/* Modal de Cámara con Silueta Translúcida A-Pose */}
+      <CameraSilhouetteModal
+        visible={showBodyCamera}
+        onClose={() => setShowBodyCamera(false)}
+        gender={gender}
+        onPhotoSelected={(croppedUri, b64) => {
+          setBodyImageUri(croppedUri);
+          if (b64) setBodyImageBase64(b64);
+        }}
+      />
+
+      {/* Modal de Recorte Ajustado de Cabeza a Pies para Galería */}
+      <ImageCropperModal
+        visible={showBodyCropper}
+        imageUri={galleryTempUri}
+        onConfirm={(croppedUri, b64) => {
+          setShowBodyCropper(false);
+          setGalleryTempUri(null);
+          setBodyImageUri(croppedUri);
+          if (b64) setBodyImageBase64(b64);
+        }}
+        onCancel={() => {
+          setShowBodyCropper(false);
+          setGalleryTempUri(null);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 };
