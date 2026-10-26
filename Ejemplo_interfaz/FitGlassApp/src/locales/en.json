@@ -245,5 +245,21 @@
   "fit.Slim": "Slim",
   "fit.Regular": "Regular",
   "fit.Relaxed": "Relaxed",
-  "fit.Oversized": "Oversized"
+  "fit.Oversized": "Oversized",
+  "wardrobe.pieces": "pieces",
+  "color.Charcoal Black": "Charcoal Black",
+  "color.Slate Graphite": "Slate Graphite",
+  "color.Cool Greige": "Cool Greige",
+  "color.Warm Sand": "Warm Sand",
+  "color.Jet Black": "Jet Black",
+  "color.Off-White Ivory": "Off-White Ivory",
+  "color.Midnight Charcoal": "Midnight Charcoal",
+  "color.Slate Charcoal": "Slate Charcoal",
+  "color.Indigo Deep Navy": "Indigo Deep Navy",
+  "color.Chalk White": "Chalk White",
+  "color.Obsidian Black": "Obsidian Black",
+  "color.Pure White": "Pure White",
+  "color.Natural Ecru": "Natural Ecru",
+  "color.Raw Umber": "Raw Umber",
+  "color.Deep Terracotta": "Deep Terracotta"
 }
