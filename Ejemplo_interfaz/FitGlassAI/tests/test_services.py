@@ -280,6 +280,7 @@ async def test_optimize_3d_model_fallback_on_cli_failure():
 
 @pytest.mark.anyio
 async def test_optimize_3d_model_success():
+    import os
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.content = b"fake_glb_bytes"
@@ -288,20 +289,32 @@ async def test_optimize_3d_model_success():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__.return_value = mock_client
 
+    created_paths = []
+
     def mock_run(cmd, *args, **kwargs):
         # Crear archivo simulado en output_path (índice 5 de cmd)
         out_path = cmd[5]
         with open(out_path, "wb") as f:
             f.write(b"optimized_draco_webp_bytes")
+        created_paths.append(out_path)
         proc = MagicMock()
         proc.returncode = 0
         proc.stderr = ""
         proc.stdout = "info: success"
         return proc
 
-    with patch("app.services.optimizer_service.httpx.AsyncClient", return_value=mock_client), \
-         patch("app.services.optimizer_service.subprocess.run", side_effect=mock_run):
-        res = await optimize_3d_model("https://example.com/model.glb", base_url="http://testserver:8000")
-        assert "http://testserver:8000/static/models/model_" in res
-        assert res.endswith("_opt.glb")
+    try:
+        with patch("app.services.optimizer_service.httpx.AsyncClient", return_value=mock_client), \
+             patch("app.services.optimizer_service.subprocess.run", side_effect=mock_run):
+            res = await optimize_3d_model("https://example.com/model.glb", base_url="http://testserver:8000")
+            assert "http://testserver:8000/static/models/model_" in res
+            assert res.endswith("_opt.glb")
+    finally:
+        for p in created_paths:
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+
 
