@@ -178,7 +178,7 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = (props) =
               </Text>
               {assigned ? (
                 <View style={styles.assignedBadge}>
-                  <View style={[styles.assignedDot, { backgroundColor: assigned.colorHex }]} />
+                  <View style={[styles.assignedDot, { backgroundColor: assigned.colorHex || '#8B5CF6' }]} />
                   <Text
                     style={[
                       styles.assignedText,
@@ -187,7 +187,7 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = (props) =
                     ]}
                     numberOfLines={1}
                   >
-                    {assigned.colorName.split(' ')[0]}
+                    {assigned.colorName ? assigned.colorName.split(' ')[0] : assigned.name || ''}
                   </Text>
                 </View>
               ) : (
