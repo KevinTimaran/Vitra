@@ -1,5 +1,7 @@
 // src/theme/typography.ts
-import { TextStyle, Platform } from 'react-native';
+import type { TextStyle } from 'react-native';
+
+export type TypographyToken = TextStyle;
 
 export const Fonts = {
   bodoni: {
@@ -30,6 +32,7 @@ export const Fonts = {
 
 /**
  * Editorial Serif Tokens (Bodoni Moda)
+ * Masthead, display, and high-fashion editorial headlines
  */
 export const EditorialTypography = {
   displayLg: {
@@ -74,10 +77,25 @@ export const EditorialTypography = {
     fontWeight: '500' as const,
     letterSpacing: -0.3,
   },
+  headlineSmSerif: {
+    fontFamily: Fonts.editorial.medium,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '500' as const,
+    letterSpacing: -0.2,
+  },
+  quote: {
+    fontFamily: Fonts.editorial.regular,
+    fontSize: 18,
+    lineHeight: 26,
+    fontWeight: '400' as const,
+    letterSpacing: 0.1,
+  },
 };
 
 /**
  * Interface Sans Tokens (Outfit)
+ * Clean, geometric, legible sans-serif for functional controls and body copy
  */
 export const InterfaceTypography = {
   headlineSm: {
@@ -85,6 +103,13 @@ export const InterfaceTypography = {
     fontSize: 20,
     lineHeight: 28,
     fontWeight: '500' as const,
+    letterSpacing: -0.2,
+  },
+  headlineXs: {
+    fontFamily: Fonts.interface.semiBold,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '600' as const,
     letterSpacing: -0.2,
   },
   bodyLg: {
@@ -127,7 +152,15 @@ export const InterfaceTypography = {
     fontSize: 10,
     lineHeight: 14,
     fontWeight: '600' as const,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
+  },
+  overline: {
+    fontFamily: Fonts.interface.semiBold,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600' as const,
+    letterSpacing: 1.2,
     textTransform: 'uppercase' as const,
   },
 };
@@ -139,6 +172,7 @@ export const Typography = {
   // Convenient font accessors
   bodoni: Fonts.bodoni,
   outfit: Fonts.outfit,
+  fonts: Fonts,
 
   // Canonical tokens
   ...EditorialTypography,
@@ -149,13 +183,8 @@ export const Typography = {
   largeTitle: EditorialTypography.headlineLg,
   title1: EditorialTypography.headlineMd,
   title2: InterfaceTypography.headlineSm,
-  headline: {
-    fontFamily: Fonts.interface.semiBold,
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '600' as const,
-    letterSpacing: -0.2,
-  },
+  title3: EditorialTypography.headlineSmSerif,
+  headline: InterfaceTypography.headlineXs,
   body: InterfaceTypography.bodyMd,
   callout: {
     fontFamily: Fonts.interface.regular,
@@ -165,6 +194,12 @@ export const Typography = {
     letterSpacing: 0,
   },
   subhead: InterfaceTypography.bodySm,
+  footnote: InterfaceTypography.bodySm,
   caption: InterfaceTypography.labelMd,
   micro: InterfaceTypography.labelSm,
+  tag: InterfaceTypography.labelSm,
+  button: InterfaceTypography.headlineXs,
+  buttonSm: InterfaceTypography.labelLg,
+  quote: EditorialTypography.quote,
+  overline: InterfaceTypography.overline,
 };
