@@ -1,5 +1,6 @@
 import logging
 import os
+os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
 from dotenv import load_dotenv
 
 load_dotenv()
