@@ -116,8 +116,11 @@ async def setup_user_profile(
     base_garments = get_default_base_garments(gender_val)
 
     # Persistencia en base de datos de usuario
-    if user_email and user_email.lower() in users_db:
-        users_db[user_email.lower()].update({
+    if user_email:
+        user_key = user_email.lower()
+        if user_key not in users_db:
+            users_db[user_key] = {"email": user_email}
+        users_db[user_key].update({
             "name": payload.full_name,
             "age": payload.age,
             "gender": gender_val,
@@ -205,4 +208,40 @@ async def update_user_avatar(
         "avatar_url": new_avatar_url,
         "avatar_type": "custom_3d",
     }
+
+
+@router.delete("/avatar", status_code=status.HTTP_200_OK)
+async def delete_user_avatar(
+    request: Request = None,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+):
+    """
+    Desvincula o elimina el avatar 3D personalizado activo del usuario en la base de datos,
+    restableciendo el avatar a silueta predeterminada (preset).
+    """
+    user_email = None
+    if credentials:
+        try:
+            token_data = decode_access_token(credentials.credentials)
+            user_email = token_data.get("sub") or token_data.get("email")
+        except Exception:
+            pass
+
+    default_url = None
+    if user_email and user_email.lower() in users_db:
+        user_gender = users_db[user_email.lower()].get("gender", "female")
+        base_url = _resolve_base_url(request)
+        default_url = await get_or_create_optimized_default_avatar(user_gender, base_url)
+        users_db[user_email.lower()]["avatar_url"] = default_url
+        users_db[user_email.lower()]["avatar_type"] = "preset"
+        save_users_db()
+        logger.info(f"[Users] Avatar personalizado restablecido a preset ({default_url}) para {user_email}")
+
+    return {
+        "status": "deleted",
+        "message": "Avatar 3D personalizado eliminado. Se ha restablecido la silueta predeterminada.",
+        "avatar_type": "preset",
+        "avatar_url": default_url,
+    }
+
 
