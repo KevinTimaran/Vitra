@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getAuthToken, saveAuthToken, removeAuthToken, getUserEmail, saveUserEmail } from '../services/auth/secureStorage';
+import { getAuthToken, saveAuthToken, clearAuthStorage, getUserEmail, saveUserEmail } from '../services/auth/secureStorage';
 
 interface AuthContextValue {
   userToken: string | null;
@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setUserToken(null);
     setUserEmail(null);
-    await removeAuthToken();
+    await clearAuthStorage();
   };
 
   return (
