@@ -562,8 +562,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteAvatar = async (): Promise<void> => {
     console.log('[UserContext] Eliminando avatar 3D activo y revirtiendo a preset...');
+    let presetUrl = '';
     try {
-      await deleteCurrentAvatar();
+      const token = await getAuthToken();
+      const res: any = await deleteCurrentAvatar(token);
+      if (res?.avatar_url) {
+        presetUrl = res.avatar_url;
+      }
     } catch (delErr) {
       console.warn('[UserContext] Error al eliminar avatar en backend:', delErr);
     }
@@ -572,15 +577,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAvatarCreatedAt(undefined);
 
     // Asignar el modelo optimizado por defecto
-    try {
-      const defaultRes = await getDefaultAvatarModel(gender || 'female');
-      if (defaultRes?.avatar_url) {
-        setAvatarUrl(defaultRes.avatar_url);
-      } else {
+    if (presetUrl) {
+      setAvatarUrl(presetUrl);
+    } else {
+      try {
+        const defaultRes = await getDefaultAvatarModel(gender || 'female');
+        if (defaultRes?.avatar_url) {
+          setAvatarUrl(defaultRes.avatar_url);
+        } else {
+          setAvatarUrl('');
+        }
+      } catch {
         setAvatarUrl('');
       }
-    } catch {
-      setAvatarUrl('');
     }
 
     try {
@@ -635,6 +644,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (me.name) setUserName(me.name);
             if (me.gender) setGender(me.gender);
             if (me.age) setUserAge(me.age);
+            if (me.color_profile) {
+              console.log('[UserContext] Perfil de colorimetría sincronizado desde backend:', me.color_profile);
+              setColorProfile(me.color_profile);
+            }
+            if (me.body_profile) {
+              setBodyProfile(me.body_profile);
+            }
             if (me.avatar_url) {
               console.log('[UserContext] Avatar 3D sincronizado desde backend (/me):', me.avatar_url);
               setAvatarUrl(me.avatar_url);
@@ -647,6 +663,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 SecureStore.setItemAsync('vitra_avatar_url', me.avatar_url).catch(() => {});
                 SecureStore.setItemAsync('vitra_avatar_type', me.avatar_type || 'custom_3d').catch(() => {});
               }
+            } else if (me.avatar_type === 'preset' || !me.avatar_url) {
+              setAvatarType('preset');
+              avatarFound = true;
+              try {
+                const defaultRes = await getDefaultAvatarModel(me.gender || gender || 'female');
+                if (defaultRes?.avatar_url) {
+                  setAvatarUrl(defaultRes.avatar_url);
+                }
+              } catch {}
             }
           }
         } catch (authErr) {
@@ -654,11 +679,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Si /me no trajo avatar o el token estaba expirado, consultar directamente /api/avatar/latest
-      if (!avatarFound) {
+      // Solo si el usuario NO está autenticado (!token) y se perdió la referencia local del avatar
+      if (!avatarFound && !token) {
         try {
           const latest = await getLatestAvatarModel();
-          if (latest?.avatar_url && latest.avatar_url.includes('tripo_pbr_model')) {
+          if (latest?.avatar_url && !latest.avatar_url.includes('default_')) {
             console.log('[UserContext] ¡Modelo 3D personalizado recuperado con éxito desde latest!:', latest.avatar_url);
             setAvatarUrl(latest.avatar_url);
             setAvatarType('custom_3d');
@@ -674,6 +699,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('[UserContext] Error consultando avatar latest:', latestErr);
         }
       }
+
     } catch (e) {
       console.warn('[UserContext] Error sincronizando con backend:', e);
     }
