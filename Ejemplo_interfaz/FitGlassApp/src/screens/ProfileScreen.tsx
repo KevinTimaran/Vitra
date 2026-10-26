@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { GlassCard } from '../components/GlassCard';
+import { CameraSilhouetteModal, ImageCropperModal } from '../components/camera';
 
 export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark, toggleTheme, setTheme } = useTheme();
@@ -37,64 +38,62 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
   const { userEmail, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [avatarLoading, setAvatarLoading] = useState<boolean>(false);
+  const [showCameraSilhouette, setShowCameraSilhouette] = useState<boolean>(false);
+  const [showCropper, setShowCropper] = useState<boolean>(false);
+  const [galleryImageUri, setGalleryImageUri] = useState<string | null>(null);
 
-  const handlePickAndUploadAvatar = async (source: 'camera' | 'gallery' | 'demo') => {
+  const handleLogout = async () => {
+    resetProfile();
+    await logout();
+  };
+
+  const handleUploadAvatarPhoto = async (imagePayload: string) => {
     try {
-      if (source === 'demo') {
-        setAvatarLoading(true);
-        const demoImg = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
-        await replaceAvatar(demoImg);
-        Alert.alert('Éxito', 'Gemelo digital 3D generado a partir de la silueta demo.');
-        return;
-      }
-
-      if (source === 'camera') {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permiso Requerido', 'Se requiere acceso a la cámara.');
-          return;
-        }
-      } else {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permiso Requerido', 'Se requiere acceso a la galería.');
-          return;
-        }
-      }
-
-      const res = source === 'camera'
-        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8 })
-        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8 });
-
-      if (!res.canceled && res.assets && res.assets.length > 0) {
-        setAvatarLoading(true);
-        const asset = res.assets[0];
-
-        // Redimensionar y comprimir la fotografía para reducir el payload y evitar caídas de red
-        let imagePayload = asset.uri;
-        try {
-          const manipulated = await ImageManipulator.manipulateAsync(
-            asset.uri,
-            [{ resize: { width: 1024 } }],
-            { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-          );
-          if (manipulated.base64) {
-            imagePayload = `data:image/jpeg;base64,${manipulated.base64}`;
-          } else if (manipulated.uri) {
-            imagePayload = manipulated.uri;
-          }
-        } catch (manipErr) {
-          console.warn('[ProfileScreen] Aviso optimizando imagen:', manipErr);
-        }
-
-        await replaceAvatar(imagePayload);
-        Alert.alert('Gemelo Digital Actualizado', 'Tu avatar 3D ha sido generado y vinculado a tu probador.');
-      }
+      setAvatarLoading(true);
+      await replaceAvatar(imagePayload);
+      Alert.alert('Gemelo Digital Actualizado', 'Tu avatar 3D ha sido generado y vinculado a tu probador.');
     } catch (e: any) {
       console.error('[ProfileScreen] Error al actualizar avatar:', e);
       Alert.alert('Error', e?.message || 'No se pudo generar el gemelo digital.');
     } finally {
       setAvatarLoading(false);
+    }
+  };
+
+  const handlePickAndUploadAvatar = async (source: 'camera' | 'gallery' | 'demo') => {
+    try {
+      if (source === 'demo') {
+        const demoImg = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+        await handleUploadAvatarPhoto(demoImg);
+        return;
+      }
+
+      if (source === 'camera') {
+        setShowCameraSilhouette(true);
+        return;
+      }
+
+      if (source === 'gallery') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permiso Requerido', 'Se requiere acceso a la galería.');
+          return;
+        }
+
+        const res = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: false,
+          quality: 0.9,
+        });
+
+        if (!res.canceled && res.assets && res.assets.length > 0) {
+          setGalleryImageUri(res.assets[0].uri);
+          setShowCropper(true);
+        }
+      }
+    } catch (e: any) {
+      console.error('[ProfileScreen] Error al seleccionar imagen:', e);
+      Alert.alert('Error', e?.message || 'No se pudo abrir el selector.');
     }
   };
 
@@ -330,7 +329,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               ]}
             >
               <Text style={[styles.seasonPillText, { color: colors.primaryText }]}>
-                {colorProfile.season}
+                {colorProfile?.season || 'Otoño Cálido'}
               </Text>
             </View>
           </View>
@@ -339,24 +338,31 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
             <View
               style={[
                 styles.miniToneCircle,
-                { backgroundColor: colorProfile.skin_tone.split(' ')[0] },
+                {
+                  backgroundColor:
+                    typeof colorProfile?.skin_tone === 'string' && colorProfile.skin_tone.trim()
+                      ? colorProfile.skin_tone.split(' ')[0]
+                      : '#E8BEAC',
+                },
               ]}
             />
             <Text style={[styles.miniToneLabel, { color: colors.secondaryText }]}>
-              {t('profile.skinLabel')}: {colorProfile.skin_tone}
+              {t('profile.skinLabel')}: {colorProfile?.skin_tone || '#E8BEAC'}
             </Text>
           </View>
 
           <View style={styles.chipsRow}>
-            {colorProfile.recommended_colors.slice(0, 6).map((hex, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.miniSwatch,
-                  { backgroundColor: hex, borderColor: colors.borderLight },
-                ]}
-              />
-            ))}
+            {(Array.isArray(colorProfile?.recommended_colors) ? colorProfile.recommended_colors : ['#854D0E', '#047857', '#C2410C'])
+              .slice(0, 6)
+              .map((hex, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.miniSwatch,
+                    { backgroundColor: hex, borderColor: colors.borderLight },
+                  ]}
+                />
+              ))}
           </View>
 
           <TouchableOpacity
@@ -575,12 +581,37 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           />
           <SecondaryButton
             label={t('profile.signOut')}
-            onPress={logout}
+            onPress={handleLogout}
             icon="log-out-outline"
             style={{ marginTop: Spacing.sm, borderColor: 'rgba(239, 68, 68, 0.4)' }}
           />
         </View>
       </ScrollView>
+
+      {/* Modal de Cámara con Silueta Translúcida A-Pose */}
+      <CameraSilhouetteModal
+        visible={showCameraSilhouette}
+        onClose={() => setShowCameraSilhouette(false)}
+        gender={gender}
+        onPhotoSelected={(croppedUri, b64) => {
+          handleUploadAvatarPhoto(b64 || croppedUri);
+        }}
+      />
+
+      {/* Modal de Recorte Ajustado de Cabeza a Pies para Galería */}
+      <ImageCropperModal
+        visible={showCropper}
+        imageUri={galleryImageUri}
+        onConfirm={(croppedUri, b64) => {
+          setShowCropper(false);
+          setGalleryImageUri(null);
+          handleUploadAvatarPhoto(b64 || croppedUri);
+        }}
+        onCancel={() => {
+          setShowCropper(false);
+          setGalleryImageUri(null);
+        }}
+      />
     </View>
   );
 };
