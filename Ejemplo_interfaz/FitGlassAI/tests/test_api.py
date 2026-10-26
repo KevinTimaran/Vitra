@@ -243,6 +243,25 @@ def test_colorimetry_analyze_missing_image():
     assert response.json()["success"] is False
 
 
+def test_colorimetry_analyze_face_image_alias():
+    mock_result = {
+        "skin_tone": "#E8BEAC (Cálido)",
+        "hair_color": "#2C1B18 (Castaño)",
+        "season": "Otoño Cálido",
+        "description": "Tu subtono cálido se ve realzado con colores terrosos.",
+        "recommended_colors": ["#854D0E", "#047857"],
+    }
+    with patch("app.api.colorimetry.analyze_colorimetry", new_callable=AsyncMock) as mock_service:
+        mock_service.return_value = mock_result
+        response = client.post(
+            "/api/colorimetry/analyze",
+            json={"face_image": "https://example.com/face_alias.jpg"}
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mock_service.assert_called_once_with("https://example.com/face_alias.jpg")
+
+
 # -------------------------------------------------------------
 # Pruebas de integración: POST /api/avatar/generate
 # -------------------------------------------------------------
@@ -284,6 +303,48 @@ def test_avatar_delete_endpoint():
     data = response.json()
     assert data["status"] == "deleted"
     assert "reestablecido" in data["message"] or "restablecido" in data["message"] or "eliminado" in data["message"]
+
+
+def test_avatar_delete_endpoint_authenticated():
+    from app.services.auth_service import create_access_token
+    from app.api.auth import users_db, save_users_db
+
+    test_email = "del_avatar_api_test@vitra.ai"
+    users_db[test_email] = {
+        "email": test_email,
+        "name": "Avatar Delete Test",
+        "gender": "female",
+        "avatar_url": "http://testserver/static/models/old_custom.glb",
+        "avatar_type": "custom_3d",
+    }
+    save_users_db()
+    token = create_access_token({"sub": test_email, "email": test_email})
+
+    try:
+        response = client.delete("/api/avatar/current", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "deleted"
+        assert data["avatar_type"] == "preset"
+        assert "default_girl_opt.glb" in data["avatar_url"]
+        assert users_db[test_email]["avatar_type"] == "preset"
+        assert "default_girl_opt.glb" in users_db[test_email]["avatar_url"]
+    finally:
+        users_db.pop(test_email, None)
+        save_users_db()
+
+
+def test_avatar_generate_multipart_body_image_alias():
+    with patch("app.api.avatar.generate_3d_model", new_callable=AsyncMock) as mock_tripo:
+        mock_tripo.return_value = "https://openapi.cdn.tripo3d.ai/avatar_alias.glb"
+        response = client.post(
+            "/api/avatar/generate",
+            data={"body_image": "https://example.com/fullbody_alias.jpg"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["avatar_url"] == "https://openapi.cdn.tripo3d.ai/avatar_alias.glb"
+        assert data["status"] == "completed"
 
 
 def test_avatar_presets_endpoint():
@@ -332,4 +393,37 @@ def test_tryon_multi_garment_success():
         assert mock_3d_fn.call_count == 1
         # IDM-VTON invocado dos veces (una para chaqueta y una para pantalón)
         assert mock_vton.call_count == 2
+
+
+def test_tryon_multi_garment_failure_strict_mode():
+    """Verifica que con allow_fallback=False, si falla una prenda intermedia, el error 502 se propague."""
+    mock_2d_top = "https://mock.com/top_fused.png"
+
+    with patch("app.api.tryon.generate_vton", new_callable=AsyncMock) as mock_vton:
+        mock_vton.side_effect = [mock_2d_top, HTTPException(status_code=502, detail="VTON GPU error")]
+
+        payload = {
+            "human_image": "https://example.com/person.png",
+            "garments": [
+                {"image": "https://example.com/jacket.png", "category": "upper_body", "name": "Blazer"},
+                {"image": "https://example.com/trousers.png", "category": "lower_body", "name": "Pants"},
+            ],
+            "allow_fallback": False
+        }
+
+        response = client.post("/api/tryon/generate", json=payload)
+        assert response.status_code == 502
+        assert "VTON GPU error" in response.json()["detail"]
+
+
+def test_avatar_latest_filters_non_avatars():
+    """Verifica que /api/avatar/latest filtre prendas y presets no aptos como avatar de usuario."""
+    response = client.get("/api/avatar/latest")
+    # Si hay modelos válidos, no debe retornar default_ ni DamagedHelmet
+    if response.status_code == 200:
+        data = response.json()
+        assert not data["filename"].startswith("default_")
+        assert not data["filename"].startswith("DamagedHelmet")
+        assert not data["filename"].startswith("tshirt")
+
 
