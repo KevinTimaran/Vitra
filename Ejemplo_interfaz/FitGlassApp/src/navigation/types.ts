@@ -10,6 +10,8 @@ export type RootTabParamList = {
     model_3d_url?: string;
     image_2d_url?: string;
     metadata?: GarmentMetadata;
+    selectedGarment?: any;
+    initialGarment?: any;
   } | undefined;
   ColorStudio: undefined;
   Profile: undefined;
@@ -22,6 +24,8 @@ export type RootStackParamList = {
     model_3d_url?: string;
     image_2d_url?: string;
     metadata?: GarmentMetadata;
+    selectedGarment?: any;
+    initialGarment?: any;
   } | undefined;
   Welcome: undefined;
   BodyProfile: undefined;
