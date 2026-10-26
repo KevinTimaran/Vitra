@@ -123,7 +123,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   ]);
 
   // Filtrado de prendas para el carrusel inferior
-  const categories = ['Todas', 'Tops', 'Outerwear', 'Pants', 'Shoes', 'Accessories'];
+  const categories = ['Todas', 'Tops', 'Dresses', 'Outerwear', 'Pants', 'Shoes', 'Accessories'];
   const filteredGarments = useMemo(() => {
     if (selectedCategory === 'Todas') return wardrobe_items;
     return wardrobe_items.filter((g) => g.category === selectedCategory);
@@ -136,11 +136,20 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       if (exists) {
         return prev.filter((g) => g.id !== garment.id);
       }
-      // Reemplazar prenda de la misma categoría o añadir para look completo
-      const withoutSameCategory = prev.filter((g) => g.category !== garment.category);
-      return [...withoutSameCategory, garment];
+      // Reemplazar prenda de la misma categoría
+      let filtered = prev.filter((g) => g.category !== garment.category);
+      const isDress = garment.category === 'Dresses' || (garment.category as string) === 'Dress';
+      if (isDress) {
+        // Un vestido (one-piece) reemplaza Top y Pantalón
+        filtered = filtered.filter((g) => g.category !== 'Tops' && g.category !== 'Pants');
+      } else if (garment.category === 'Tops' || garment.category === 'Pants') {
+        // Tops y Pantalones sustituyen Vestidos
+        filtered = filtered.filter((g) => g.category !== 'Dresses' && (g.category as string) !== 'Dress');
+      }
+      return [...filtered, garment];
     });
   };
+
 
   const clearSelection = () => {
     setSelectedGarments([]);
@@ -164,6 +173,8 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
         category:
           g.category === 'Pants'
             ? 'lower_body'
+            : (g.category as string) === 'Dresses' || (g.category as string) === 'Dress'
+            ? 'dresses'
             : g.category === 'Shoes'
             ? 'shoes'
             : g.category === 'Accessories'
@@ -212,7 +223,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
     const categoriesList = selectedGarments.map((g) => g.category).join(' & ');
     const newLook: SavedLookItem = {
       id: `look-${Date.now()}`,
-      title: `Look Atelier ${selectedGarments[0]?.name.split(' ')[0] || ''} (${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })})`,
+      title: `Look Atelier ${selectedGarments[0]?.name ? selectedGarments[0].name.split(' ')[0] : 'Look'} (${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })})`,
       date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
       garments: [...selectedGarments],
       fitScore: 'Alta Armonía · Calce Atelier',
@@ -244,13 +255,15 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   };
 
   // FASE 3: Comprobación de armonía con la colorimetría del usuario
-  const isColorHarmonious = (colorHex: string) => {
+  const isColorHarmonious = (colorHex?: string | null) => {
+    if (!colorHex || typeof colorHex !== 'string') return false;
     if (!colorimetry_profile?.recommended_colors) return true;
     const cleanHex = colorHex.trim().toLowerCase();
     return colorimetry_profile.recommended_colors.some(
-      (c) => c.toLowerCase() === cleanHex
+      (c) => c && c.toLowerCase() === cleanHex
     );
   };
+
 
   return (
     <View style={styles.container}>
@@ -307,12 +320,12 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
         {selectedGarments.length > 0 && (
           <GlassCard style={styles.floatingGarmentInfoTag} intensity={65}>
             <View style={styles.garmentHeaderRow}>
-              {selectedGarments.length === 1 ? (
+              {selectedGarments.length === 1 && selectedGarments[0] ? (
                 <>
                   <View
                     style={[
                       styles.dominantColorCircle,
-                      { backgroundColor: selectedGarments[0].colorHex },
+                      { backgroundColor: selectedGarments[0].colorHex || '#8B5CF6' },
                     ]}
                   />
                   <View style={styles.garmentTextCol}>
@@ -320,15 +333,15 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                       style={[styles.garmentTagName, { color: colors.primaryText }]}
                       numberOfLines={1}
                     >
-                      {selectedGarments[0].name}
+                      {selectedGarments[0].name || ''}
                     </Text>
                     <View style={styles.garmentMetaRow}>
                       <Text
                         style={[styles.garmentColorLabel, { color: colors.secondaryText }]}
                       >
-                        {selectedGarments[0].category} · {selectedGarments[0].colorName}
+                        {selectedGarments[0].category || ''} · {selectedGarments[0].colorName || ''}
                       </Text>
-                      {isColorHarmonious(selectedGarments[0].colorHex) && (
+                      {selectedGarments[0].colorHex && isColorHarmonious(selectedGarments[0].colorHex) && (
                         <View style={styles.harmonyTagBadge}>
                           <Ionicons name="sparkles" size={9} color="#8EB6C7" />
                           <Text style={styles.harmonyTagText}>Armonía Color</Text>
