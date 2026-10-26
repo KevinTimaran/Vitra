@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -35,8 +35,18 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
   const { colors, isDark } = useTheme();
   const { colorProfile, userPhotoUri } = useUser();
 
+  const recommendedColors = useMemo(() => {
+    return Array.isArray(colorProfile?.recommended_colors) && colorProfile.recommended_colors.length > 0
+      ? colorProfile.recommended_colors
+      : ['#854D0E', '#047857', '#C2410C', '#B45309', '#1E3A8A', '#0F766E'];
+  }, [colorProfile?.recommended_colors]);
+
+  const colorsToAvoid = useMemo(() => {
+    return Array.isArray(colorProfile?.colors_to_avoid) ? colorProfile.colors_to_avoid : [];
+  }, [colorProfile?.colors_to_avoid]);
+
   const [activeHex, setActiveHex] = useState<string | null>(
-    colorProfile.recommended_colors[0] || null
+    recommendedColors[0] || null
   );
 
   const handleRecalibrate = () => {
@@ -132,7 +142,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                     styles.centerCore,
                     {
                       backgroundColor:
-                        activeHex || colorProfile.recommended_colors[0] || colors.primaryText,
+                        activeHex || recommendedColors[0] || colors.primaryText,
                     },
                   ]}
                 />
@@ -141,7 +151,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
             {/* Orbiting spectral color dots */}
             <View style={styles.orbitRow}>
-              {colorProfile.recommended_colors.slice(0, 5).map((hex, i) => (
+              {recommendedColors.slice(0, 5).map((hex, i) => (
                 <View
                   key={i}
                   style={[
@@ -173,7 +183,9 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 style={[
                   styles.toneCircularSwatch,
                   {
-                    backgroundColor: colorProfile.skin_tone.split(' ')[0],
+                    backgroundColor: typeof colorProfile?.skin_tone === 'string' && colorProfile.skin_tone.trim()
+                      ? colorProfile.skin_tone.split(' ')[0]
+                      : '#E8BEAC',
                     borderColor: colors.borderLight,
                   },
                 ]}
@@ -183,7 +195,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   TONO DE PIEL
                 </Text>
                 <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
-                  {colorProfile.skin_tone}
+                  {colorProfile?.skin_tone || '#E8BEAC'}
                 </Text>
               </View>
             </GlassCard>
@@ -194,7 +206,9 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 style={[
                   styles.toneCircularSwatch,
                   {
-                    backgroundColor: colorProfile.hair_color.split(' ')[0],
+                    backgroundColor: typeof colorProfile?.hair_color === 'string' && colorProfile.hair_color.trim()
+                      ? colorProfile.hair_color.split(' ')[0]
+                      : '#2C1B18',
                     borderColor: colors.borderLight,
                   },
                 ]}
@@ -204,19 +218,21 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   COLOR DE CABELLO
                 </Text>
                 <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
-                  {colorProfile.hair_color}
+                  {colorProfile?.hair_color || '#2C1B18'}
                 </Text>
               </View>
             </GlassCard>
 
             {/* Ojos si está disponible */}
-            {colorProfile.eye_color ? (
+            {colorProfile?.eye_color ? (
               <GlassCard style={styles.baseToneCard}>
                 <View
                   style={[
                     styles.toneCircularSwatch,
                     {
-                      backgroundColor: colorProfile.eye_color.split(' ')[0],
+                      backgroundColor: typeof colorProfile.eye_color === 'string' && colorProfile.eye_color.trim()
+                        ? colorProfile.eye_color.split(' ')[0]
+                        : '#3B261C',
                       borderColor: colors.borderLight,
                     },
                   ]}
@@ -254,7 +270,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               Colores Óptimos de Ropa
             </Text>
             <Text style={[styles.badgeCount, { color: colors.tertiaryText }]}>
-              {colorProfile.recommended_colors.length} TONOS
+              {recommendedColors.length} TONOS
             </Text>
           </View>
           <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
@@ -262,7 +278,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           </Text>
 
           <View style={styles.swatchesContainer}>
-            {colorProfile.recommended_colors.map((hex, index) => {
+            {recommendedColors.map((hex, index) => {
               const isSelected = activeHex === hex;
               return (
                 <TouchableOpacity
@@ -331,7 +347,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         )}
 
         {/* Colores a Evitar */}
-        {colorProfile.colors_to_avoid && colorProfile.colors_to_avoid.length > 0 ? (
+        {colorsToAvoid.length > 0 ? (
           <View style={styles.sectionWrapper}>
             <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
               Colores Desaconsejados
@@ -341,7 +357,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
             </Text>
 
             <View style={styles.avoidChipsRow}>
-              {colorProfile.colors_to_avoid.map((hex, i) => (
+              {colorsToAvoid.map((hex, i) => (
                 <View key={`avoid-${i}`} style={[styles.avoidChip, glassSurface]}>
                   <View style={[styles.avoidDot, { backgroundColor: hex }]} />
                   <Ionicons name="close-circle" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
