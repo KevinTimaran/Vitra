@@ -282,8 +282,78 @@ class InnerModelErrorBoundary extends React.Component<
 }
 
 /**
+ * Rutina exhaustiva de liberación de memoria de Three.js.
+ * Recorre el árbol jerárquico de nodos y ejecuta .dispose() sobre todas
+ * las geometrías, materiales y mapas de texturas en GPU para evitar memory leaks y OOM
+ * al intercambiar múltiples modelos 3D en el contexto WebGL / Expo GL.
+ */
+export const disposeThreeHierarchy = (root: any) => {
+  if (!root) return;
+  try {
+    root.traverse?.((node: any) => {
+      if (node.isMesh) {
+        // 1. Liberar geometría
+        if (node.geometry && typeof node.geometry.dispose === 'function') {
+          try {
+            node.geometry.dispose();
+          } catch {}
+        }
+
+        // 2. Liberar material y todas sus texturas asociadas
+        if (node.material) {
+          const disposeMaterialAndTextures = (mat: any) => {
+            if (!mat) return;
+            const textureKeys = [
+              'map',
+              'normalMap',
+              'roughnessMap',
+              'metalnessMap',
+              'aoMap',
+              'specularMap',
+              'emissiveMap',
+              'bumpMap',
+              'displacementMap',
+              'alphaMap',
+              'envMap',
+              'lightMap',
+              'clearcoatMap',
+              'clearcoatRoughnessMap',
+              'sheenColorMap',
+              'transmissionMap',
+            ];
+
+            for (const key of textureKeys) {
+              const tex = mat[key];
+              if (tex && typeof tex.dispose === 'function') {
+                try {
+                  tex.dispose();
+                } catch {}
+              }
+            }
+
+            if (typeof mat.dispose === 'function') {
+              try {
+                mat.dispose();
+              } catch {}
+            }
+          };
+
+          if (Array.isArray(node.material)) {
+            node.material.forEach(disposeMaterialAndTextures);
+          } else {
+            disposeMaterialAndTextures(node.material);
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('[Model3DViewer] Advertencia durante disposeThreeHierarchy:', err);
+  }
+};
+
+/**
  * Renderizador del modelo 3D real generado dinámicamente por la API (Tripo3D / FastAPI).
- * Procesa directamente la URL HTTP de internet.
+ * Procesa directamente la URL HTTP de internet y libera sus recursos al desmontar.
  */
 const DynamicGarmentModel: React.FC<{
   modelUrl: string;
@@ -324,6 +394,20 @@ const DynamicGarmentModel: React.FC<{
 
     return cloned;
   }, [gltf]);
+
+  // Limpieza estricta de geometrías, materiales y texturas al desmontar o sustituir el modelo
+  useEffect(() => {
+    return () => {
+      if (scene) {
+        disposeThreeHierarchy(scene);
+      }
+      try {
+        if (typeof (useGLTF as any).clear === 'function' && modelUrl) {
+          (useGLTF as any).clear(modelUrl);
+        }
+      } catch {}
+    };
+  }, [scene, modelUrl]);
 
   if (!scene) return null;
 
@@ -367,6 +451,14 @@ const PlaceholderTShirt: React.FC<{
 
     return cloned;
   }, [gltf, colorHex]);
+
+  useEffect(() => {
+    return () => {
+      if (scene) {
+        disposeThreeHierarchy(scene);
+      }
+    };
+  }, [scene]);
 
   if (!scene) return null;
 
@@ -437,13 +529,15 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
         let targetDownloadUrl = remoteUrl;
         if (
           Platform.OS !== 'web' &&
-          (targetDownloadUrl.includes('127.0.0.1:8000') || targetDownloadUrl.includes('localhost:8000'))
+          (targetDownloadUrl.includes('127.0.0.1:8000') ||
+            targetDownloadUrl.includes('localhost:8000') ||
+            targetDownloadUrl.includes('.loca.lt'))
         ) {
           const currentBase = getBaseUrl();
-          targetDownloadUrl = targetDownloadUrl.replace(/^http:\/\/(127\.0\.0\.1|localhost):8000/, currentBase);
+          targetDownloadUrl = targetDownloadUrl.replace(/^https?:\/\/[^/]+/, currentBase);
         }
 
-        console.log('[Model3DViewer] Descargando modelo con Bypass-Tunnel-Reminder:', targetDownloadUrl);
+        console.log('[Model3DViewer] Descargando modelo con Bypass headers:', targetDownloadUrl);
         let downloadedFile: any = null;
         let lastErr: any = null;
 
@@ -453,6 +547,7 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
               headers: {
                 'Bypass-Tunnel-Reminder': 'true',
                 'bypass-tunnel-reminder': 'true',
+                'ngrok-skip-browser-warning': 'true',
               },
               idempotent: true,
             });
@@ -724,7 +819,6 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
       <Canvas
-        key={resolvedDynamicUrl || `avatar-scene-${avatarGender || 'default'}`}
         style={styles.canvas}
         camera={{ position: [0, 0, 2.9], fov: 45 }}
       >

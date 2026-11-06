@@ -7,8 +7,13 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  Modal,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
@@ -17,6 +22,13 @@ import { VibrantBackground } from '../components/VibrantBackground';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { getAuthToken } from '../services/auth/secureStorage';
+import { analyzeColorimetry, updateUserColorimetry } from '../services/ai/garmentAnalyzer';
+import { filterHarmoniousGarments, getSeasonEducationalInfo } from '../utils/colorHarmony';
+import { Garment } from '../types';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_GUTTER = 12;
 
 interface ColorStudioScreenProps {
   navigation?: any;
@@ -33,7 +45,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 }) => {
   const { t } = useTranslation();
   const { colors, isDark } = useTheme();
-  const { colorProfile, userPhotoUri } = useUser();
+  const { colorProfile, wardrobe_items, updateColorProfile } = useUser();
+
+  const [isRecalibrateModalOpen, setIsRecalibrateModalOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const recommendedColors = useMemo(() => {
     return Array.isArray(colorProfile?.recommended_colors) && colorProfile.recommended_colors.length > 0
@@ -49,11 +64,120 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
     recommendedColors[0] || null
   );
 
+  // Guía educativa y consejos estilísticos derivados de la estación activa
+  const educationalInfo = useMemo(() => {
+    return getSeasonEducationalInfo(colorProfile?.season);
+  }, [colorProfile?.season]);
+
+  // Filtro de prendas armoniosas del armario utilizando el algoritmo perceptual
+  const harmoniousGarments = useMemo(() => {
+    return filterHarmoniousGarments(wardrobe_items || [], recommendedColors, 72);
+  }, [wardrobe_items, recommendedColors]);
+
   const handleRecalibrate = () => {
     if (onRecalibrate) {
       onRecalibrate();
-    } else if (navigation) {
-      navigation.navigate('BodyProfile');
+    } else {
+      setIsRecalibrateModalOpen(true);
+    }
+  };
+
+  const handlePickRecalibrateImage = async (source: 'camera' | 'gallery') => {
+    try {
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permiso requerido', 'Se requiere acceso a la cámara para capturar tu fotografía frontal.');
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permiso requerido', 'Se requiere acceso a la galería para seleccionar una fotografía.');
+          return;
+        }
+      }
+
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+        base64: true,
+      };
+
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync(options)
+          : await ImagePicker.launchImageLibraryAsync(options);
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      setIsAnalyzing(true);
+      const asset = result.assets[0];
+      let b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+
+      try {
+        const manipulated = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 1024 } }],
+          { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        if (manipulated.base64) {
+          b64 = `data:image/jpeg;base64,${manipulated.base64}`;
+        }
+      } catch (mErr) {
+        console.warn('[ColorStudioScreen] Advertencia optimizando imagen:', mErr);
+      }
+
+      // 1. Invocar Gemini Vision en backend
+      const colorRes = await analyzeColorimetry(b64);
+      if (!colorRes.success || !colorRes.data) {
+        throw new Error(colorRes.error || 'No fue posible extraer la colorimetría de la imagen.');
+      }
+
+      const updatedProfile = colorRes.data;
+      if (updatedProfile.is_valid_image === false || String(updatedProfile.is_valid_image).toLowerCase() === 'false') {
+        const valMsg =
+          updatedProfile.validation_error_message ||
+          'Esta imagen no parece ser de una persona. Por favor sube una foto tuya.';
+        const valErr: any = new Error(valMsg);
+        valErr.status = 400;
+        throw valErr;
+      }
+
+      // 2. Persistir en backend endpoint PUT /api/users/colorimetry
+      const token = await getAuthToken();
+      if (token) {
+        await updateUserColorimetry({ color_profile: updatedProfile }, token).catch((err) => {
+          console.warn('[ColorStudioScreen] Error al sincronizar colorimetría con backend:', err);
+        });
+      }
+
+      // 3. Actualizar UserContext & SecureStore/localStorage
+      updateColorProfile(updatedProfile);
+      setIsRecalibrateModalOpen(false);
+
+      Alert.alert(
+        '¡Análisis Completado!',
+        `Se ha detectado tu estación: ${updatedProfile.season}.\nPaleta asignada: ${updatedProfile.palette_name || updatedProfile.season}`
+      );
+    } catch (err: any) {
+      console.error('[ColorStudioScreen] Error en recalibración:', err);
+      const isValidationErr =
+        err?.status === 400 ||
+        (err?.message &&
+          (err.message.toLowerCase().includes('persona') ||
+            err.message.toLowerCase().includes('rostro') ||
+            err.message.toLowerCase().includes('imagen')));
+      Alert.alert(
+        isValidationErr ? 'Foto no válida' : 'Error',
+        err?.message || 'Ocurrió un error al procesar la imagen.'
+      );
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -68,6 +192,12 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
   const handleOpenFittingRoom = () => {
     if (navigation) {
       navigation.navigate('FittingRoom');
+    }
+  };
+
+  const handleSelectHarmoniousGarment = (garment: Garment) => {
+    if (navigation) {
+      navigation.navigate('FittingRoom', { garmentId: garment.id });
     }
   };
 
@@ -263,6 +393,73 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           </Text>
         </GlassCard>
 
+        {/* SECCIÓN EDUCATIVA: Guía de Estilismo de la Estación */}
+        <View style={styles.sectionWrapper}>
+          <View style={styles.rowBetween}>
+            <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
+              {educationalInfo.familyTitle}
+            </Text>
+            <View style={[styles.taglineBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+              <Ionicons name="ribbon-outline" size={13} color={colors.primary} />
+              <Text style={[styles.taglineText, { color: colors.primaryText }]}>
+                {educationalInfo.tagline}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
+            {educationalInfo.undertoneDescription}
+          </Text>
+
+          {/* Tarjeta de Guía Editorial */}
+          <GlassCard style={styles.editorialCard}>
+            <Text style={[styles.blockTitle, { color: colors.primaryText }]}>
+              Claves de Estilo para tu Estación
+            </Text>
+            <View style={styles.tipsList}>
+              {educationalInfo.stylingTips.map((tip, idx) => (
+                <View key={`tip-${idx}`} style={styles.tipRow}>
+                  <View style={[styles.tipBullet, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+                  </View>
+                  <Text style={[styles.tipText, { color: colors.primaryText }]}>
+                    {tip}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Metales recomendados */}
+            <View style={styles.metalRow}>
+              <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
+              <View style={styles.metalTextCol}>
+                <Text style={[styles.metalLabel, { color: colors.tertiaryText }]}>
+                  JOYERÍA & METALES RECOMENDADOS
+                </Text>
+                <Text style={[styles.metalValue, { color: colors.primaryText }]}>
+                  {educationalInfo.recommendedMetals}
+                </Text>
+              </View>
+            </View>
+
+            {/* Combinaciones clave */}
+            <View style={styles.combosSection}>
+              <Text style={[styles.comboLabel, { color: colors.tertiaryText }]}>
+                COMBINACIONES CROMÁTICAS CLAVE
+              </Text>
+              <View style={styles.comboChipsWrap}>
+                {educationalInfo.bestCombinations.map((combo, idx) => (
+                  <View key={`combo-${idx}`} style={[styles.comboChip, glassSurface]}>
+                    <Ionicons name="color-palette-outline" size={12} color={colors.primary} />
+                    <Text style={[styles.comboChipText, { color: colors.primaryText }]}>
+                      {combo}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </GlassCard>
+        </View>
+
         {/* Circular Swatches: Recommended Garment Colors */}
         <View style={styles.sectionWrapper}>
           <View style={styles.rowBetween}>
@@ -370,6 +567,102 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           </View>
         ) : null}
 
+        {/* RECOMENDACIONES DE PRENDAS ARMONIOSAS */}
+        <View style={styles.sectionWrapper}>
+          <View style={styles.rowBetween}>
+            <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
+              Prendas de tu Armario Armonizadas
+            </Text>
+            <Text style={[styles.badgeCount, { color: colors.tertiaryText }]}>
+              {harmoniousGarments.length} DE {(wardrobe_items || []).length} PRENDAS
+            </Text>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
+            Prendas que armonizan con tu paleta estacional mediante comparación perceptual de color
+          </Text>
+
+          {harmoniousGarments.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.garmentCarouselContainer}
+            >
+              {harmoniousGarments.map((garment) => (
+                <TouchableOpacity
+                  key={`harm-${garment.id}`}
+                  style={[styles.garmentCard, glassSurface]}
+                  activeOpacity={0.8}
+                  onPress={() => handleSelectHarmoniousGarment(garment)}
+                >
+                  <View style={styles.garmentImageWrap}>
+                    {garment.imageUrl ? (
+                      <Image
+                        source={{ uri: garment.imageUrl }}
+                        style={styles.garmentImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.garmentPlaceholder}>
+                        <Ionicons name="shirt-outline" size={28} color={colors.secondaryText} />
+                      </View>
+                    )}
+                    <View style={styles.harmonyBadgePill}>
+                      <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                      <Text style={styles.harmonyBadgeText}>Armonía</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.garmentMeta}>
+                    <View style={styles.garmentColorRow}>
+                      <View
+                        style={[
+                          styles.garmentColorDot,
+                          {
+                            backgroundColor: garment.colorHex || '#000000',
+                            borderColor: colors.borderLight,
+                          },
+                        ]}
+                      />
+                      <Text style={[styles.garmentCategoryText, { color: colors.tertiaryText }]}>
+                        {garment.category?.toUpperCase() || 'PRENDA'}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[styles.garmentNameText, { color: colors.primaryText }]}
+                      numberOfLines={1}
+                    >
+                      {garment.name}
+                    </Text>
+                    <Text style={[styles.tryOnLink, { color: colors.primary }]}>
+                      Probar en 3D →
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <GlassCard style={styles.emptyHarmoniousCard}>
+              <Ionicons name="sparkles-outline" size={28} color={colors.tertiaryText} />
+              <Text style={[styles.emptyHarmoniousTitle, { color: colors.primaryText }]}>
+                Aún no hay prendas armonizadas
+              </Text>
+              <Text style={[styles.emptyHarmoniousBody, { color: colors.secondaryText }]}>
+                Ninguna de tus prendas actuales coincide de forma óptima con tu estación. Añade prendas con los tonos sugeridos arriba para verlas aquí.
+              </Text>
+              <TouchableOpacity
+                style={[styles.emptyAddBtn, { backgroundColor: colors.primaryText }]}
+                onPress={() => navigation?.navigate('AddGarment')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={16} color={colors.bg} />
+                <Text style={[styles.emptyAddBtnText, { color: colors.bg }]}>
+                  Añadir Prenda a Armario
+                </Text>
+              </TouchableOpacity>
+            </GlassCard>
+          )}
+        </View>
+
         {/* Acciones principales */}
         <View style={styles.actionButtonsCol}>
           <PrimaryButton
@@ -385,11 +678,106 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           />
         </View>
       </ScrollView>
+
+      {/* MODAL IN-SCREEN: Recalibración con Cámara / Galería */}
+      <Modal
+        visible={isRecalibrateModalOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isAnalyzing) {
+            setIsRecalibrateModalOpen(false);
+          }
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <GlassCard style={styles.modalContainer}>
+            {isAnalyzing ? (
+              <View style={styles.analyzingWrapper}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.analyzingTitle, { color: colors.primaryText }]}>
+                  Analizando Colorimetría con IA
+                </Text>
+                <Text style={[styles.analyzingSubtitle, { color: colors.secondaryText }]}>
+                  Gemini Vision está examinando tu tono de piel, contraste de cabello y estación cromática óptima...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <View style={styles.modalTitleBox}>
+                    <Text style={[styles.modalTitle, { color: colors.primaryText }]}>
+                      Recalibrar Colorimetría
+                    </Text>
+                    <Text style={[styles.modalSubtitle, { color: colors.secondaryText }]}>
+                      Captura o selecciona una foto frontal iluminada con luz natural uniforme para recalcular tu paleta.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setIsRecalibrateModalOpen(false)}
+                    style={styles.modalCloseBtn}
+                  >
+                    <Ionicons name="close" size={20} color={colors.secondaryText} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalOptionsCol}>
+                  <TouchableOpacity
+                    style={[styles.modalActionOption, glassSurface]}
+                    onPress={() => handlePickRecalibrateImage('camera')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.modalOptionIconWrap, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                      <Ionicons name="camera-outline" size={22} color={colors.primaryText} />
+                    </View>
+                    <View style={styles.modalOptionTextWrap}>
+                      <Text style={[styles.modalOptionTitle, { color: colors.primaryText }]}>
+                        Tomar Foto con Cámara
+                      </Text>
+                      <Text style={[styles.modalOptionDesc, { color: colors.secondaryText }]}>
+                        Foto frontal con rostro despejado
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.tertiaryText} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalActionOption, glassSurface, { marginTop: Spacing.sm }]}
+                    onPress={() => handlePickRecalibrateImage('gallery')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.modalOptionIconWrap, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                      <Ionicons name="images-outline" size={22} color={colors.primaryText} />
+                    </View>
+                    <View style={styles.modalOptionTextWrap}>
+                      <Text style={[styles.modalOptionTitle, { color: colors.primaryText }]}>
+                        Elegir de la Galería
+                      </Text>
+                      <Text style={[styles.modalOptionDesc, { color: colors.secondaryText }]}>
+                        Selecciona un retrato nítido existente
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.tertiaryText} />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIsRecalibrateModalOpen(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.modalCancelBtnText, { color: colors.secondaryText }]}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </GlassCard>
+        </View>
+      </Modal>
     </View>
   );
 };
-
-const SCREEN_GUTTER = 10;
 
 const styles = StyleSheet.create({
   container: {
@@ -659,5 +1047,305 @@ const styles = StyleSheet.create({
   actionButtonsCol: {
     marginHorizontal: SCREEN_GUTTER,
     marginTop: Spacing.lg,
+  },
+  taglineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    gap: 4,
+  },
+  taglineText: {
+    ...Typography.micro,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  editorialCard: {
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  blockTitle: {
+    ...Typography.caption,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+  },
+  tipsList: {
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  tipBullet: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  tipText: {
+    ...Typography.bodySm,
+    flex: 1,
+    lineHeight: 18,
+  },
+  metalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(150,150,150,0.2)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(150,150,150,0.2)',
+    marginBottom: Spacing.sm,
+  },
+  metalTextCol: {
+    flex: 1,
+  },
+  metalLabel: {
+    ...Typography.micro,
+    fontSize: 9,
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  metalValue: {
+    ...Typography.caption,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  combosSection: {
+    marginTop: Spacing.xs,
+  },
+  comboLabel: {
+    ...Typography.micro,
+    fontSize: 9,
+    letterSpacing: 1,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  comboChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  comboChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    gap: 5,
+  },
+  comboChipText: {
+    ...Typography.micro,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  garmentCarouselContainer: {
+    gap: Spacing.sm,
+    paddingVertical: 4,
+  },
+  garmentCard: {
+    width: 150,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  garmentImageWrap: {
+    width: '100%',
+    height: 140,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    position: 'relative',
+  },
+  garmentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  garmentPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  harmonyBadgePill: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+    gap: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  harmonyBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  garmentMeta: {
+    padding: Spacing.sm,
+  },
+  garmentColorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  garmentColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  garmentCategoryText: {
+    ...Typography.micro,
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+  garmentNameText: {
+    ...Typography.caption,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  tryOnLink: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  emptyHarmoniousCard: {
+    padding: Spacing.lg,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+  emptyHarmoniousTitle: {
+    ...Typography.headlineSm,
+    fontSize: 15,
+    marginTop: Spacing.sm,
+  },
+  emptyHarmoniousBody: {
+    ...Typography.bodySm,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: Spacing.md,
+    lineHeight: 18,
+  },
+  emptyAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: Radius.full,
+    gap: 6,
+  },
+  emptyAddBtnText: {
+    ...Typography.caption,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SCREEN_GUTTER * 2,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+  },
+  analyzingWrapper: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xl,
+  },
+  analyzingTitle: {
+    ...Typography.headlineSm,
+    marginTop: Spacing.md,
+  },
+  analyzingSubtitle: {
+    ...Typography.bodySm,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.md,
+  },
+  modalTitleBox: {
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  modalTitle: {
+    ...Typography.headlineSm,
+    fontSize: 18,
+  },
+  modalSubtitle: {
+    ...Typography.bodySm,
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalOptionsCol: {
+    marginTop: Spacing.xs,
+  },
+  modalActionOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  modalOptionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  modalOptionTextWrap: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    ...Typography.caption,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  modalOptionDesc: {
+    ...Typography.micro,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  modalCancelBtn: {
+    marginTop: Spacing.md,
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  modalCancelBtnText: {
+    ...Typography.caption,
+    fontWeight: '600',
   },
 });

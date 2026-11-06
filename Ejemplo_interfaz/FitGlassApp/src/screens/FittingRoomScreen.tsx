@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,9 +21,16 @@ import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
-import { generateTryOn, generateOutfitTryOn, getLatestModel } from '../services/ai/garmentAnalyzer';
+import {
+  generateTryOn,
+  generateOutfitTryOn,
+  generateWaterfallCascadeTryOn,
+  getLatestModel,
+  CascadeStepProgress,
+} from '../services/ai/garmentAnalyzer';
 import { Garment, SavedLookItem } from '../types';
 import { GarmentViewScreen } from './GarmentViewScreen';
+import { isColorHarmonious as checkColorHarmony } from '../utils/colorHarmony';
 
 interface FittingRoomScreenProps {
   route?: {
@@ -76,7 +83,6 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeGarmentDetail, setActiveGarmentDetail] = useState<Garment | null>(null);
 
-  // FASE 4: Selección multi-prenda en el armario (inicialmente vacía o primera prenda)
   const initialGarment = props.selectedGarment || props.route?.params?.selectedGarment;
   const [selectedGarments, setSelectedGarments] = useState<Garment[]>(
     initialGarment
@@ -86,9 +92,28 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       : []
   );
   const [tryOnSuccess, setTryOnSuccess] = useState<boolean>(false);
+  const [cascadeProgress, setCascadeProgress] = useState<CascadeStepProgress | null>(null);
 
   // Filtro de categorías del carrusel
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
+
+  // Referencias para debouncing, bloqueo síncrono inmediato y limpieza al desmontar
+  const isGeneratingRef = useRef<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef<boolean>(true);
+
+  // Limpieza estricta al desmontar para evitar fugas de memoria y llamadas huérfanas
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        console.log('[FittingRoom] Desmontando pantalla: abortando sondeo de cascada...');
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
 
   // Precargar modelo dinámico cuando activeModelUrl cambia
   useEffect(() => {
@@ -129,45 +154,86 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
     return wardrobe_items.filter((g) => g.category === selectedCategory);
   }, [wardrobe_items, selectedCategory]);
 
-  // FASE 4: Selección / deselección multi-prenda (CERO LLAMADAS A API)
+  // FASE 4: Selección / deselección multi-prenda en cascada (CERO LLAMADAS A API)
   const toggleGarmentSelection = (garment: Garment) => {
     setSelectedGarments((prev) => {
       const exists = prev.some((g) => g.id === garment.id);
       if (exists) {
         return prev.filter((g) => g.id !== garment.id);
       }
-      // Reemplazar prenda de la misma categoría
-      let filtered = prev.filter((g) => g.category !== garment.category);
+
+      // Filtrar prendas en conflicto sin impedir combinar Chaqueta (Outerwear) + Pantaloneta (Pants) + Top
+      let filtered = [...prev];
       const isDress = garment.category === 'Dresses' || (garment.category as string) === 'Dress';
+
       if (isDress) {
-        // Un vestido (one-piece) reemplaza Top y Pantalón
-        filtered = filtered.filter((g) => g.category !== 'Tops' && g.category !== 'Pants');
-      } else if (garment.category === 'Tops' || garment.category === 'Pants') {
-        // Tops y Pantalones sustituyen Vestidos
-        filtered = filtered.filter((g) => g.category !== 'Dresses' && (g.category as string) !== 'Dress');
+        // Vestido sustituye Tops y Pantalones
+        filtered = filtered.filter(
+          (g) => g.category !== 'Tops' && g.category !== 'Pants' && g.category !== 'Dresses' && (g.category as string) !== 'Dress'
+        );
+      } else if (garment.category === 'Pants') {
+        // Sustituye solo el pantalón anterior y vestidos
+        filtered = filtered.filter(
+          (g) => g.category !== 'Pants' && g.category !== 'Dresses' && (g.category as string) !== 'Dress'
+        );
+      } else if (garment.category === 'Outerwear') {
+        // Chaqueta: sustituye solo la chaqueta anterior y vestidos (permite llevar camiseta y pantalón debajo)
+        filtered = filtered.filter(
+          (g) => g.category !== 'Outerwear' && g.category !== 'Dresses' && (g.category as string) !== 'Dress'
+        );
+      } else if (garment.category === 'Tops') {
+        // Top: sustituye solo el top anterior y vestidos (permite llevar chaqueta encima)
+        filtered = filtered.filter(
+          (g) => g.category !== 'Tops' && g.category !== 'Dresses' && (g.category as string) !== 'Dress'
+        );
+      } else {
+        // Zapatos, accesorios, etc.
+        filtered = filtered.filter((g) => g.category !== garment.category);
       }
+
       return [...filtered, garment];
     });
   };
-
 
   const clearSelection = () => {
     setSelectedGarments([]);
   };
 
-  // FASE 5: Invocar el pipeline try-on de FastAPI (ÚNICA invocación al presionar "Probar Look")
+  // FASE 5: Invocar el pipeline en Cascada (Waterfall) 2D -> 3D con protección anti-doble tap
   const handleTryOnLook = async () => {
-    if (selectedGarments.length === 0 || isGenerating) return;
-
+    // Bloqueo síncrono inmediato: si ya está generando o ref activo, descartar de inmediato
+    if (selectedGarments.length === 0 || isGenerating || isGeneratingRef.current) {
+      return;
+    }
+    isGeneratingRef.current = true;
     setIsGenerating(true);
     setTryOnSuccess(false);
 
+    // Cancelar cualquier tarea previa si existiera
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const currentAbortController = new AbortController();
+    abortControllerRef.current = currentAbortController;
+
+    setCascadeProgress({
+      step: 'init',
+      progress: 0.08,
+      detail: 'Iniciando pipeline de Cascada 2D a 3D...',
+      totalGarments: selectedGarments.length,
+      currentGarmentIndex: 0,
+    });
+
     const humanImage =
       avatar_2d_image ||
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+      (gender === 'male'
+        ? 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=800&q=80'
+        : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80');
 
     try {
-      console.log(`[FittingRoom] Ejecutando Try-On para look con ${selectedGarments.length} prendas...`);
+      console.log(
+        `[FittingRoom Waterfall] Ejecutando Cascada para look con ${selectedGarments.length} prendas...`
+      );
       const garmentPayloads = selectedGarments.map((g) => ({
         image: g.imageUrl || '',
         category:
@@ -175,6 +241,8 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             ? 'lower_body'
             : (g.category as string) === 'Dresses' || (g.category as string) === 'Dress'
             ? 'dresses'
+            : g.category === 'Outerwear'
+            ? 'outerwear'
             : g.category === 'Shoes'
             ? 'shoes'
             : g.category === 'Accessories'
@@ -183,33 +251,58 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
         name: g.name,
       }));
 
-      const result = await generateOutfitTryOn(humanImage, garmentPayloads, true);
+      // Invocación a la Cascada 2D secuencial y posterior generación 3D unificada con AbortSignal
+      const result = await generateWaterfallCascadeTryOn(
+        userProfile?.id || userProfile?.name,
+        humanImage,
+        garmentPayloads,
+        (progressInfo) => {
+          if (isMountedRef.current) {
+            setCascadeProgress(progressInfo);
+          }
+        },
+        currentAbortController.signal
+      );
+
+      // Si el componente se desmontó mientras esperaba la respuesta, no actualizar estado
+      if (!isMountedRef.current) return;
 
       if (result.model_3d_url) {
-        console.log('[FittingRoom] Modelo 3D del look recibido del backend:', result.model_3d_url);
-        setActiveModelUrl(result.model_3d_url);
+        console.log('[FittingRoom Waterfall] ¡Modelo 3D unificado recibido del backend!', result.model_3d_url);
         preloadGLTF(result.model_3d_url);
+        // Intercambio fluido (swap) del modelo 3D unificado en el visor Three.js
+        setActiveModelUrl(result.model_3d_url);
       }
-      if (result.image_2d_url) {
-        setCurrent2DUrl(result.image_2d_url);
+      if (result.final_dressed_image_url) {
+        setCurrent2DUrl(result.final_dressed_image_url);
       }
       setTryOnSuccess(true);
     } catch (err: any) {
-      console.warn('[FittingRoom] Aviso en TryOn de look:', err?.message);
+      // Si la llamada fue cancelada por salir de pantalla, salir silenciosamente sin alertas
+      if (err?.name === 'AbortError' || err?.message?.includes('cancelad') || !isMountedRef.current) {
+        console.log('[FittingRoom Waterfall] Operación abortada limpiamente.');
+        return;
+      }
+
+      console.warn('[FittingRoom Waterfall] Aviso en Cascada de look:', err?.message);
       try {
         const latest = await getLatestModel();
-        if (latest?.model_3d_url) {
+        if (latest?.model_3d_url && isMountedRef.current) {
           console.log('[FittingRoom] Modelo 3D recuperado con éxito del servidor tras aviso:', latest.model_3d_url);
-          setActiveModelUrl(latest.model_3d_url);
           preloadGLTF(latest.model_3d_url);
+          setActiveModelUrl(latest.model_3d_url);
           setTryOnSuccess(true);
         }
       } catch {}
-      if (selectedGarments[0]?.imageUrl) {
+      if (selectedGarments[0]?.imageUrl && isMountedRef.current) {
         setCurrent2DUrl(selectedGarments[0].imageUrl);
       }
     } finally {
-      setIsGenerating(false);
+      isGeneratingRef.current = false;
+      if (isMountedRef.current) {
+        setIsGenerating(false);
+        setCascadeProgress(null);
+      }
     }
   };
 
@@ -254,14 +347,9 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
     }
   };
 
-  // FASE 3: Comprobación de armonía con la colorimetría del usuario
+  // FASE 3: Comprobación de armonía perceptual con la colorimetría del usuario
   const isColorHarmonious = (colorHex?: string | null) => {
-    if (!colorHex || typeof colorHex !== 'string') return false;
-    if (!colorimetry_profile?.recommended_colors) return true;
-    const cleanHex = colorHex.trim().toLowerCase();
-    return colorimetry_profile.recommended_colors.some(
-      (c) => c && c.toLowerCase() === cleanHex
-    );
+    return checkColorHarmony(colorHex, colorimetry_profile?.recommended_colors);
   };
 
 
@@ -453,28 +541,81 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
           </TouchableOpacity>
         </View>
 
-        {/* Estado Inmersivo de Carga durante la Fusión VTON */}
+        {/* Estado Inmersivo de Carga durante la Fusión VTON en Cascada */}
         {isGenerating && (
           <View style={styles.generatingOverlay}>
-            <GlassCard style={styles.generatingModal} intensity={85}>
-              <ActivityIndicator size="large" color={colors.primaryText} />
+            <GlassCard style={styles.generatingModal} intensity={90}>
+              <ActivityIndicator size="large" color="#8B5CF6" />
               <Text style={[styles.generatingTitle, { color: colors.primaryText }]}>
-                {selectedGarments.length > 1 ? 'Fusionando Look Completo...' : 'Fusionando Prenda...'}
+                {selectedGarments.length > 1 ? 'Aplicando Cascada 2D ➔ 3D' : 'Fusionando Prenda...'}
               </Text>
               <Text style={[styles.generatingSubtitle, { color: colors.secondaryText }]}>
-                IDM-VTON inpainting secuencial + Tripo3D
+                {cascadeProgress?.detail || 'Componiendo prendas secuencialmente con IDM-VTON...'}
               </Text>
+
+              {/* Barra de progreso animada */}
+              <View style={styles.progressBarBg}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      width: `${Math.min(100, Math.max(10, Math.round((cascadeProgress?.progress || 0.15) * 100)))}%`,
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Cadena gráfica secuencial de la cascada: Base -> Prenda 1 -> Prenda 2 -> 3D */}
               {selectedGarments.length > 0 && (
-                <View style={styles.generatingGarmentsRow}>
-                  {selectedGarments.map((g) => (
-                    <View key={g.id} style={styles.generatingThumbWrap}>
-                      {g.imageUrl ? (
-                        <Image source={{ uri: g.imageUrl }} style={styles.generatingThumb} />
-                      ) : (
-                        <View style={[styles.generatingThumb, { backgroundColor: g.colorHex }]} />
-                      )}
-                    </View>
-                  ))}
+                <View style={styles.cascadeFlowContainer}>
+                  <View style={styles.cascadeStepItem}>
+                    <Ionicons name="person" size={12} color="#8EB6C7" />
+                    <Text style={[styles.cascadeStepLabel, { color: colors.secondaryText }]}>Base</Text>
+                  </View>
+
+                  {selectedGarments.map((g, idx) => {
+                    const isDone = (cascadeProgress?.currentGarmentIndex || 0) > idx;
+                    const isCurrent = (cascadeProgress?.currentGarmentIndex || 0) === idx + 1;
+                    return (
+                      <React.Fragment key={g.id}>
+                        <Ionicons
+                          name="arrow-forward"
+                          size={10}
+                          color={isDone ? '#10B981' : isCurrent ? '#8B5CF6' : colors.secondaryText}
+                        />
+                        <View style={[styles.cascadeStepItem, isCurrent && styles.cascadeStepActive]}>
+                          {g.imageUrl ? (
+                            <Image source={{ uri: g.imageUrl }} style={styles.cascadeStepThumb} />
+                          ) : (
+                            <View style={[styles.cascadeStepThumb, { backgroundColor: g.colorHex || '#8B5CF6' }]} />
+                          )}
+                          <Text
+                            style={[
+                              styles.cascadeStepLabel,
+                              { color: isCurrent ? '#8B5CF6' : colors.secondaryText, fontWeight: isCurrent ? '700' : '400' },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {g.name.split(' ')[0]}
+                          </Text>
+                        </View>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  <Ionicons
+                    name="arrow-forward"
+                    size={10}
+                    color={
+                      cascadeProgress?.step?.includes('tripo') || cascadeProgress?.step?.includes('opt')
+                        ? '#10B981'
+                        : colors.secondaryText
+                    }
+                  />
+                  <View style={styles.cascadeStepItem}>
+                    <Ionicons name="cube" size={12} color="#C084FC" />
+                    <Text style={[styles.cascadeStepLabel, { color: colors.secondaryText }]}>3D GLB</Text>
+                  </View>
                 </View>
               )}
             </GlassCard>
@@ -485,7 +626,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       {/* SECCIÓN INFERIOR: Carrusel de Armario con Look Tray y Selección Multi-Prenda */}
       <View style={styles.bottomSection}>
         <GlassCard style={styles.wardrobeCarouselCard} intensity={60}>
-          {/* BANDEJA DEL LOOK (CERO LLAMADAS A API HASTA PRESIONAR "Probar Look") */}
+          {/* BANDEJA DEL LOOK (CERO LLAMADAS A API HASTA PRESIONAR "Aplicar Cascada") */}
           <View style={styles.lookTrayContainer}>
             <View style={styles.lookTrayHeader}>
               <View style={styles.lookTrayInfo}>
@@ -493,7 +634,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                 <Text style={[styles.lookTrayTitle, { color: colors.primaryText }]}>
                   {selectedGarments.length === 0
                     ? 'Arma tu Look (toca prendas)'
-                    : `Look: ${selectedGarments.length} ${selectedGarments.length === 1 ? 'pieza' : 'piezas'}`}
+                    : `Look Cascada: ${selectedGarments.length} ${selectedGarments.length === 1 ? 'pieza' : 'piezas'}`}
                 </Text>
               </View>
 
@@ -530,7 +671,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.chipsScrollContent}
                 >
-                  {selectedGarments.map((g) => (
+                  {selectedGarments.map((g, idx) => (
                     <View
                       key={g.id}
                       style={[
@@ -556,7 +697,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                         style={[styles.chipText, { color: colors.primaryText }]}
                         numberOfLines={1}
                       >
-                        {g.name}
+                        {selectedGarments.length > 1 ? `${idx + 1}. ${g.name}` : g.name}
                       </Text>
                       <TouchableOpacity
                         onPress={() => toggleGarmentSelection(g)}
@@ -573,7 +714,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                   style={[
                     styles.tryOnLookPrimaryBtn,
                     {
-                      backgroundColor: colors.primaryText,
+                      backgroundColor: isGenerating ? 'rgba(139, 92, 246, 0.45)' : colors.primaryText,
                       opacity: isGenerating ? 0.6 : 1,
                     },
                   ]}
@@ -585,9 +726,11 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                     <ActivityIndicator size="small" color={colors.bg} />
                   ) : (
                     <>
-                      <Ionicons name="shirt-outline" size={14} color={colors.bg} />
+                      <Ionicons name="sparkles" size={14} color={colors.bg} />
                       <Text style={[styles.tryOnLookBtnText, { color: colors.bg }]}>
-                        Probar Look ({selectedGarments.length})
+                        {selectedGarments.length > 1
+                          ? `Aplicar Look en Cascada (${selectedGarments.length})`
+                          : `Probar Prenda (1)`}
                       </Text>
                     </>
                   )}
@@ -718,7 +861,13 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                           { backgroundColor: colors.primaryText },
                         ]}
                       >
-                        <Ionicons name="checkmark" size={11} color={colors.bg} />
+                        {selectedGarments.length > 1 ? (
+                          <Text style={[styles.activeCheckNumber, { color: colors.bg }]}>
+                            {selectedGarments.findIndex((g) => g.id === item.id) + 1}
+                          </Text>
+                        ) : (
+                          <Ionicons name="checkmark" size={11} color={colors.bg} />
+                        )}
                       </View>
                     )}
 
@@ -1050,6 +1199,57 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
+  progressBarBg: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: '#8B5CF6',
+  },
+  cascadeFlowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: Radius.lg,
+    backgroundColor: 'rgba(0, 0, 0, 0.20)',
+    flexWrap: 'wrap',
+  },
+  cascadeStepItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  cascadeStepActive: {
+    backgroundColor: 'rgba(139, 92, 246, 0.25)',
+    borderWidth: 1,
+    borderColor: '#8B5CF6',
+  },
+  cascadeStepThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    overflow: 'hidden',
+  },
+  cascadeStepLabel: {
+    ...Typography.micro,
+    fontSize: 9,
+    maxWidth: 55,
+    textAlign: 'center',
+  },
   generatingGarmentsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1298,6 +1498,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3,
     elevation: 3,
+  },
+  activeCheckNumber: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   colorDotBadge: {
     position: 'absolute',

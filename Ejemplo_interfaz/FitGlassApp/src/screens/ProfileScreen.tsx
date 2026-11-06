@@ -1,3 +1,12 @@
+// ProfileScreen.tsx
+//
+// Rediseño con jerarquía clara (ISO 9241-110 §7.5 + Nielsen H8):
+//   1. Header de identidad compacto (1 línea)
+//   2. Hero del Gemelo Digital 3D (protagonista visual)
+//   3. Acordeones colapsables: Colorimetría · Apariencia · Idioma · Cuenta
+//
+// Sin cambios en: tema, colores, i18n, auth, cámara/cropper, lógica de negocio.
+
 import React, { useState } from 'react';
 import {
   View,
@@ -8,9 +17,9 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
@@ -21,6 +30,8 @@ import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 import { GlassCard } from '../components/GlassCard';
 import { CameraSilhouetteModal, ImageCropperModal } from '../components/camera';
 
+type SectionKey = 'color' | 'appearance' | 'language' | 'account';
+
 export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { colors, isDark, toggleTheme, setTheme } = useTheme();
   const {
@@ -30,6 +41,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
     avatarType,
     avatarCreatedAt,
     gender,
+    avatar_2d_image,
     setPresetAvatar,
     replaceAvatar,
     deleteAvatar,
@@ -37,10 +49,17 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
   } = useUser();
   const { userEmail, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+
   const [avatarLoading, setAvatarLoading] = useState<boolean>(false);
   const [showCameraSilhouette, setShowCameraSilhouette] = useState<boolean>(false);
   const [showCropper, setShowCropper] = useState<boolean>(false);
   const [galleryImageUri, setGalleryImageUri] = useState<string | null>(null);
+  const [openSection, setOpenSection] = useState<SectionKey | null>(null);
+
+  const toggleSection = (key: SectionKey) =>
+    setOpenSection((prev) => (prev === key ? null : key));
+
+  // ---------- Handlers (misma lógica que ya tenías) ----------
 
   const handleLogout = async () => {
     resetProfile();
@@ -51,7 +70,10 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
     try {
       setAvatarLoading(true);
       await replaceAvatar(imagePayload);
-      Alert.alert('Gemelo Digital Actualizado', 'Tu avatar 3D ha sido generado y vinculado a tu probador.');
+      Alert.alert(
+        'Gemelo Digital Actualizado',
+        'Tu avatar 3D ha sido generado y vinculado a tu probador.'
+      );
     } catch (e: any) {
       console.error('[ProfileScreen] Error al actualizar avatar:', e);
       Alert.alert('Error', e?.message || 'No se pudo generar el gemelo digital.');
@@ -63,7 +85,8 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
   const handlePickAndUploadAvatar = async (source: 'camera' | 'gallery' | 'demo') => {
     try {
       if (source === 'demo') {
-        const demoImg = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+        const demoImg =
+          'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
         await handleUploadAvatarPhoto(demoImg);
         return;
       }
@@ -79,13 +102,11 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           Alert.alert('Permiso Requerido', 'Se requiere acceso a la galería.');
           return;
         }
-
         const res = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           allowsEditing: false,
           quality: 0.9,
         });
-
         if (!res.canceled && res.assets && res.assets.length > 0) {
           setGalleryImageUri(res.assets[0].uri);
           setShowCropper(true);
@@ -136,16 +157,26 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
   };
 
   const handleStartScan = () => {
-    if (navigation) {
-      navigation.navigate('BodyProfile');
-    }
+    if (navigation) navigation.navigate('BodyProfile');
   };
 
   const handleOpenColorStudio = () => {
-    if (navigation) {
-      navigation.navigate('ColorStudio');
-    }
+    if (navigation) navigation.navigate('ColorStudio');
   };
+
+  // ---------- Derivados de UI ----------
+
+  const isCustom = avatarType === 'custom_3d';
+  const previewUri = avatar_2d_image || PRESET_AVATARS[gender]?.image_2d || '';
+  const recommendedColors = Array.isArray(colorProfile?.recommended_colors)
+    ? colorProfile.recommended_colors
+    : [];
+  const skinColor =
+    typeof colorProfile?.skin_tone === 'string' && colorProfile.skin_tone.trim()
+      ? colorProfile.skin_tone.split(' ')[0]
+      : '#E8BEAC';
+
+  const presetLabel = PRESET_AVATARS[gender]?.label || 'Silueta Atelier';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -153,319 +184,255 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Identity Card */}
-        <GlassCard style={styles.userCard}>
+        {/* =====================================================
+            1) HEADER DE IDENTIDAD — compacto, 1 línea
+           ===================================================== */}
+        <View style={styles.identityRow}>
           <View
             style={[
-              styles.avatarIconBox,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+              styles.identityAvatar,
+              {
+                backgroundColor: colors.surfaceSubtle,
+                borderColor: colors.borderLight,
+              },
             ]}
           >
-            <Ionicons name="person" size={36} color={colors.primaryText} />
+            <Ionicons name="person" size={22} color={colors.primaryText} />
           </View>
-          <Text style={[styles.userName, { color: colors.primaryText }]}>
-            {userProfile.name}
-          </Text>
-          {userEmail ? (
-            <Text style={[styles.userBadge, { color: colors.primaryText, fontWeight: '600', marginBottom: 2 }]}>
-              {userEmail}
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.identityName, { color: colors.primaryText }]}
+              numberOfLines={1}
+            >
+              {userProfile.name}
             </Text>
-          ) : null}
-          <Text style={[styles.userBadge, { color: colors.secondaryText }]}>
-            {t('profile.biometricIdentity')}
-          </Text>
-        </GlassCard>
+            <Text
+              style={[styles.identitySub, { color: colors.secondaryText }]}
+              numberOfLines={1}
+            >
+              {userEmail || t('profile.biometricIdentity')}
+            </Text>
+          </View>
+        </View>
 
-        {/* 3D Digital Twin Management Card (Fase 2) */}
-        <GlassCard style={styles.infoCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="cube-outline" size={20} color={colors.primaryText} />
-            <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              Gestión de Gemelo Digital 3D
-            </Text>
+        {/* =====================================================
+            2) HERO — Gemelo Digital 3D (protagonista)
+           ===================================================== */}
+        <GlassCard style={styles.heroCard}>
+          {/* Preview + overlay de estado */}
+          <View style={styles.heroImageWrap}>
+            {previewUri ? (
+              <Image
+                source={{ uri: previewUri }}
+                style={styles.heroImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.heroImage, styles.heroImageEmpty]}>
+                <Ionicons name="cube-outline" size={48} color={colors.secondaryText} />
+              </View>
+            )}
+
+            {/* Pill de estado sobre la imagen */}
             <View
               style={[
-                styles.statusPillActive,
-                avatarType === 'custom_3d' && { backgroundColor: 'rgba(59, 130, 246, 0.15)' },
+                styles.statusPill,
+                isCustom
+                  ? { backgroundColor: 'rgba(59, 130, 246, 0.15)' }
+                  : { backgroundColor: 'rgba(34, 197, 94, 0.12)' },
               ]}
             >
               <View
                 style={[
                   styles.statusDot,
-                  avatarType === 'custom_3d' && { backgroundColor: '#3B82F6' },
+                  { backgroundColor: isCustom ? '#3B82F6' : '#22C55E' },
                 ]}
               />
               <Text
                 style={[
                   styles.statusPillText,
-                  avatarType === 'custom_3d' && { color: '#2563EB' },
+                  { color: isCustom ? '#2563EB' : '#15803D' },
                 ]}
               >
-                {avatarType === 'custom_3d' ? '3D Personalizado' : 'Silueta Preset'}
+                {isCustom ? '3D Personalizado' : 'Silueta Preset'}
               </Text>
             </View>
-          </View>
 
-          <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
-            {avatarType === 'custom_3d'
-              ? `Tu avatar tridimensional generado por Tripo3D está activo${avatarCreatedAt ? ` desde el ${avatarCreatedAt}` : ''}. Puedes reemplazarlo con una nueva captura o restablecer la silueta base.`
-              : `Estás utilizando la ${PRESET_AVATARS[gender]?.label || 'Silueta Atelier'}. Puedes alternar la silueta o crear tu gemelo digital 3D a partir de una foto de cuerpo completo.`}
-          </Text>
-
-          {/* Selector de Siluetas Base Preset */}
-          <View style={styles.presetSelectorSection}>
-            <Text style={[styles.sectionMiniLabel, { color: colors.tertiaryText }]}>
-              SILUETAS ATELIER DISPONIBLES
-            </Text>
-            <View style={styles.presetButtonsRow}>
-              {[
-                { key: 'female', label: 'Femenina', icon: 'woman-outline' },
-                { key: 'male', label: 'Masculina', icon: 'man-outline' },
-                { key: 'non-binary', label: 'Fluida', icon: 'people-outline' },
-              ].map((p) => {
-                const isActive = gender === p.key;
-                return (
-                  <TouchableOpacity
-                    key={p.key}
-                    style={[
-                      styles.presetPillBtn,
-                      {
-                        backgroundColor: isActive ? colors.primaryText : colors.surfaceSubtle,
-                        borderColor: isActive ? colors.primaryText : colors.borderLight,
-                      },
-                    ]}
-                    onPress={() => setPresetAvatar(p.key)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={p.icon as any}
-                      size={14}
-                      color={isActive ? colors.bg : colors.primaryText}
-                    />
-                    <Text
-                      style={[
-                        styles.presetPillBtnText,
-                        { color: isActive ? colors.bg : colors.primaryText, fontWeight: isActive ? '700' : '500' },
-                      ]}
-                    >
-                      {p.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Acciones del Gemelo Digital */}
-          <View style={styles.avatarActionsCol}>
-            {avatarLoading ? (
-              <View style={[styles.avatarLoadingBox, { backgroundColor: colors.surfaceSubtle }]}>
-                <ActivityIndicator size="small" color={colors.primaryText} />
-                <Text style={[styles.avatarLoadingText, { color: colors.primaryText }]}>
-                  Procesando gemelo digital con Tripo3D...
+            {/* Overlay de carga */}
+            {avatarLoading && (
+              <View style={styles.heroOverlay}>
+                <ActivityIndicator size="large" color={colors.bg} />
+                <Text style={[styles.heroOverlayText, { color: colors.bg }]}>
+                  Procesando gemelo digital…
                 </Text>
               </View>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={[
-                    styles.primaryAvatarBtn,
-                    { backgroundColor: colors.primaryText },
-                  ]}
-                  onPress={handlePromptAvatarUpload}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="camera-outline" size={17} color={colors.bg} />
-                  <Text style={[styles.primaryAvatarBtnText, { color: colors.bg }]}>
-                    {avatarType === 'custom_3d' ? 'Reemplazar Gemelo 3D' : 'Crear Gemelo 3D con Foto'}
-                  </Text>
-                </TouchableOpacity>
-
-                {avatarType === 'custom_3d' && (
-                  <TouchableOpacity
-                    style={[
-                      styles.deleteAvatarBtn,
-                      { borderColor: 'rgba(239, 68, 68, 0.4)' },
-                    ]}
-                    onPress={handleDeleteAvatar}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="trash-outline" size={15} color="#EF4444" />
-                    <Text style={styles.deleteAvatarBtnText}>
-                      Restablecer Silueta Predeterminada
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={[
-                    styles.inlineBtn,
-                    { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight, marginTop: 4 },
-                  ]}
-                  onPress={() => navigation?.navigate('FittingRoom')}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="cube-outline" size={16} color={colors.primaryText} />
-                  <Text style={[styles.inlineBtnText, { color: colors.primaryText }]}>
-                    Ver en Probador Virtual 3D
-                  </Text>
-                </TouchableOpacity>
-              </>
             )}
           </View>
+
+          {/* Meta descriptiva (1–2 líneas) */}
+          <Text
+            style={[styles.heroMeta, { color: colors.secondaryText }]}
+            numberOfLines={2}
+          >
+            {isCustom
+              ? `Avatar 3D activo${avatarCreatedAt ? ` desde ${avatarCreatedAt}` : ''}.`
+              : `Usando ${presetLabel}.`}
+          </Text>
+
+          {/* Selector de silueta base — pills compactas */}
+          <Text style={[styles.microLabel, { color: colors.tertiaryText }]}>
+            SILUETA BASE
+          </Text>
+          <View style={styles.presetRow}>
+            {[
+              { key: 'female', label: 'Femenina', icon: 'woman-outline' },
+              { key: 'male', label: 'Masculina', icon: 'man-outline' },
+              { key: 'non-binary', label: 'Fluida', icon: 'people-outline' },
+            ].map((p) => {
+              const isActive = gender === p.key;
+              return (
+                <TouchableOpacity
+                  key={p.key}
+                  style={[
+                    styles.presetPill,
+                    {
+                      backgroundColor: isActive ? colors.primaryText : colors.surfaceSubtle,
+                      borderColor: isActive ? colors.primaryText : colors.borderLight,
+                    },
+                  ]}
+                  onPress={() => setPresetAvatar(p.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={p.icon as any}
+                    size={13}
+                    color={isActive ? colors.bg : colors.primaryText}
+                  />
+                  <Text
+                    style={[
+                      styles.presetPillText,
+                      {
+                        color: isActive ? colors.bg : colors.primaryText,
+                        fontWeight: isActive ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {p.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* CTA primario único */}
+          <TouchableOpacity
+            style={[
+              styles.primaryCta,
+              { backgroundColor: colors.primaryText },
+              avatarLoading && { opacity: 0.5 },
+            ]}
+            onPress={handlePromptAvatarUpload}
+            disabled={avatarLoading}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="camera-outline" size={17} color={colors.bg} />
+            <Text style={[styles.primaryCtaText, { color: colors.bg }]}>
+              {isCustom ? 'Reemplazar Gemelo 3D' : 'Crear Gemelo 3D con Foto'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Acciones secundarias — sutiles */}
+          <TouchableOpacity
+            style={styles.subtleLink}
+            onPress={() => navigation?.navigate('FittingRoom')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="cube-outline" size={14} color={colors.primaryText} />
+            <Text style={[styles.subtleLinkText, { color: colors.primaryText }]}>
+              Ver en Probador Virtual 3D
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
+          </TouchableOpacity>
+
+          {isCustom && (
+            <TouchableOpacity
+              style={styles.deleteAvatarLink}
+              onPress={handleDeleteAvatar}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.deleteAvatarText}>Eliminar gemelo digital</Text>
+            </TouchableOpacity>
+          )}
         </GlassCard>
 
-        {/* Seasonal Colorimetry Card */}
-        <GlassCard style={styles.infoCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
-            <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              {t('profile.colorimetryTitle')}
-            </Text>
-            <View
-              style={[
-                styles.seasonPill,
-                { backgroundColor: colors.surfaceSubtle },
-              ]}
-            >
-              <Text style={[styles.seasonPillText, { color: colors.primaryText }]}>
-                {colorProfile?.season || 'Otoño Cálido'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.miniSwatchesRow}>
-            <View
-              style={[
-                styles.miniToneCircle,
-                {
-                  backgroundColor:
-                    typeof colorProfile?.skin_tone === 'string' && colorProfile.skin_tone.trim()
-                      ? colorProfile.skin_tone.split(' ')[0]
-                      : '#E8BEAC',
-                },
-              ]}
-            />
-            <Text style={[styles.miniToneLabel, { color: colors.secondaryText }]}>
-              {t('profile.skinLabel')}: {colorProfile?.skin_tone || '#E8BEAC'}
+        {/* =====================================================
+            3) ACORDEÓN — Colorimetría
+           ===================================================== */}
+        <Section
+          icon="color-palette-outline"
+          title={t('profile.colorimetryTitle')}
+          summary={colorProfile?.season || 'Otoño Cálido'}
+          isOpen={openSection === 'color'}
+          onToggle={() => toggleSection('color')}
+          colors={colors}
+        >
+          {/* Skin tone + swatches resumidos */}
+          <View style={styles.colorRow}>
+            <View style={[styles.skinDot, { backgroundColor: skinColor }]} />
+            <Text style={[styles.caption, { color: colors.secondaryText }]}>
+              {t('profile.skinLabel')}: {colorProfile?.skin_tone || skinColor}
             </Text>
           </View>
 
-          <View style={styles.chipsRow}>
-            {(Array.isArray(colorProfile?.recommended_colors) ? colorProfile.recommended_colors : ['#854D0E', '#047857', '#C2410C'])
-              .slice(0, 6)
-              .map((hex, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.miniSwatch,
-                    { backgroundColor: hex, borderColor: colors.borderLight },
-                  ]}
-                />
-              ))}
+          <View style={[styles.swatchesRow, { marginTop: Spacing.sm }]}>
+            {recommendedColors.slice(0, 8).map((hex, i) => (
+              <View
+                key={`${hex}-${i}`}
+                style={[
+                  styles.swatch,
+                  { backgroundColor: hex, borderColor: colors.borderLight },
+                ]}
+              />
+            ))}
           </View>
 
           <TouchableOpacity
             style={[
-              styles.inlineBtn,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight, marginTop: Spacing.md },
+              styles.inlineButton,
+              {
+                backgroundColor: colors.surfaceSubtle,
+                borderColor: colors.borderLight,
+                marginTop: Spacing.md,
+              },
             ]}
             onPress={handleOpenColorStudio}
             activeOpacity={0.7}
           >
-            <Ionicons name="eye-outline" size={16} color={colors.primaryText} />
-            <Text style={[styles.inlineBtnText, { color: colors.primaryText }]}>
+            <Ionicons name="eye-outline" size={15} color={colors.primaryText} />
+            <Text style={[styles.inlineButtonText, { color: colors.primaryText }]}>
               {t('profile.openColorStudio')}
             </Text>
           </TouchableOpacity>
-        </GlassCard>
+        </Section>
 
-        {/* Ajustes de Apariencia: Modo Claro vs Fondo Negro */}
-        <GlassCard style={styles.infoCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="color-palette-outline" size={20} color={colors.primaryText} />
-            <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              {t('profile.appearanceTitle')}
-            </Text>
-            <View
-              style={[
-                styles.themeBadgePill,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(60, 100, 115, 0.08)' },
-              ]}
-            >
-              <Text style={[styles.themeBadgeText, { color: colors.primaryText }]}>
-                {isDark ? t('profile.darkMode') : t('profile.lightMode')}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
+        {/* =====================================================
+            4) ACORDEÓN — Apariencia (solo Switch, sin redundancia)
+           ===================================================== */}
+        <Section
+          icon="contrast-outline"
+          title={t('profile.appearanceTitle')}
+          summary={isDark ? t('profile.darkMode') : t('profile.lightMode')}
+          isOpen={openSection === 'appearance'}
+          onToggle={() => toggleSection('appearance')}
+          colors={colors}
+        >
+          <Text style={[styles.bodyText, { color: colors.secondaryText }]}>
             {t('profile.appearanceDesc')}
           </Text>
 
-          {/* Selector de Dos Tarjetas */}
-          <View style={styles.themeOptionsRow}>
-            {/* Opción 1: Modo Claro */}
-            <TouchableOpacity
-              style={[
-                styles.themeOptionCard,
-                {
-                  backgroundColor: !isDark ? colors.surfaceSubtle : 'transparent',
-                  borderColor: !isDark ? colors.primaryText : colors.borderLight,
-                  borderWidth: !isDark ? 2 : 1,
-                },
-              ]}
-              onPress={() => setTheme('light')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.themeIconCircle, { backgroundColor: 'rgba(142, 182, 199, 0.2)' }]}>
-                <Ionicons name="sunny" size={20} color={colors.primary} />
-              </View>
-              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
-                {t('profile.lightMode')}
-              </Text>
-              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
-                {t('profile.lightEditorial')}
-              </Text>
-              {!isDark && (
-                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
-                  <Ionicons name="checkmark" size={12} color={colors.bg} />
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Opción 2: Fondo Negro / Dark Atelier */}
-            <TouchableOpacity
-              style={[
-                styles.themeOptionCard,
-                {
-                  backgroundColor: isDark ? colors.surfaceSubtle : 'transparent',
-                  borderColor: isDark ? colors.primaryText : colors.borderLight,
-                  borderWidth: isDark ? 2 : 1,
-                },
-              ]}
-              onPress={() => setTheme('dark')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.themeIconCircle, { backgroundColor: 'rgba(60, 100, 115, 0.35)' }]}>
-                <Ionicons name="moon" size={20} color={colors.tiffany} />
-              </View>
-              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
-                {t('profile.darkMode')}
-              </Text>
-              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
-                {t('profile.darkOled')}
-              </Text>
-              {isDark && (
-                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
-                  <Ionicons name="checkmark" size={12} color={colors.bg} />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Interruptor Switch */}
-          <View style={[styles.switchRow, { borderTopColor: colors.borderLight }]}>
+          <View
+            style={[styles.switchRow, { borderTopColor: colors.borderLight }]}
+          >
             <View style={{ flex: 1 }}>
               <Text style={[styles.switchTitle, { color: colors.primaryText }]}>
                 {t('profile.darkMode')}
@@ -481,94 +448,75 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               thumbColor={isDark ? colors.surface : '#FFFFFF'}
             />
           </View>
-        </GlassCard>
+        </Section>
 
-        {/* Ajustes de Idioma (i18n): Español vs English */}
-        <GlassCard style={styles.infoCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="language-outline" size={20} color={colors.primaryText} />
-            <Text style={[styles.cardTitle, { color: colors.primaryText }]}>
-              {t('profile.languageTitle')}
-            </Text>
-            <View
-              style={[
-                styles.themeBadgePill,
-                { backgroundColor: colors.surfaceSubtle },
-              ]}
-            >
-              <Text style={[styles.themeBadgeText, { color: colors.primaryText }]}>
-                {language === 'es' ? 'Español' : 'English'}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={[styles.cardDetail, { color: colors.secondaryText }]}>
+        {/* =====================================================
+            5) ACORDEÓN — Idioma
+           ===================================================== */}
+        <Section
+          icon="language-outline"
+          title={t('profile.languageTitle')}
+          summary={language === 'es' ? 'Español' : 'English'}
+          isOpen={openSection === 'language'}
+          onToggle={() => toggleSection('language')}
+          colors={colors}
+        >
+          <Text style={[styles.bodyText, { color: colors.secondaryText }]}>
             {t('profile.languageDesc')}
           </Text>
 
-          <View style={styles.themeOptionsRow}>
-            {/* Opción Español */}
-            <TouchableOpacity
-              style={[
-                styles.themeOptionCard,
-                {
-                  backgroundColor: language === 'es' ? colors.surfaceSubtle : 'transparent',
-                  borderColor: language === 'es' ? colors.primaryText : colors.borderLight,
-                  borderWidth: language === 'es' ? 2 : 1,
-                },
-              ]}
-              onPress={() => setLanguage('es')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.themeIconCircle, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="globe-outline" size={20} color="#DC2626" />
-              </View>
-              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
-                Español
-              </Text>
-              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
-                Castellano
-              </Text>
-              {language === 'es' && (
-                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
-                  <Ionicons name="checkmark" size={12} color={colors.bg} />
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Opción English */}
-            <TouchableOpacity
-              style={[
-                styles.themeOptionCard,
-                {
-                  backgroundColor: language === 'en' ? colors.surfaceSubtle : 'transparent',
-                  borderColor: language === 'en' ? colors.primaryText : colors.borderLight,
-                  borderWidth: language === 'en' ? 2 : 1,
-                },
-              ]}
-              onPress={() => setLanguage('en')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.themeIconCircle, { backgroundColor: '#DBEAFE' }]}>
-                <Ionicons name="planet-outline" size={20} color="#2563EB" />
-              </View>
-              <Text style={[styles.themeOptionTitle, { color: colors.primaryText }]}>
-                English
-              </Text>
-              <Text style={[styles.themeOptionDesc, { color: colors.secondaryText }]}>
-                International
-              </Text>
-              {language === 'en' && (
-                <View style={[styles.selectedIndicator, { backgroundColor: colors.primaryText }]}>
-                  <Ionicons name="checkmark" size={12} color={colors.bg} />
-                </View>
-              )}
-            </TouchableOpacity>
+          <View style={styles.segmentedRow}>
+            {[
+              { key: 'es', label: 'Español', icon: 'globe-outline' },
+              { key: 'en', label: 'English', icon: 'planet-outline' },
+            ].map((opt) => {
+              const active = language === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.segment,
+                    {
+                      backgroundColor: active ? colors.primaryText : colors.surfaceSubtle,
+                      borderColor: active ? colors.primaryText : colors.borderLight,
+                    },
+                  ]}
+                  onPress={() => setLanguage(opt.key as any)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={opt.icon as any}
+                    size={14}
+                    color={active ? colors.bg : colors.primaryText}
+                  />
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      {
+                        color: active ? colors.bg : colors.primaryText,
+                        fontWeight: active ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </GlassCard>
+        </Section>
 
-        {/* Acciones de Cuenta */}
-        <View style={styles.actionsContainer}>
+        {/* =====================================================
+            6) ACORDEÓN — Cuenta (acciones avanzadas/destructivas)
+           ===================================================== */}
+        <Section
+          icon="settings-outline"
+          title="Cuenta"
+          summary="Escanear · Restablecer · Salir"
+          isOpen={openSection === 'account'}
+          onToggle={() => toggleSection('account')}
+          colors={colors}
+        >
           <PrimaryButton
             label={t('profile.scanAgain')}
             onPress={handleStartScan}
@@ -576,19 +524,31 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           />
           <SecondaryButton
             label={t('profile.resetDefaults')}
-            onPress={resetProfile}
+            onPress={() =>
+              Alert.alert(
+                'Restablecer perfil',
+                'Se borrarán tus datos personales, avatar y preferencias. ¿Continuar?',
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: 'Restablecer', style: 'destructive', onPress: resetProfile },
+                ]
+              )
+            }
             style={{ marginTop: Spacing.sm }}
           />
           <SecondaryButton
             label={t('profile.signOut')}
             onPress={handleLogout}
             icon="log-out-outline"
-            style={{ marginTop: Spacing.sm, borderColor: 'rgba(239, 68, 68, 0.4)' }}
+            style={{
+              marginTop: Spacing.sm,
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+            }}
           />
-        </View>
+        </Section>
       </ScrollView>
 
-      {/* Modal de Cámara con Silueta Translúcida A-Pose */}
+      {/* Modales — sin cambios */}
       <CameraSilhouetteModal
         visible={showCameraSilhouette}
         onClose={() => setShowCameraSilhouette(false)}
@@ -597,8 +557,6 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
           handleUploadAvatarPhoto(b64 || croppedUri);
         }}
       />
-
-      {/* Modal de Recorte Ajustado de Cabeza a Pies para Galería */}
       <ImageCropperModal
         visible={showCropper}
         imageUri={galleryImageUri}
@@ -616,232 +574,160 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
   );
 };
 
+// =============================================================
+// Sub-componente: Sección colapsable (acordeón)
+// =============================================================
+const Section: React.FC<{
+  icon: string;
+  title: string;
+  summary: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  colors: any;
+  children: React.ReactNode;
+}> = ({ icon, title, summary, isOpen, onToggle, colors, children }) => (
+  <GlassCard style={styles.sectionCard}>
+    <TouchableOpacity
+      onPress={onToggle}
+      activeOpacity={0.7}
+      style={styles.sectionHeader}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: isOpen }}
+    >
+      <Ionicons name={icon as any} size={18} color={colors.primaryText} />
+      <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
+        {title}
+      </Text>
+      <Text
+        style={[styles.sectionSummary, { color: colors.secondaryText }]}
+        numberOfLines={1}
+      >
+        {summary}
+      </Text>
+      <Ionicons
+        name={isOpen ? 'chevron-up' : 'chevron-down'}
+        size={16}
+        color={colors.secondaryText}
+      />
+    </TouchableOpacity>
+    {isOpen && <View style={styles.sectionBody}>{children}</View>}
+  </GlassCard>
+);
+
+// =============================================================
+// Estilos
+// =============================================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 12,
     paddingTop: Spacing.md,
     paddingBottom: 95,
   },
-  userCard: {
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
+
+  // --- Header identidad ---
+  identityRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  avatarIconBox: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+  identityAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    marginBottom: Spacing.sm,
   },
-  userName: {
-    ...Typography.title2,
+  identityName: {
+    ...Typography.callout,
     fontWeight: '700',
   },
-  userBadge: {
+  identitySub: {
     ...Typography.caption,
-    marginTop: 2,
+    marginTop: 1,
   },
-  infoCard: {
+
+  // --- Hero 3D ---
+  heroCard: {
     borderRadius: Radius.xl,
-    padding: Spacing.lg,
+    padding: Spacing.md,
     borderWidth: 1,
     marginBottom: Spacing.md,
   },
-  cardHeaderRow: {
+  heroImageWrap: {
+    width: '100%',
+    aspectRatio: 4 / 5,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#00000010',
+  },
+  heroImage: { width: '100%', height: '100%' },
+  heroImageEmpty: { alignItems: 'center', justifyContent: 'center' },
+  statusPill: {
+    position: 'absolute',
+    top: Spacing.sm,
+    left: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  cardTitle: {
-    ...Typography.callout,
-    fontWeight: '700',
-    flex: 1,
-  },
-  statusPillActive: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radius.full,
     gap: 4,
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#22C55E',
-  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusPillText: {
     ...Typography.micro,
-    color: '#15803D',
-    fontWeight: '600',
-    fontSize: 10,
-  },
-  seasonPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-  },
-  seasonPillText: {
-    ...Typography.micro,
     fontWeight: '700',
     fontSize: 10,
   },
-  cardDetail: {
-    ...Typography.caption,
-    lineHeight: 18,
-    marginBottom: Spacing.md,
-  },
-  miniSwatchesRow: {
-    flexDirection: 'row',
+  heroOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    justifyContent: 'center',
+    gap: 10,
   },
-  miniToneCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+  heroOverlayText: {
+    ...Typography.caption,
+    fontWeight: '600',
   },
-  miniToneLabel: {
+  heroMeta: {
     ...Typography.caption,
     fontSize: 12,
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  miniSwatch: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  inlineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    gap: 6,
-  },
-  inlineBtnText: {
-    ...Typography.caption,
-    fontWeight: '600',
-  },
-  actionsContainer: {
-    marginTop: Spacing.md,
-  },
-  themeBadgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-  },
-  themeBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  themeOptionsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
+    marginTop: Spacing.sm,
     marginBottom: Spacing.md,
+    lineHeight: 17,
   },
-  themeOptionCard: {
-    flex: 1,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  themeIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xs,
-  },
-  themeOptionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  themeOptionDesc: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    marginTop: Spacing.xs,
-  },
-  switchTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  switchSubtitle: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  presetSelectorSection: {
-    marginBottom: Spacing.md,
-  },
-  sectionMiniLabel: {
+  microLabel: {
     ...Typography.micro,
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.8,
     marginBottom: 6,
   },
-  presetButtonsRow: {
+  presetRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
+    marginBottom: Spacing.md,
   },
-  presetPillBtn: {
+  presetPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     borderRadius: Radius.pill,
     borderWidth: 1,
-    gap: 5,
+    gap: 4,
   },
-  presetPillBtnText: {
-    ...Typography.micro,
-    fontSize: 11,
-  },
-  avatarActionsCol: {
-    gap: 8,
-    marginTop: Spacing.xs,
-  },
-  primaryAvatarBtn: {
+  presetPillText: { ...Typography.micro, fontSize: 11 },
+
+  primaryCta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -849,12 +735,92 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     gap: 8,
   },
-  primaryAvatarBtnText: {
+  primaryCtaText: {
     ...Typography.callout,
     fontWeight: '700',
     fontSize: 13,
   },
-  deleteAvatarBtn: {
+  subtleLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  subtleLinkText: {
+    ...Typography.caption,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  deleteAvatarLink: {
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  deleteAvatarText: {
+    ...Typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#EF4444',
+    textDecorationLine: 'underline',
+  },
+
+  // --- Sección acordeón ---
+  sectionCard: {
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    marginBottom: Spacing.sm,
+    padding: 0,
+    overflow: 'hidden',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  sectionTitle: {
+    ...Typography.callout,
+    fontWeight: '700',
+    flex: 1,
+  },
+  sectionSummary: {
+    ...Typography.caption,
+    fontSize: 12,
+    maxWidth: '45%',
+    textAlign: 'right',
+  },
+  sectionBody: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    paddingTop: 0,
+  },
+
+  // --- Contenido interno de secciones ---
+  bodyText: {
+    ...Typography.caption,
+    lineHeight: 18,
+    marginBottom: Spacing.sm,
+  },
+  caption: { ...Typography.caption, fontSize: 12 },
+  colorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  skinDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  swatchesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  swatch: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  inlineButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -862,25 +828,33 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
     gap: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
   },
-  deleteAvatarBtnText: {
-    ...Typography.caption,
-    color: '#EF4444',
-    fontWeight: '600',
-    fontSize: 12,
+  inlineButtonText: { ...Typography.caption, fontWeight: '600' },
+
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    marginTop: Spacing.xs,
   },
-  avatarLoadingBox: {
+  switchTitle: { fontSize: 13, fontWeight: '600' },
+  switchSubtitle: { fontSize: 11, marginTop: 2 },
+
+  segmentedRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: Spacing.xs,
+  },
+  segment: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: Radius.lg,
-    gap: 10,
+    paddingVertical: 10,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    gap: 6,
   },
-  avatarLoadingText: {
-    ...Typography.caption,
-    fontWeight: '600',
-    fontSize: 12,
-  },
+  segmentText: { ...Typography.caption, fontSize: 12 },
 });

@@ -247,11 +247,17 @@ export async function setupUserProfile(
       let errorDetail = 'Error al configurar el perfil de usuario.';
       try {
         const errJson = await response.json();
-        if (errJson.detail) errorDetail = errJson.detail;
+        if (errJson.detail) {
+          errorDetail = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+        } else if (errJson.error) {
+          errorDetail = errJson.error;
+        }
       } catch {
         // Ignorar
       }
-      throw new Error(errorDetail);
+      const err: any = new Error(errorDetail);
+      err.status = response.status;
+      throw err;
     }
 
     const data: UserProfileSetupResponse = await response.json();
@@ -336,5 +342,46 @@ export async function updateUserAvatar(
   const data = await res.json();
   console.log('[authClient] Avatar 3D actualizado exitosamente:', data);
   return data;
+}
+
+/**
+ * Restablece la contraseña de una cuenta registrada
+ */
+export async function resetPassword(email: string, newPassword: string): Promise<{ message: string }> {
+  const baseUrl = await resolveServerUrl();
+  const url = `${baseUrl}/api/auth/reset-password`;
+  console.log('[authClient] Restableciendo contraseña en:', url);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+        password: newPassword,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      let errorDetail = 'No fue posible restablecer la contraseña.';
+      try {
+        const errJson = await res.json();
+        if (errJson.detail) errorDetail = errJson.detail;
+      } catch {}
+      throw new Error(errorDetail);
+    }
+
+    return await res.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 

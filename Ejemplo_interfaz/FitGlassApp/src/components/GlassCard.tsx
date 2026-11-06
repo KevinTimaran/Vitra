@@ -162,7 +162,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   const shadowColor = isDark ? '#000000' : shadowConfig.shadowColor;
   const shadowOpacity = isDark ? 0.20 : shadowConfig.shadowOpacity;
 
-  const fillParentStyle: ViewStyle = {};
+  const fillParentStyle: Record<string, any> = {};
   if (outerStyle.height !== undefined || outerStyle.maxHeight !== undefined) {
     fillParentStyle.height = '100%';
   }

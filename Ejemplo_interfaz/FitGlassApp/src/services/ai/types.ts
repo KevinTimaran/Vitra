@@ -1,4 +1,6 @@
 export interface GarmentMetadata {
+  is_valid_image?: boolean;
+  validation_error_message?: string | null;
   tipo_prenda?: string;
   color_dominante?: string;
   colores_secundarios?: string[];
@@ -21,6 +23,8 @@ export interface TryOnResponse {
 }
 
 export interface ColorimetryData {
+  is_valid_image?: boolean;
+  validation_error_message?: string | null;
   skin_tone: string;
   hair_color: string;
   eye_color?: string;
@@ -44,6 +48,8 @@ export interface AvatarGenerateResponse {
 
 // Tipo previo para compatibilidad
 export interface GarmentAnalysis {
+  is_valid_image?: boolean;
+  validation_error_message?: string | null;
   category: 'Tops' | 'Outerwear' | 'Pants' | string;
   sleeve?: string;
   neck?: string;

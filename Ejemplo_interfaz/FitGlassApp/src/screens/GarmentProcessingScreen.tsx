@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -103,9 +104,45 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
       try {
         const analysisRes = await analyzeGarment(imageBase64 || imageUri);
         metadata = analysisRes.data;
+        if (metadata && (metadata.is_valid_image === false || String(metadata.is_valid_image).toLowerCase() === 'false')) {
+          const valMsg =
+            metadata.validation_error_message ||
+            'No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda.';
+          const valErr: any = new Error(valMsg);
+          valErr.status = 400;
+          throw valErr;
+        }
         setExtractedMetadata(metadata || null);
       } catch (geminiErr: any) {
         console.warn('[Processing] Gemini aviso:', geminiErr?.message);
+        const errMsg = geminiErr?.message || '';
+        const isValidationErr =
+          geminiErr?.status === 400 ||
+          (metadata && (metadata.is_valid_image === false || String(metadata.is_valid_image).toLowerCase() === 'false')) ||
+          errMsg.toLowerCase().includes('ropa') ||
+          errMsg.toLowerCase().includes('prenda') ||
+          errMsg.toLowerCase().includes('foto');
+
+        if (isValidationErr) {
+          Alert.alert(
+            'Imagen no válida',
+            errMsg || 'No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda.',
+            [
+              {
+                text: 'Entendido',
+                onPress: () => {
+                  if (props.onCancel) {
+                    props.onCancel();
+                  } else if (props.navigation?.goBack) {
+                    props.navigation.goBack();
+                  }
+                },
+              },
+            ]
+          );
+          setError(errMsg);
+          return;
+        }
       }
 
       // Paso 3: Fusión 2D (VTON con Replicate)

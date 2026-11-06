@@ -23,7 +23,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
-import { loginUser, registerUser, setupUserProfile } from '../services/auth/authClient';
+import { loginUser, registerUser, setupUserProfile, resetPassword } from '../services/auth/authClient';
 import { getLatestAvatarModel } from '../services/ai/garmentAnalyzer';
 import { CameraSilhouetteModal, ImageCropperModal } from '../components/camera';
 import { Typography, Spacing, Radius } from '../theme';
@@ -242,17 +242,40 @@ export const AuthScreen: React.FC = () => {
     const parsedAge = parseInt(age.trim(), 10) || 24;
 
     try {
-      // 1. Registrar usuario en backend
-      await registerUser(cleanEmail, password, cleanName);
-      setSuccessMessage(
-        skipPhotos
-          ? '¡Cuenta creada! Asignando silueta atelier optimizada...'
-          : '¡Cuenta creada exitosamente! Configurando gemelo digital...'
-      );
+      // 1. Registrar usuario en backend (si ya existe, intentamos autenticarlo directamente con sus credenciales)
+      let isExistingAccount = false;
+      try {
+        await registerUser(cleanEmail, password, cleanName);
+        setSuccessMessage(
+          skipPhotos
+            ? '¡Cuenta creada! Asignando silueta atelier optimizada...'
+            : '¡Cuenta creada exitosamente! Configurando gemelo digital...'
+        );
+      } catch (regErr: any) {
+        if (regErr?.message?.includes('Ya existe una cuenta')) {
+          console.log('[AuthScreen] Cuenta existente detectada en backend para:', cleanEmail);
+          isExistingAccount = true;
+        } else {
+          throw regErr;
+        }
+      }
 
       // 2. Iniciar sesión para obtener token JWT
-      const loginResult = await loginUser(cleanEmail, password);
-      const token = loginResult.access_token;
+      let token: string;
+      try {
+        const loginResult = await loginUser(cleanEmail, password);
+        token = loginResult.access_token;
+        if (isExistingAccount) {
+          setSuccessMessage('¡Bienvenida de vuelta! Sincronizando tu gemelo digital...');
+        }
+      } catch (loginErr: any) {
+        if (isExistingAccount) {
+          throw new Error(
+            'Ya existe una cuenta registrada con este correo electrónico. Por favor verifica tu contraseña o pulsa abajo para Iniciar Sesión.'
+          );
+        }
+        throw loginErr;
+      }
 
       // 3. Enviar datos de perfil y biometría al backend
       // Si el usuario omitió fotos, NO enviamos face_image ni body_image
@@ -279,8 +302,22 @@ export const AuthScreen: React.FC = () => {
           token
         );
         console.log('[AuthScreen] Respuesta de setupUserProfile recibida:', setupRes);
-      } catch (setupErr) {
+      } catch (setupErr: any) {
         console.warn('[AuthScreen] Advertencia en setup de perfil en backend:', setupErr);
+        if (
+          setupErr?.status === 400 ||
+          (setupErr?.message &&
+            (setupErr.message.toLowerCase().includes('persona') ||
+              setupErr.message.toLowerCase().includes('rostro') ||
+              setupErr.message.toLowerCase().includes('imagen')))
+        ) {
+          Alert.alert(
+            'Imagen no válida',
+            setupErr.message || 'Esta imagen no parece ser de una persona. Por favor sube una foto tuya.'
+          );
+          setLoading(false);
+          return;
+        }
         // Recuperación inteligente: si el backend alcanzó a generar el avatar 3D pero la conexión móvil parpadeó
         if (sendBody) {
           try {
@@ -347,6 +384,40 @@ export const AuthScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Restablecer contraseña rápido para desarrollo y uso diario
+  const handleForgotPassword = async () => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      Alert.alert('Recuperar Contraseña', 'Por favor escribe tu correo electrónico en el campo superior primero.');
+      return;
+    }
+
+    Alert.alert(
+      'Restablecer Contraseña',
+      `¿Deseas restablecer la contraseña para "${cleanEmail}" a "123456" para ingresar de inmediato?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Restablecer e Ingresar',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              setErrorMessage(null);
+              await resetPassword(cleanEmail, '123456');
+              setPassword('123456');
+              const result = await loginUser(cleanEmail, '123456');
+              await login(result.access_token, cleanEmail);
+            } catch (err: any) {
+              setErrorMessage(err?.message || 'No se pudo restablecer la contraseña.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Relleno rápido para pruebas en desarrollo
@@ -547,7 +618,20 @@ export const AuthScreen: React.FC = () => {
                 {errorMessage && (
                   <View style={styles.alertErrorBox}>
                     <Ionicons name="alert-circle" size={16} color="#DC2626" />
-                    <Text style={styles.alertErrorText}>{errorMessage}</Text>
+                    <View style={{ flex: 1, marginLeft: 6 }}>
+                      <Text style={styles.alertErrorText}>{errorMessage}</Text>
+                      {errorMessage.includes('Ya existe una cuenta') && viewState === 'register' && (
+                        <TouchableOpacity
+                          style={{ marginTop: 6 }}
+                          onPress={() => handleSwitchView('login')}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ color: '#3C6473', fontWeight: '700', fontSize: 13, textDecorationLine: 'underline' }}>
+                            Iniciar Sesión con esta cuenta →
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 )}
                 {successMessage && (
@@ -626,9 +710,7 @@ export const AuthScreen: React.FC = () => {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => {
-                          Alert.alert('Recuperar Contraseña', 'Ingresa tu correo para recibir las instrucciones.');
-                        }}
+                        onPress={handleForgotPassword}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>

@@ -249,12 +249,34 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
         Animated.timing(progressAnim, { toValue: 0.45, duration: 2500, useNativeDriver: false }).start();
         try {
           const colorRes = await analyzeColorimetry(faceImageBase64 || faceImageUri!);
+          if (colorRes.data && (colorRes.data.is_valid_image === false || String(colorRes.data.is_valid_image).toLowerCase() === 'false')) {
+            const valMsg =
+              colorRes.data.validation_error_message ||
+              'Esta imagen no parece ser de una persona. Por favor sube una foto tuya.';
+            const valErr: any = new Error(valMsg);
+            valErr.status = 400;
+            throw valErr;
+          }
           if (colorRes.success && colorRes.data) {
             colorResult = colorRes.data;
             updateColorProfile(colorRes.data);
           }
         } catch (cErr: any) {
           console.warn('[BodyProfileScreen] Aviso en colorimetría:', cErr?.message);
+          if (
+            cErr?.status === 400 ||
+            (cErr?.message &&
+              (cErr.message.toLowerCase().includes('persona') ||
+                cErr.message.toLowerCase().includes('rostro') ||
+                cErr.message.toLowerCase().includes('imagen')))
+          ) {
+            Alert.alert(
+              'Foto facial no válida',
+              cErr.message || 'Esta imagen no parece ser de una persona. Por favor sube una foto tuya.'
+            );
+            setIsProcessing(false);
+            return;
+          }
         }
       }
 
@@ -267,7 +289,20 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
           avatar3DUrl = avatarRes.avatar_url;
           updateAvatarUrl(avatarRes.avatar_url);
         } catch (aErr: any) {
-          console.warn('[BodyProfileScreen] Aviso en avatar 3D (usando preset):', aErr?.message);
+          console.warn('[BodyProfileScreen] Aviso en avatar 3D:', aErr?.message);
+          if (
+            aErr?.status === 400 ||
+            (aErr?.message &&
+              (aErr.message.toLowerCase().includes('persona') ||
+                aErr.message.toLowerCase().includes('imagen')))
+          ) {
+            Alert.alert(
+              'Foto de cuerpo no válida',
+              aErr.message || 'Esta imagen no parece ser de una persona. Por favor sube una foto tuya.'
+            );
+            setIsProcessing(false);
+            return;
+          }
           avatar3DUrl = '';
           setPresetAvatar(selectedGender);
         }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { File, Paths } from 'expo-file-system';
@@ -15,27 +15,21 @@ const CATEGORIES_STORAGE_FILE = 'vitra_look_categories_v1.json';
 
 const getWardrobeFile = () => {
   try {
-    if (Paths?.document) {
-      return new File(Paths.document, WARDROBE_STORAGE_FILE);
-    }
+    if (Paths?.document) return new File(Paths.document, WARDROBE_STORAGE_FILE);
   } catch {}
   return null;
 };
 
 const getSavedLooksFile = () => {
   try {
-    if (Paths?.document) {
-      return new File(Paths.document, SAVED_LOOKS_STORAGE_FILE);
-    }
+    if (Paths?.document) return new File(Paths.document, SAVED_LOOKS_STORAGE_FILE);
   } catch {}
   return null;
 };
 
 const getCategoriesFile = () => {
   try {
-    if (Paths?.document) {
-      return new File(Paths.document, CATEGORIES_STORAGE_FILE);
-    }
+    if (Paths?.document) return new File(Paths.document, CATEGORIES_STORAGE_FILE);
   } catch {}
   return null;
 };
@@ -58,7 +52,7 @@ export const PRESET_AVATARS: Record<string, { image_2d: string; model_3d: string
     label: 'Silueta Femenina Atelier',
   },
   male: {
-    image_2d: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
+    image_2d: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=800&q=80',
     model_3d: '',
     label: 'Silueta Masculina Atelier',
   },
@@ -74,7 +68,7 @@ const DEFAULT_COLOR_PROFILE: ColorProfile = {
   hair_color: '#1C1917',
   eye_color: '#292524',
   season: 'Invierno Brillante',
-  palette_name: 'Clear Winter Editorial',
+  palette_name: 'PUTA',
   description:
     'Contraste elevado entre el subtono frío de la tez y la profundidad del cabello. Los tonos fríos saturados, el carbón mineral y los acentos zafiro y magenta maximizan la luminosidad y presencia estética.',
   recommended_colors: [
@@ -103,6 +97,10 @@ export interface CompleteOnboardingData {
 }
 
 export interface UserContextValue {
+  // --- Estado de arranque ---
+  isReady: boolean;
+
+  // --- Identidad ---
   userProfile: UserProfile & { age?: number; facePhotoUri?: string; bodyPhotoUri?: string };
   colorProfile: ColorProfile;
   avatarUrl?: string;
@@ -114,36 +112,59 @@ export interface UserContextValue {
   bodyPhotoUri?: string;
   completedOnboarding: boolean;
 
-  // Propiedades VTON + Colorimetría globales
+  // --- VTON + Colorimetría ---
   avatar_2d_image: string;
   avatar_3d_base_url: string;
   colorimetry_profile: ColorProfile;
-  wardrobe_items: Garment[];
+
+  // --- Armario y Looks ---
+  wardrobe_items: Garment[];        // alias deprecado de wardrobeItems
   wardrobeItems: Garment[];
   savedLooks: SavedLookItem[];
+  lookCategories: string[];
 
-  // Acciones de Armario
+  // --- Derivados para UI (evitan recalcular en pantalla) ---
+  hasCustomAvatar: boolean;
+  hasAvatar: boolean;
+  wardrobeCount: number;
+  favoriteWardrobeCount: number;
+  savedLooksCount: number;
+  favoriteLooksCount: number;
+
+  // --- Estados async visibles para la UI ---
+  isGeneratingAvatar: boolean;
+  avatarError: string | null;
+  isSyncing: boolean;
+  syncError: string | null;
+  lastSyncAt: Date | null;
+  clearAvatarError: () => void;
+  clearSyncError: () => void;
+
+  // --- Acciones de Armario ---
   addGarmentToWardrobe: (garment: Garment) => void;
   removeGarmentFromWardrobe: (id: string) => void;
   toggleFavoriteGarment: (id: string) => void;
   setWardrobeItems: React.Dispatch<React.SetStateAction<Garment[]>>;
+  clearWardrobe: () => void;
 
-  // Acciones de Looks Guardados y Categorías
-  lookCategories: string[];
+  // --- Acciones de Looks y Categorías ---
   addLookCategory: (categoryName: string) => void;
+  removeLookCategory: (categoryName: string) => void;
   updateLookCategory: (lookId: string, category: string) => void;
   toggleFavoriteLook: (id: string) => void;
   saveLook: (look: SavedLookItem) => void;
   removeLook: (id: string) => void;
   updateLook: (look: SavedLookItem) => void;
+  clearSavedLooks: () => void;
 
-  // Acciones de Gemelo Digital / Avatar
+  // --- Avatar / Gemelo Digital ---
   setGender: (gender: 'female' | 'male' | 'non-binary' | string) => void;
   setPresetAvatar: (gender: string) => Promise<void> | void;
   createCustomAvatar: (imageUriOrBase64: string) => Promise<string>;
   replaceAvatar: (imageUriOrBase64: string) => Promise<string>;
   deleteAvatar: () => Promise<void>;
 
+  // --- Perfil ---
   updateColorProfile: (profile: Partial<ColorProfile> & { season: string; recommended_colors: string[] }) => void;
   updateAvatarUrl: (url: string) => void;
   setUserPhotoUri: (uri: string) => void;
@@ -155,7 +176,15 @@ export interface UserContextValue {
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
+const errorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return 'Ocurrió un error inesperado';
+};
+
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isReady, setIsReady] = useState(false);
+
   const [userName, setUserName] = useState<string>('Atelier User');
   const [userAge, setUserAge] = useState<number | undefined>(undefined);
   const [gender, setGender] = useState<'female' | 'male' | 'non-binary' | string>('female');
@@ -172,12 +201,155 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [wardrobeItems, setWardrobeItems] = useState<Garment[]>(MOCK_GARMENTS);
   const [savedLooks, setSavedLooks] = useState<SavedLookItem[]>([]);
+  const [lookCategories, setLookCategories] = useState<string[]>(DEFAULT_LOOK_CATEGORIES);
 
-  // 1. Cargar estado de Onboarding y Género
+  // --- Estados async visibles para la UI ---
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+
+  const clearAvatarError = useCallback(() => setAvatarError(null), []);
+  const clearSyncError = useCallback(() => setSyncError(null), []);
+
+  // ---------------------------------------------------------------------------
+  // Persistencia
+  // ---------------------------------------------------------------------------
+  const saveWardrobeToDisk = useCallback(async (items: Garment[]) => {
+    try {
+      const file = getWardrobeFile();
+      if (file) await file.write(JSON.stringify(items));
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.setItem('vitra_wardrobe_v1', JSON.stringify(items));
+      }
+    } catch (e) {
+      console.warn('[UserContext] Error al persistir prendas en disco:', e);
+    }
+  }, []);
+
+  const saveLooksToDisk = useCallback(async (looks: SavedLookItem[]) => {
+    try {
+      const file = getSavedLooksFile();
+      if (file) await file.write(JSON.stringify(looks));
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.setItem('vitra_saved_looks_v1', JSON.stringify(looks));
+      }
+    } catch (e) {
+      console.warn('[UserContext] Error al persistir looks en disco:', e);
+    }
+  }, []);
+
+  const saveCategoriesToDisk = useCallback(async (categories: string[]) => {
+    try {
+      const file = getCategoriesFile();
+      if (file) await file.write(JSON.stringify(categories));
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.setItem('vitra_look_categories_v1', JSON.stringify(categories));
+      }
+    } catch (e) {
+      console.warn('[UserContext] Error al persistir categorías:', e);
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Sincronización con backend
+  // ---------------------------------------------------------------------------
+  const syncProfileWithBackend = useCallback(async (): Promise<void> => {
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      let avatarFound = false;
+      const token = await getAuthToken();
+
+      if (token) {
+        try {
+          const me = await fetchCurrentUser(token);
+          if (me) {
+            if (me.name) setUserName(me.name);
+            if (me.gender) setGender(me.gender);
+            if (me.age) setUserAge(me.age);
+
+            if (me.color_profile) {
+              setColorProfile(me.color_profile);
+              try {
+                const jsonStr = JSON.stringify(me.color_profile);
+                if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+                  localStorage.setItem('vitra_color_profile', jsonStr);
+                } else if (typeof SecureStore?.setItemAsync === 'function') {
+                  SecureStore.setItemAsync('vitra_color_profile', jsonStr).catch(() => {});
+                }
+              } catch {}
+            }
+
+            if (me.body_profile) setBodyProfile(me.body_profile);
+
+            if (me.avatar_url) {
+              setAvatarUrl(me.avatar_url);
+              setAvatarType((me.avatar_type as any) || 'custom_3d');
+              avatarFound = true;
+              try {
+                if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+                  localStorage.setItem('vitra_avatar_url', me.avatar_url);
+                  localStorage.setItem('vitra_avatar_type', me.avatar_type || 'custom_3d');
+                } else if (typeof SecureStore?.setItemAsync === 'function') {
+                  SecureStore.setItemAsync('vitra_avatar_url', me.avatar_url).catch(() => {});
+                  SecureStore.setItemAsync('vitra_avatar_type', me.avatar_type || 'custom_3d').catch(() => {});
+                }
+              } catch {}
+            } else if (me.avatar_type === 'preset' || !me.avatar_url) {
+              setAvatarType('preset');
+              avatarFound = true;
+              try {
+                const defaultRes = await getDefaultAvatarModel(me.gender || gender || 'female');
+                if (defaultRes?.avatar_url) setAvatarUrl(defaultRes.avatar_url);
+              } catch {}
+            }
+          }
+        } catch {
+          // Token inactivo: seguimos al fallback latest
+        }
+      }
+
+      if (!avatarFound && !token) {
+        try {
+          const latest = await getLatestAvatarModel();
+          if (latest?.avatar_url && !latest.avatar_url.includes('default_')) {
+            setAvatarUrl(latest.avatar_url);
+            setAvatarType('custom_3d');
+            try {
+              if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+                localStorage.setItem('vitra_avatar_url', latest.avatar_url);
+                localStorage.setItem('vitra_avatar_type', 'custom_3d');
+              } else if (typeof SecureStore?.setItemAsync === 'function') {
+                SecureStore.setItemAsync('vitra_avatar_url', latest.avatar_url).catch(() => {});
+                SecureStore.setItemAsync('vitra_avatar_type', 'custom_3d').catch(() => {});
+              }
+            } catch {}
+          }
+        } catch (latestErr) {
+          console.warn('[UserContext] Error consultando avatar latest:', latestErr);
+        }
+      }
+
+      setLastSyncAt(new Date());
+    } catch (e) {
+      const msg = errorMessage(e);
+      setSyncError(msg);
+      console.warn('[UserContext] Error sincronizando con backend:', msg);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [gender]);
+
+  // ---------------------------------------------------------------------------
+  // Bootstrap inicial
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const loadSavedState = async () => {
       try {
         let saved: string | null = null;
+
         if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
           saved = localStorage.getItem(ONBOARDING_KEY);
           const savedGender = localStorage.getItem('vitra_gender');
@@ -188,11 +360,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedAvatarUrl) {
             setAvatarUrl(savedAvatarUrl);
           } else if (savedGender) {
-            getDefaultAvatarModel(savedGender).then((res) => {
-              if (res?.avatar_url) {
-                setAvatarUrl(res.avatar_url);
-              }
-            }).catch(() => {});
+            getDefaultAvatarModel(savedGender)
+              .then((res) => { if (res?.avatar_url) setAvatarUrl(res.avatar_url); })
+              .catch(() => {});
           }
           const savedCreatedAt = localStorage.getItem('vitra_avatar_created_at');
           if (savedCreatedAt) setAvatarCreatedAt(savedCreatedAt);
@@ -200,6 +370,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedFace) setFacePhotoUri(savedFace);
           const savedBody = localStorage.getItem('vitra_body_photo_uri');
           if (savedBody) setBodyPhotoUri(savedBody);
+          const savedColor = localStorage.getItem('vitra_color_profile');
+          if (savedColor) {
+            try {
+              const parsed = JSON.parse(savedColor);
+              if (parsed && parsed.season) setColorProfile(parsed);
+            } catch {}
+          }
         } else if (typeof SecureStore?.isAvailableAsync === 'function' && (await SecureStore.isAvailableAsync())) {
           saved = await SecureStore.getItemAsync(ONBOARDING_KEY);
           const savedGender = await SecureStore.getItemAsync('vitra_gender');
@@ -210,11 +387,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedAvatarUrl) {
             setAvatarUrl(savedAvatarUrl);
           } else if (savedGender) {
-            getDefaultAvatarModel(savedGender).then((res) => {
-              if (res?.avatar_url) {
-                setAvatarUrl(res.avatar_url);
-              }
-            }).catch(() => {});
+            getDefaultAvatarModel(savedGender)
+              .then((res) => { if (res?.avatar_url) setAvatarUrl(res.avatar_url); })
+              .catch(() => {});
           }
           const savedCreatedAt = await SecureStore.getItemAsync('vitra_avatar_created_at');
           if (savedCreatedAt) setAvatarCreatedAt(savedCreatedAt);
@@ -222,22 +397,33 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedFace) setFacePhotoUri(savedFace);
           const savedBody = await SecureStore.getItemAsync('vitra_body_photo_uri');
           if (savedBody) setBodyPhotoUri(savedBody);
-        }
-        if (saved === 'true') {
-          setCompletedOnboarding(true);
+          const savedColor = await SecureStore.getItemAsync('vitra_color_profile');
+          if (savedColor) {
+            try {
+              const parsed = JSON.parse(savedColor);
+              if (parsed && parsed.season) setColorProfile(parsed);
+            } catch {}
+          }
         }
 
-        // Sincronizar en segundo plano con el backend para recuperar el avatar 3D más reciente
+        if (saved === 'true') setCompletedOnboarding(true);
+
+        // Sincronización en segundo plano (no bloquea el primer render)
         syncProfileWithBackend().catch(() => {});
       } catch (err) {
         console.warn('[UserContext] Error al leer estado de onboarding:', err);
+      } finally {
+        setIsReady(true);
       }
     };
 
     loadSavedState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2. Cargar Armario Persistente
+  // ---------------------------------------------------------------------------
+  // Carga de armario
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const loadWardrobe = async () => {
       try {
@@ -262,7 +448,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         }
-        // Si no hay datos guardados, inicializar con mock
         setWardrobeItems(MOCK_GARMENTS);
       } catch (err) {
         console.warn('[UserContext] Error al cargar prendas del armario:', err);
@@ -271,9 +456,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadWardrobe();
   }, []);
 
-  const [lookCategories, setLookCategories] = useState<string[]>(DEFAULT_LOOK_CATEGORIES);
-
-  // Cargar Categorías de Looks Persistentes
+  // ---------------------------------------------------------------------------
+  // Carga de categorías
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -305,68 +490,28 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadCategories();
   }, []);
 
-  const saveCategoriesToDisk = async (categories: string[]) => {
-    try {
-      const file = getCategoriesFile();
-      if (file) {
-        await file.write(JSON.stringify(categories));
-      }
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.setItem('vitra_look_categories_v1', JSON.stringify(categories));
-      }
-    } catch (e) {
-      console.warn('[UserContext] Error al persistir categorías:', e);
-    }
-  };
-
-  const addLookCategory = (categoryName: string) => {
-    const trimmed = categoryName.trim();
-    if (!trimmed) return;
-    setLookCategories((prev) => {
-      const exists = prev.some((c) => c.toLowerCase() === trimmed.toLowerCase());
-      if (exists) return prev;
-      const next = [...prev, trimmed];
-      saveCategoriesToDisk(next);
-      return next;
-    });
-  };
-
-  const updateLookCategory = (lookId: string, category: string) => {
-    setSavedLooks((prev) => {
-      const next = prev.map((l) => (l.id === lookId ? { ...l, category } : l));
-      saveLooksToDisk(next);
-      return next;
-    });
-  };
-
-  const toggleFavoriteLook = (id: string) => {
-    setSavedLooks((prev) => {
-      const next = prev.map((l) =>
-        l.id === id ? { ...l, isFavorite: !l.isFavorite } : l
-      );
-      saveLooksToDisk(next);
-      return next;
-    });
-  };
-
-  // 3. Cargar Looks Guardados Persistentes
+  // ---------------------------------------------------------------------------
+  // Carga de looks guardados
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const loadSavedLooks = async () => {
       try {
+        const normalize = (parsed: any[]): SavedLookItem[] =>
+          parsed
+            .filter((l: SavedLookItem) => l.id !== 'look-1' && l.id !== 'look-2')
+            .map((l: SavedLookItem, idx: number) => ({
+              ...l,
+              category: l.category || (idx % 2 === 0 ? 'Elegante' : 'Fiesta'),
+              isFavorite: Boolean(l.isFavorite),
+            }));
+
         const file = getSavedLooksFile();
         if (file && file.exists) {
           const content = await file.text();
           if (content) {
             const parsed = JSON.parse(content);
             if (Array.isArray(parsed)) {
-              const realLooks = parsed
-                .filter((l: SavedLookItem) => l.id !== 'look-1' && l.id !== 'look-2')
-                .map((l: SavedLookItem, idx: number) => ({
-                  ...l,
-                  category: l.category || (idx % 2 === 0 ? 'Elegante' : 'Fiesta'),
-                  isFavorite: Boolean(l.isFavorite),
-                }));
-              setSavedLooks(realLooks);
+              setSavedLooks(normalize(parsed));
               return;
             }
           }
@@ -376,19 +521,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (webSaved) {
             const parsed = JSON.parse(webSaved);
             if (Array.isArray(parsed)) {
-              const realLooks = parsed
-                .filter((l: SavedLookItem) => l.id !== 'look-1' && l.id !== 'look-2')
-                .map((l: SavedLookItem, idx: number) => ({
-                  ...l,
-                  category: l.category || (idx % 2 === 0 ? 'Elegante' : 'Fiesta'),
-                  isFavorite: Boolean(l.isFavorite),
-                }));
-              setSavedLooks(realLooks);
+              setSavedLooks(normalize(parsed));
               return;
             }
           }
         }
-        // Inicializar sin looks adicionales ficticios (solo el avatar principal del usuario)
         setSavedLooks([]);
       } catch (err) {
         console.warn('[UserContext] Error al cargar looks guardados:', err);
@@ -397,113 +534,125 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadSavedLooks();
   }, []);
 
-  const saveWardrobeToDisk = async (items: Garment[]) => {
-    try {
-      const file = getWardrobeFile();
-      if (file) {
-        await file.write(JSON.stringify(items));
-      }
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.setItem('vitra_wardrobe_v1', JSON.stringify(items));
-      }
-    } catch (e) {
-      console.warn('[UserContext] Error al persistir prendas en disco:', e);
-    }
-  };
+  // ---------------------------------------------------------------------------
+  // Categorías
+  // ---------------------------------------------------------------------------
+  const addLookCategory = useCallback((categoryName: string) => {
+    const trimmed = categoryName.trim();
+    if (!trimmed) return;
+    setLookCategories((prev) => {
+      const exists = prev.some((c) => c.toLowerCase() === trimmed.toLowerCase());
+      if (exists) return prev;
+      const next = [...prev, trimmed];
+      saveCategoriesToDisk(next);
+      return next;
+    });
+  }, [saveCategoriesToDisk]);
 
-  const saveLooksToDisk = async (looks: SavedLookItem[]) => {
-    try {
-      const file = getSavedLooksFile();
-      if (file) {
-        await file.write(JSON.stringify(looks));
-      }
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.setItem('vitra_saved_looks_v1', JSON.stringify(looks));
-      }
-    } catch (e) {
-      console.warn('[UserContext] Error al persistir looks en disco:', e);
-    }
-  };
+  const removeLookCategory = useCallback((categoryName: string) => {
+    setLookCategories((prev) => {
+      const next = prev.filter((c) => c !== categoryName);
+      saveCategoriesToDisk(next);
+      return next;
+    });
+  }, [saveCategoriesToDisk]);
 
-  const addGarmentToWardrobe = (garment: Garment) => {
+  // ---------------------------------------------------------------------------
+  // Armario
+  // ---------------------------------------------------------------------------
+  const addGarmentToWardrobe = useCallback((garment: Garment) => {
     setWardrobeItems((prev) => {
       const idx = prev.findIndex((g) => g.id === garment.id);
-      let next: Garment[];
-      if (idx >= 0) {
-        next = [...prev];
-        next[idx] = garment;
-      } else {
-        next = [garment, ...prev];
-      }
+      const next = idx >= 0 ? [...prev.slice(0, idx), garment, ...prev.slice(idx + 1)] : [garment, ...prev];
       saveWardrobeToDisk(next);
       return next;
     });
-  };
+  }, [saveWardrobeToDisk]);
 
-  const removeGarmentFromWardrobe = (id: string) => {
+  const removeGarmentFromWardrobe = useCallback((id: string) => {
     setWardrobeItems((prev) => {
       const next = prev.filter((g) => g.id !== id);
       saveWardrobeToDisk(next);
       return next;
     });
-  };
+  }, [saveWardrobeToDisk]);
 
-  const toggleFavoriteGarment = (id: string) => {
+  const toggleFavoriteGarment = useCallback((id: string) => {
     setWardrobeItems((prev) => {
-      const next = prev.map((g) =>
-        g.id === id ? { ...g, isFavorite: !g.isFavorite } : g
-      );
+      const next = prev.map((g) => (g.id === id ? { ...g, isFavorite: !g.isFavorite } : g));
       saveWardrobeToDisk(next);
       return next;
     });
-  };
+  }, [saveWardrobeToDisk]);
 
-  // Acciones de Looks
-  const saveLook = (look: SavedLookItem) => {
+  const clearWardrobe = useCallback(() => {
+    setWardrobeItems([]);
+    saveWardrobeToDisk([]);
+  }, [saveWardrobeToDisk]);
+
+  // ---------------------------------------------------------------------------
+  // Looks
+  // ---------------------------------------------------------------------------
+  const saveLook = useCallback((look: SavedLookItem) => {
     setSavedLooks((prev) => {
       const idx = prev.findIndex((l) => l.id === look.id);
-      let next: SavedLookItem[];
-      if (idx >= 0) {
-        next = [...prev];
-        next[idx] = look;
-      } else {
-        next = [look, ...prev];
-      }
+      const next = idx >= 0 ? [...prev.slice(0, idx), look, ...prev.slice(idx + 1)] : [look, ...prev];
       saveLooksToDisk(next);
       return next;
     });
-  };
+  }, [saveLooksToDisk]);
 
-  const removeLook = (id: string) => {
+  const removeLook = useCallback((id: string) => {
     setSavedLooks((prev) => {
       const next = prev.filter((l) => l.id !== id);
       saveLooksToDisk(next);
       return next;
     });
-  };
+  }, [saveLooksToDisk]);
 
-  const updateLook = (look: SavedLookItem) => {
-    saveLook(look);
-  };
+  const updateLook = useCallback((look: SavedLookItem) => saveLook(look), [saveLook]);
 
-  // Gestión de Gemelo Digital / Avatar
-  const setPresetAvatar = async (selectedGender: string) => {
-    console.log('[UserContext] Asignando avatar preset para género:', selectedGender);
+  const clearSavedLooks = useCallback(() => {
+    setSavedLooks([]);
+    saveLooksToDisk([]);
+  }, [saveLooksToDisk]);
+
+  const updateLookCategory = useCallback((lookId: string, category: string) => {
+    setSavedLooks((prev) => {
+      const next = prev.map((l) => (l.id === lookId ? { ...l, category } : l));
+      saveLooksToDisk(next);
+      return next;
+    });
+  }, [saveLooksToDisk]);
+
+  const toggleFavoriteLook = useCallback((id: string) => {
+    setSavedLooks((prev) => {
+      const next = prev.map((l) => (l.id === id ? { ...l, isFavorite: !l.isFavorite } : l));
+      saveLooksToDisk(next);
+      return next;
+    });
+  }, [saveLooksToDisk]);
+
+  // ---------------------------------------------------------------------------
+  // Avatar: preset
+  // ---------------------------------------------------------------------------
+  const setPresetAvatar = useCallback(async (selectedGender: string) => {
     setGender(selectedGender);
     setAvatarType('preset');
     setBodyPhotoUri(undefined);
+    setAvatarError(null);
 
-    // Resolver modelo 3D optimizado por defecto según el género
     try {
       const defaultRes = await getDefaultAvatarModel(selectedGender);
       if (defaultRes?.avatar_url) {
-        console.log('[UserContext] Modelo optimizado por defecto obtenido:', defaultRes.avatar_url);
         setAvatarUrl(defaultRes.avatar_url);
-        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-          localStorage.setItem('vitra_avatar_url', defaultRes.avatar_url);
-        } else if (typeof SecureStore?.setItemAsync === 'function') {
-          SecureStore.setItemAsync('vitra_avatar_url', defaultRes.avatar_url).catch(() => {});
-        }
+        try {
+          if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+            localStorage.setItem('vitra_avatar_url', defaultRes.avatar_url);
+          } else if (typeof SecureStore?.setItemAsync === 'function') {
+            SecureStore.setItemAsync('vitra_avatar_url', defaultRes.avatar_url).catch(() => {});
+          }
+        } catch {}
       }
     } catch (err) {
       console.warn('[UserContext] Error al resolver modelo 3D por defecto:', err);
@@ -518,196 +667,151 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         SecureStore.setItemAsync('vitra_avatar_type', 'preset').catch(() => {});
       }
     } catch {}
-  };
+  }, []);
 
-  const createCustomAvatar = async (imageUriOrBase64: string): Promise<string> => {
-    console.log('[UserContext] Generando avatar personalizado con Tripo3D...');
+  // ---------------------------------------------------------------------------
+  // Avatar: custom
+  // ---------------------------------------------------------------------------
+  const createCustomAvatar = useCallback(async (imageUriOrBase64: string): Promise<string> => {
+    setIsGeneratingAvatar(true);
+    setAvatarError(null);
+
     let newUrl = '';
-    const token = await getAuthToken();
-
-    try {
-      // Flow 3: Persistir y generar en users_db vía backend
-      const res = await updateUserAvatar(imageUriOrBase64, token);
-      newUrl = res.avatar_url;
-      console.log('[UserContext] Avatar actualizado en backend users_db exitosamente:', newUrl);
-    } catch (backendErr: any) {
-      console.warn('[UserContext] Falló /api/users/avatar, usando fallback generateAvatar:', backendErr?.message);
-      const fallbackRes = await generateAvatar(imageUriOrBase64);
-      newUrl = fallbackRes.avatar_url;
-    }
-
-    const createdAtStr = new Date().toLocaleDateString();
-    setAvatarUrl(newUrl);
-    setAvatarType('custom_3d');
-    setAvatarCreatedAt(createdAtStr);
-
-    try {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.setItem('vitra_avatar_url', newUrl);
-        localStorage.setItem('vitra_avatar_type', 'custom_3d');
-        localStorage.setItem('vitra_avatar_created_at', createdAtStr);
-      } else if (typeof SecureStore?.setItemAsync === 'function') {
-        SecureStore.setItemAsync('vitra_avatar_url', newUrl).catch(() => {});
-        SecureStore.setItemAsync('vitra_avatar_type', 'custom_3d').catch(() => {});
-        SecureStore.setItemAsync('vitra_avatar_created_at', createdAtStr).catch(() => {});
-      }
-    } catch {}
-
-    return newUrl;
-  };
-
-  const replaceAvatar = async (imageUriOrBase64: string): Promise<string> => {
-    return await createCustomAvatar(imageUriOrBase64);
-  };
-
-  const deleteAvatar = async (): Promise<void> => {
-    console.log('[UserContext] Eliminando avatar 3D activo y revirtiendo a preset...');
-    let presetUrl = '';
     try {
       const token = await getAuthToken();
-      const res: any = await deleteCurrentAvatar(token);
-      if (res?.avatar_url) {
-        presetUrl = res.avatar_url;
-      }
-    } catch (delErr) {
-      console.warn('[UserContext] Error al eliminar avatar en backend:', delErr);
-    }
-    setAvatarType('preset');
-    setBodyPhotoUri(undefined);
-    setAvatarCreatedAt(undefined);
 
-    // Asignar el modelo optimizado por defecto
-    if (presetUrl) {
-      setAvatarUrl(presetUrl);
-    } else {
       try {
-        const defaultRes = await getDefaultAvatarModel(gender || 'female');
-        if (defaultRes?.avatar_url) {
-          setAvatarUrl(defaultRes.avatar_url);
-        } else {
+        const res = await updateUserAvatar(imageUriOrBase64, token);
+        newUrl = res.avatar_url;
+      } catch (backendErr) {
+        console.warn('[UserContext] Falló /api/users/avatar, usando fallback:', errorMessage(backendErr));
+        const fallbackRes = await generateAvatar(imageUriOrBase64);
+        newUrl = fallbackRes.avatar_url;
+      }
+
+      const createdAtStr = new Date().toLocaleDateString();
+      setAvatarUrl(newUrl);
+      setAvatarType('custom_3d');
+      setAvatarCreatedAt(createdAtStr);
+
+      try {
+        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+          localStorage.setItem('vitra_avatar_url', newUrl);
+          localStorage.setItem('vitra_avatar_type', 'custom_3d');
+          localStorage.setItem('vitra_avatar_created_at', createdAtStr);
+        } else if (typeof SecureStore?.setItemAsync === 'function') {
+          SecureStore.setItemAsync('vitra_avatar_url', newUrl).catch(() => {});
+          SecureStore.setItemAsync('vitra_avatar_type', 'custom_3d').catch(() => {});
+          SecureStore.setItemAsync('vitra_avatar_created_at', createdAtStr).catch(() => {});
+        }
+      } catch {}
+
+      return newUrl;
+    } catch (err) {
+      setAvatarError(errorMessage(err));
+      throw err;
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
+  }, []);
+
+  const replaceAvatar = useCallback(
+    async (imageUriOrBase64: string): Promise<string> => createCustomAvatar(imageUriOrBase64),
+    [createCustomAvatar]
+  );
+
+  const deleteAvatar = useCallback(async (): Promise<void> => {
+    setIsGeneratingAvatar(true);
+    setAvatarError(null);
+
+    try {
+      let presetUrl = '';
+      try {
+        const token = await getAuthToken();
+        const res: any = await deleteCurrentAvatar(token);
+        if (res?.avatar_url) presetUrl = res.avatar_url;
+      } catch (delErr) {
+        console.warn('[UserContext] Error al eliminar avatar en backend:', delErr);
+      }
+
+      setAvatarType('preset');
+      setBodyPhotoUri(undefined);
+      setAvatarCreatedAt(undefined);
+
+      if (presetUrl) {
+        setAvatarUrl(presetUrl);
+      } else {
+        try {
+          const defaultRes = await getDefaultAvatarModel(gender || 'female');
+          setAvatarUrl(defaultRes?.avatar_url || '');
+        } catch {
           setAvatarUrl('');
         }
-      } catch {
-        setAvatarUrl('');
       }
+
+      try {
+        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+          localStorage.removeItem('vitra_avatar_url');
+          localStorage.removeItem('vitra_avatar_created_at');
+          localStorage.removeItem('vitra_body_photo_uri');
+          localStorage.setItem('vitra_avatar_type', 'preset');
+        } else if (typeof SecureStore?.deleteItemAsync === 'function') {
+          SecureStore.deleteItemAsync('vitra_avatar_url').catch(() => {});
+          SecureStore.deleteItemAsync('vitra_avatar_created_at').catch(() => {});
+          SecureStore.deleteItemAsync('vitra_body_photo_uri').catch(() => {});
+          SecureStore.setItemAsync('vitra_avatar_type', 'preset').catch(() => {});
+        }
+      } catch {}
+    } catch (err) {
+      setAvatarError(errorMessage(err));
+    } finally {
+      setIsGeneratingAvatar(false);
     }
+  }, [gender]);
 
-    try {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.removeItem('vitra_avatar_url');
-        localStorage.removeItem('vitra_avatar_created_at');
-        localStorage.removeItem('vitra_body_photo_uri');
-        localStorage.setItem('vitra_avatar_type', 'preset');
-      } else if (typeof SecureStore?.deleteItemAsync === 'function') {
-        SecureStore.deleteItemAsync('vitra_avatar_url').catch(() => {});
-        SecureStore.deleteItemAsync('vitra_avatar_created_at').catch(() => {});
-        SecureStore.deleteItemAsync('vitra_body_photo_uri').catch(() => {});
-        SecureStore.setItemAsync('vitra_avatar_type', 'preset').catch(() => {});
-      }
-    } catch {}
-  };
+  // ---------------------------------------------------------------------------
+  // Colorimetría / perfil
+  // ---------------------------------------------------------------------------
+  const updateColorProfile = useCallback(
+    (profileData: Partial<ColorProfile> & { season: string; recommended_colors: string[] }) => {
+      setColorProfile((prev) => {
+        const merged: ColorProfile = {
+          ...prev,
+          ...profileData,
+          skin_tone: profileData.skin_tone || prev.skin_tone,
+          hair_color: profileData.hair_color || prev.hair_color,
+          season: profileData.season || prev.season,
+          description: profileData.description || prev.description,
+          recommended_colors: profileData.recommended_colors || prev.recommended_colors,
+          colors_to_avoid: profileData.colors_to_avoid || prev.colors_to_avoid,
+        };
 
-  const updateColorProfile = (
-    profileData: Partial<ColorProfile> & { season: string; recommended_colors: string[] }
-  ) => {
-    setColorProfile((prev) => ({
-      ...prev,
-      ...profileData,
-      skin_tone: profileData.skin_tone || prev.skin_tone,
-      hair_color: profileData.hair_color || prev.hair_color,
-      season: profileData.season || prev.season,
-      description: profileData.description || prev.description,
-      recommended_colors: profileData.recommended_colors || prev.recommended_colors,
-      colors_to_avoid: profileData.colors_to_avoid || prev.colors_to_avoid,
-    }));
-  };
+        try {
+          const jsonStr = JSON.stringify(merged);
+          if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+            localStorage.setItem('vitra_color_profile', jsonStr);
+          } else if (typeof SecureStore?.setItemAsync === 'function') {
+            SecureStore.setItemAsync('vitra_color_profile', jsonStr).catch(() => {});
+          }
+        } catch {}
 
-  const updateAvatarUrl = (url: string) => {
+        return merged;
+      });
+    },
+    []
+  );
+
+  const updateAvatarUrl = useCallback((url: string) => {
     setAvatarUrl(url);
-    if (url) {
-      setAvatarType('custom_3d');
-    }
-  };
+    if (url) setAvatarType('custom_3d');
+  }, []);
 
-  const updateBodyProfile = (body: BodyProfile) => {
-    setBodyProfile(body);
-  };
+  const updateBodyProfile = useCallback((body: BodyProfile) => setBodyProfile(body), []);
 
-  const syncProfileWithBackend = async (): Promise<void> => {
-    try {
-      let avatarFound = false;
-      const token = await getAuthToken();
-      if (token) {
-        try {
-          const me = await fetchCurrentUser(token);
-          if (me) {
-            if (me.name) setUserName(me.name);
-            if (me.gender) setGender(me.gender);
-            if (me.age) setUserAge(me.age);
-            if (me.color_profile) {
-              console.log('[UserContext] Perfil de colorimetría sincronizado desde backend:', me.color_profile);
-              setColorProfile(me.color_profile);
-            }
-            if (me.body_profile) {
-              setBodyProfile(me.body_profile);
-            }
-            if (me.avatar_url) {
-              console.log('[UserContext] Avatar 3D sincronizado desde backend (/me):', me.avatar_url);
-              setAvatarUrl(me.avatar_url);
-              setAvatarType((me.avatar_type as any) || 'custom_3d');
-              avatarFound = true;
-              if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-                localStorage.setItem('vitra_avatar_url', me.avatar_url);
-                localStorage.setItem('vitra_avatar_type', me.avatar_type || 'custom_3d');
-              } else if (typeof SecureStore?.setItemAsync === 'function') {
-                SecureStore.setItemAsync('vitra_avatar_url', me.avatar_url).catch(() => {});
-                SecureStore.setItemAsync('vitra_avatar_type', me.avatar_type || 'custom_3d').catch(() => {});
-              }
-            } else if (me.avatar_type === 'preset' || !me.avatar_url) {
-              setAvatarType('preset');
-              avatarFound = true;
-              try {
-                const defaultRes = await getDefaultAvatarModel(me.gender || gender || 'female');
-                if (defaultRes?.avatar_url) {
-                  setAvatarUrl(defaultRes.avatar_url);
-                }
-              } catch {}
-            }
-          }
-        } catch (authErr) {
-          console.log('[UserContext] Token no activo en /me, verificando modelo en /api/avatar/latest...');
-        }
-      }
-
-      // Solo si el usuario NO está autenticado (!token) y se perdió la referencia local del avatar
-      if (!avatarFound && !token) {
-        try {
-          const latest = await getLatestAvatarModel();
-          if (latest?.avatar_url && !latest.avatar_url.includes('default_')) {
-            console.log('[UserContext] ¡Modelo 3D personalizado recuperado con éxito desde latest!:', latest.avatar_url);
-            setAvatarUrl(latest.avatar_url);
-            setAvatarType('custom_3d');
-            if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-              localStorage.setItem('vitra_avatar_url', latest.avatar_url);
-              localStorage.setItem('vitra_avatar_type', 'custom_3d');
-            } else if (typeof SecureStore?.setItemAsync === 'function') {
-              SecureStore.setItemAsync('vitra_avatar_url', latest.avatar_url).catch(() => {});
-              SecureStore.setItemAsync('vitra_avatar_type', 'custom_3d').catch(() => {});
-            }
-          }
-        } catch (latestErr) {
-          console.warn('[UserContext] Error consultando avatar latest:', latestErr);
-        }
-      }
-
-    } catch (e) {
-      console.warn('[UserContext] Error sincronizando con backend:', e);
-    }
-  };
-
-  const completeOnboarding = (data?: CompleteOnboardingData) => {
+  const completeOnboarding = useCallback((data?: CompleteOnboardingData) => {
     if (data?.fullName) setUserName(data.fullName);
     if (data?.age !== undefined && data?.age !== null) setUserAge(data.age);
+
     if (data?.gender) {
       setGender(data.gender);
       try {
@@ -718,6 +822,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch {}
     }
+
     if (data?.facePhotoUri !== undefined) {
       setFacePhotoUri(data.facePhotoUri || undefined);
       try {
@@ -730,6 +835,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch {}
     }
+
     if (data?.bodyPhotoUri !== undefined) {
       setBodyPhotoUri(data.bodyPhotoUri || undefined);
       try {
@@ -748,20 +854,23 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAvatarType(data.avatarType || 'custom_3d');
     } else {
       setAvatarType(data?.avatarType || 'preset');
-      // Resolver avatar optimizado por defecto si no se especificó URL
       getDefaultAvatarModel(data?.gender || gender || 'female')
-        .then((res) => {
-          if (res?.avatar_url) {
-            console.log('[UserContext] completeOnboarding: avatar por defecto asignado:', res.avatar_url);
-            setAvatarUrl(res.avatar_url);
-          }
-        })
-        .catch((err) => {
-          console.warn('[UserContext] completeOnboarding: error obteniendo avatar por defecto:', err);
-        });
+        .then((res) => { if (res?.avatar_url) setAvatarUrl(res.avatar_url); })
+        .catch(() => {});
     }
 
-    if (data?.colorProfile) setColorProfile(data.colorProfile);
+    if (data?.colorProfile) {
+      setColorProfile(data.colorProfile);
+      try {
+        const jsonStr = JSON.stringify(data.colorProfile);
+        if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+          localStorage.setItem('vitra_color_profile', jsonStr);
+        } else if (typeof SecureStore?.setItemAsync === 'function') {
+          SecureStore.setItemAsync('vitra_color_profile', jsonStr).catch(() => {});
+        }
+      } catch {}
+    }
+
     if (data?.photoUri !== undefined) setUserPhotoUri(data.photoUri || undefined);
 
     setCompletedOnboarding(true);
@@ -773,9 +882,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         SecureStore.setItemAsync(ONBOARDING_KEY, 'true').catch(() => {});
       }
     } catch {}
-  };
+  }, [gender]);
 
-  const resetProfile = () => {
+  const resetProfile = useCallback(() => {
     setUserName('Atelier User');
     setUserAge(undefined);
     setGender('female');
@@ -788,107 +897,171 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserPhotoUri(undefined);
     setWardrobeItems(MOCK_GARMENTS);
     setSavedLooks(MOCK_SAVED_LOOKS);
+    setLookCategories(DEFAULT_LOOK_CATEGORIES);
+    setBodyProfile(INITIAL_BODY_PROFILE);
+    setAvatarError(null);
+    setSyncError(null);
+    setLastSyncAt(null);
+
     saveWardrobeToDisk(MOCK_GARMENTS);
     saveLooksToDisk(MOCK_SAVED_LOOKS);
+    saveCategoriesToDisk(DEFAULT_LOOK_CATEGORIES);
+
     setCompletedOnboarding(false);
 
     try {
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.removeItem(ONBOARDING_KEY);
-        localStorage.removeItem('vitra_gender');
-        localStorage.removeItem('vitra_avatar_type');
-        localStorage.removeItem('vitra_avatar_url');
-        localStorage.removeItem('vitra_avatar_created_at');
-        localStorage.removeItem('vitra_face_photo_uri');
-        localStorage.removeItem('vitra_body_photo_uri');
+        [
+          ONBOARDING_KEY,
+          'vitra_gender',
+          'vitra_avatar_type',
+          'vitra_avatar_url',
+          'vitra_avatar_created_at',
+          'vitra_face_photo_uri',
+          'vitra_body_photo_uri',
+          'vitra_color_profile',
+        ].forEach((k) => localStorage.removeItem(k));
       } else if (typeof SecureStore?.deleteItemAsync === 'function') {
-        SecureStore.deleteItemAsync(ONBOARDING_KEY).catch(() => {});
-        SecureStore.deleteItemAsync('vitra_gender').catch(() => {});
-        SecureStore.deleteItemAsync('vitra_avatar_type').catch(() => {});
-        SecureStore.deleteItemAsync('vitra_avatar_url').catch(() => {});
-        SecureStore.deleteItemAsync('vitra_avatar_created_at').catch(() => {});
-        SecureStore.deleteItemAsync('vitra_face_photo_uri').catch(() => {});
-        SecureStore.deleteItemAsync('vitra_body_photo_uri').catch(() => {});
+        [
+          ONBOARDING_KEY,
+          'vitra_gender',
+          'vitra_avatar_type',
+          'vitra_avatar_url',
+          'vitra_avatar_created_at',
+          'vitra_face_photo_uri',
+          'vitra_body_photo_uri',
+          'vitra_color_profile',
+        ].forEach((k) => SecureStore.deleteItemAsync(k).catch(() => {}));
       }
     } catch {}
-  };
+  }, [saveWardrobeToDisk, saveLooksToDisk, saveCategoriesToDisk]);
 
-  // Resolución de silueta 2D según fotos o preset del género seleccionado
+  // ---------------------------------------------------------------------------
+  // Derivados (memoizados para evitar re-render)
+  // ---------------------------------------------------------------------------
   const presetForGender = PRESET_AVATARS[gender] || PRESET_AVATARS.female;
-  const avatar_2d_image =
-    bodyPhotoUri || userPhotoUri || presetForGender.image_2d;
-
+  const avatar_2d_image = bodyPhotoUri || userPhotoUri || presetForGender.image_2d;
   const avatar_3d_base_url = avatarUrl || DEFAULT_SAMPLE_MODEL_URL;
   const colorimetry_profile = colorProfile;
 
-  const userProfile: UserProfile & { age?: number; facePhotoUri?: string; bodyPhotoUri?: string } = {
-    id: 'user-default',
-    name: userName,
-    age: userAge,
-    gender,
-    avatar_type: avatarType,
-    avatar_created_at: avatarCreatedAt,
-    facePhotoUri,
-    bodyPhotoUri,
-    avatar_url: avatarUrl,
-    color_profile: colorProfile,
-    body_profile: bodyProfile,
-    completedOnboarding,
-  };
+  const hasCustomAvatar = avatarType === 'custom_3d' && Boolean(avatarUrl);
+  const hasAvatar = Boolean(avatarUrl);
 
-  return (
-    <UserContext.Provider
-      value={{
-        userProfile,
-        colorProfile,
-        avatarUrl,
-        avatarType,
-        avatarCreatedAt,
-        gender,
-        userPhotoUri,
-        facePhotoUri,
-        bodyPhotoUri,
-        completedOnboarding,
-        avatar_2d_image,
-        avatar_3d_base_url,
-        colorimetry_profile,
-        wardrobe_items: wardrobeItems,
-        wardrobeItems,
-        savedLooks,
-        lookCategories,
-        addLookCategory,
-        updateLookCategory,
-        toggleFavoriteLook,
-        addGarmentToWardrobe,
-        removeGarmentFromWardrobe,
-        toggleFavoriteGarment,
-        setWardrobeItems,
-        saveLook,
-        removeLook,
-        updateLook,
-        setGender,
-        setPresetAvatar,
-        createCustomAvatar,
-        replaceAvatar,
-        deleteAvatar,
-        updateColorProfile,
-        updateAvatarUrl,
-        setUserPhotoUri,
-        updateBodyProfile,
-        completeOnboarding,
-        syncProfileWithBackend,
-        resetProfile,
-      }}
-    >
-      {children}
-    </UserContext.Provider>
+  const wardrobeCount = wardrobeItems.length;
+  const favoriteWardrobeCount = useMemo(
+    () => wardrobeItems.filter((g) => g.isFavorite).length,
+    [wardrobeItems]
   );
+  const savedLooksCount = savedLooks.length;
+  const favoriteLooksCount = useMemo(
+    () => savedLooks.filter((l) => l.isFavorite).length,
+    [savedLooks]
+  );
+
+  const userProfile = useMemo<UserProfile & { age?: number; facePhotoUri?: string; bodyPhotoUri?: string }>(
+    () => ({
+      id: 'user-default',
+      name: userName,
+      age: userAge,
+      gender,
+      avatar_type: avatarType,
+      avatar_created_at: avatarCreatedAt,
+      facePhotoUri,
+      bodyPhotoUri,
+      avatar_url: avatarUrl,
+      color_profile: colorProfile,
+      body_profile: bodyProfile,
+      completedOnboarding,
+    }),
+    [
+      userName, userAge, gender, avatarType, avatarCreatedAt,
+      facePhotoUri, bodyPhotoUri, avatarUrl, colorProfile,
+      bodyProfile, completedOnboarding,
+    ]
+  );
+
+  const value = useMemo<UserContextValue>(
+    () => ({
+      isReady,
+      userProfile,
+      colorProfile,
+      avatarUrl,
+      avatarType,
+      avatarCreatedAt,
+      gender,
+      userPhotoUri,
+      facePhotoUri,
+      bodyPhotoUri,
+      completedOnboarding,
+      avatar_2d_image,
+      avatar_3d_base_url,
+      colorimetry_profile,
+      wardrobe_items: wardrobeItems,
+      wardrobeItems,
+      savedLooks,
+      lookCategories,
+      hasCustomAvatar,
+      hasAvatar,
+      wardrobeCount,
+      favoriteWardrobeCount,
+      savedLooksCount,
+      favoriteLooksCount,
+      isGeneratingAvatar,
+      avatarError,
+      isSyncing,
+      syncError,
+      lastSyncAt,
+      clearAvatarError,
+      clearSyncError,
+      addLookCategory,
+      removeLookCategory,
+      updateLookCategory,
+      toggleFavoriteLook,
+      addGarmentToWardrobe,
+      removeGarmentFromWardrobe,
+      toggleFavoriteGarment,
+      setWardrobeItems,
+      clearWardrobe,
+      saveLook,
+      removeLook,
+      updateLook,
+      clearSavedLooks,
+      setGender,
+      setPresetAvatar,
+      createCustomAvatar,
+      replaceAvatar,
+      deleteAvatar,
+      updateColorProfile,
+      updateAvatarUrl,
+      setUserPhotoUri,
+      updateBodyProfile,
+      completeOnboarding,
+      syncProfileWithBackend,
+      resetProfile,
+    }),
+    [
+      isReady, userProfile, colorProfile, avatarUrl, avatarType, avatarCreatedAt,
+      gender, userPhotoUri, facePhotoUri, bodyPhotoUri, completedOnboarding,
+      avatar_2d_image, avatar_3d_base_url, colorimetry_profile,
+      wardrobeItems, savedLooks, lookCategories,
+      hasCustomAvatar, hasAvatar, wardrobeCount, favoriteWardrobeCount,
+      savedLooksCount, favoriteLooksCount,
+      isGeneratingAvatar, avatarError, isSyncing, syncError, lastSyncAt,
+      clearAvatarError, clearSyncError,
+      addLookCategory, removeLookCategory, updateLookCategory, toggleFavoriteLook,
+      addGarmentToWardrobe, removeGarmentFromWardrobe, toggleFavoriteGarment,
+      clearWardrobe, saveLook, removeLook, updateLook, clearSavedLooks,
+      setPresetAvatar, createCustomAvatar, replaceAvatar, deleteAvatar,
+      updateColorProfile, updateAvatarUrl, updateBodyProfile, completeOnboarding,
+      syncProfileWithBackend, resetProfile,
+    ]
+  );
+
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 };
 
 export const useUser = (): UserContextValue => {
   const context = useContext(UserContext);
-  if (!context) {
-    throw new Error('useUser debe utilizarse dentro de un UserProvider');
-  }
+  if (!context) throw new Error('useUser debe utilizarse dentro de un UserProvider');
   return context;
 };
