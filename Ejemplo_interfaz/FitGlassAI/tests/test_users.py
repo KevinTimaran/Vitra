@@ -1,6 +1,8 @@
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from app.main import app
+from app.services.auth_service import create_access_token
+from app.api.auth import users_db, save_users_db
 
 client = TestClient(app)
 
@@ -161,5 +163,86 @@ def test_delete_user_avatar_authenticated():
     finally:
         users_db.pop(test_email, None)
         save_users_db()
+
+
+def test_update_user_colorimetry_direct_profile():
+    test_email = "color_update_direct@vitra.ai"
+    users_db[test_email] = {
+        "email": test_email,
+        "name": "Colorimetry Direct Test",
+        "gender": "female",
+    }
+    save_users_db()
+
+    token = create_access_token({"sub": test_email, "email": test_email})
+    new_profile = {
+        "skin_tone": "#E8BEAC",
+        "hair_color": "#2C1B18",
+        "season": "Otoño Cálido",
+        "description": "Tonos cálidos y ricos.",
+        "recommended_colors": ["#854D0E", "#047857"],
+        "colors_to_avoid": ["#9333EA"],
+    }
+
+    try:
+        response = client.put(
+            "/api/users/colorimetry",
+            json={"color_profile": new_profile},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["color_profile"]["season"] == "Otoño Cálido"
+        assert users_db[test_email]["color_profile"]["season"] == "Otoño Cálido"
+    finally:
+        users_db.pop(test_email, None)
+        save_users_db()
+
+
+def test_update_user_colorimetry_with_image_analysis():
+    test_email = "color_update_image@vitra.ai"
+    users_db[test_email] = {
+        "email": test_email,
+        "name": "Colorimetry Image Test",
+        "gender": "female",
+    }
+    save_users_db()
+
+    token = create_access_token({"sub": test_email, "email": test_email})
+    mock_analyzed = {
+        "skin_tone": "#F5D0C5",
+        "hair_color": "#4A2E18",
+        "season": "Invierno Brillante",
+        "description": "Contraste gélido elevado.",
+        "recommended_colors": ["#1E3A8A", "#B91C1C", "#000000"],
+        "colors_to_avoid": ["#D97706"],
+    }
+
+    try:
+        with patch("app.services.gemini_service.analyze_colorimetry", new_callable=AsyncMock) as mock_service:
+            mock_service.return_value = mock_analyzed
+            response = client.put(
+                "/api/users/colorimetry",
+                json={"image": "data:image/jpeg;base64,newface"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert data["color_profile"]["season"] == "Invierno Brillante"
+            assert users_db[test_email]["color_profile"]["season"] == "Invierno Brillante"
+    finally:
+        users_db.pop(test_email, None)
+        save_users_db()
+
+
+def test_update_user_colorimetry_unauthorized():
+    response = client.put(
+        "/api/users/colorimetry",
+        json={"color_profile": {"season": "Verano"}},
+    )
+    assert response.status_code == 401
+
 
 

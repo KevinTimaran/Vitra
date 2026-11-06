@@ -21,3 +21,15 @@ class UserProfileSetupResponse(BaseModel):
     base_garments: Optional[list] = Field(default_factory=list, description="Lista de prendas base asignadas al avatar")
     color_profile: Optional[dict] = Field(default=None, description="Perfil de colorimetría facial del usuario")
 
+
+class ColorimetryUpdateRequest(BaseModel):
+    color_profile: Optional[dict] = Field(default=None, description="Perfil de colorimetría precalculado a guardar")
+    image: Optional[str] = Field(default=None, description="Fotografía facial para analizar y guardar")
+    face_image: Optional[str] = Field(default=None, description="Alias para imagen facial")
+
+
+class ColorimetryUpdateResponse(BaseModel):
+    status: str = Field(default="success", description="Estado de la actualización")
+    message: str = Field(default="Colorimetría actualizada correctamente", description="Mensaje informativo")
+    color_profile: dict = Field(..., description="Perfil de colorimetría activo del usuario")
+

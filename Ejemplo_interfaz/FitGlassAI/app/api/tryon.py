@@ -4,10 +4,18 @@ import time
 import asyncio
 import logging
 import traceback
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, HTTPException, Request
 from app.config import settings
-from app.schemas.tryon import TryOnRequest, TryOnResponse
+from app.schemas.tryon import (
+    TryOnRequest,
+    TryOnResponse,
+    CascadeTryOnRequest,
+    CascadeTryOnResponse,
+    CascadeStepInfo,
+    CascadeGarmentInput,
+)
+from app.api.auth import users_db
 from app.services.replicate_service import generate_vton
 from app.services.tripo_service import generate_3d_model
 from app.services.optimizer_service import optimize_3d_model, STATIC_MODELS_DIR
@@ -392,3 +400,449 @@ async def get_tryon_job_status(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada o expirada.")
     return task
+
+
+# =========================================================================
+# 🌊 PIPELINE WATERFALL (CASCADA) 2D -> 3D VIRTUAL TRY-ON
+# =========================================================================
+
+PRESET_STUDIO_IMAGES = {
+    "female": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80",
+    "male": "https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=800&q=80",
+    "non-binary": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
+}
+
+
+def _resolve_base_human_image(user_id: Optional[str] = None, human_image: Optional[str] = None) -> str:
+    """
+    Step 0 (Base): Recupera la imagen 2D base original del usuario (recortada y en A-pose).
+    Prioridad:
+    1. human_image explícita provista en el payload.
+    2. Fotografía guardada del usuario en users_db (body_image).
+    3. Fotografía de muestra A-pose calibrada según el género registrado del usuario.
+    """
+    if human_image and human_image.strip():
+        return human_image.strip()
+
+    if user_id:
+        user_key = user_id.strip().lower()
+        if user_key in users_db:
+            u_data = users_db[user_key]
+            body_img = u_data.get("body_image")
+            # Si hay foto real no truncada en la base de datos
+            if body_img and len(body_img) > 60 and not body_img.endswith("..."):
+                return body_img
+
+            gender = str(u_data.get("gender", "female")).lower()
+            if gender in PRESET_STUDIO_IMAGES:
+                return PRESET_STUDIO_IMAGES[gender]
+
+    return PRESET_STUDIO_IMAGES["female"]
+
+
+def _sort_garments_for_waterfall(garments: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Ordena las prendas para el orden de vestimenta natural en cascada:
+    1. Prenda inferior (Pantalones, shorts, pantaloneta) -> category="lower_body"
+    2. Vestido (si aplica) -> category="dresses"
+    3. Prenda superior base (Camisetas, camisas) -> category="upper_body"
+    4. Prenda superior exterior (Chaquetas, abrigos) -> category="upper_body"
+    5. Calzado y accesorios
+    """
+    def _rank(item: Dict[str, Any]) -> int:
+        cat = str(item.get("category", "")).lower()
+        name = str(item.get("name", "")).lower()
+        if any(w in cat or w in name for w in ("pant", "short", "lower", "trouser", "bermuda", "falda", "skirt")):
+            return 1
+        if any(w in cat or w in name for w in ("dress", "vestido")):
+            return 2
+        if any(w in cat or w in name for w in ("shirt", "tee", "top", "camis", "crewneck", "polo")):
+            return 3
+        if any(w in cat or w in name for w in ("jacket", "chaqueta", "outerwear", "coat", "hoodie", "blazer", "buzo")):
+            return 4
+        return 5
+
+    return sorted(garments, key=_rank)
+
+
+def _validate_cascade_payload(payload: CascadeTryOnRequest) -> None:
+    """
+    Validación inmediata y síncrona contra estados vacíos o payloads corruptos.
+    Rechaza al instante con HTTP 400 Bad Request antes de encolar tareas o gastar cómputo.
+    """
+    # 1. Validar que la lista de prendas no esté vacía
+    has_garments = bool(payload.garments and len(payload.garments) > 0)
+    has_garment_ids = bool(payload.garment_ids and len(payload.garment_ids) > 0)
+    if not has_garments and not has_garment_ids:
+        logger.error("[Cascade Validation] Rechazado con 400: Arreglo de prendas vacío.")
+        raise HTTPException(
+            status_code=400,
+            detail="El arreglo de prendas (garments) no puede estar vacío. Se requiere al menos una prenda para el probador en cascada."
+        )
+
+    # Si se pasaron prendas, validar que al menos una tenga una imagen no vacía
+    if has_garments:
+        valid_items = [
+            g for g in payload.garments 
+            if (hasattr(g, "image") and g.image and str(g.image).strip()) or 
+               (isinstance(g, dict) and g.get("image") and str(g["image"]).strip())
+        ]
+        if not valid_items and not has_garment_ids:
+            logger.error("[Cascade Validation] Rechazado con 400: Prendas sin imagen válida.")
+            raise HTTPException(
+                status_code=400,
+                detail="Ninguna de las prendas proporcionadas contiene una imagen válida."
+            )
+
+    # 2. Validar que se pueda resolver una silueta humana base
+    has_human_img = bool(payload.human_image and str(payload.human_image).strip())
+    has_user_id = bool(payload.user_id and str(payload.user_id).strip())
+    if not has_human_img and not has_user_id:
+        logger.error("[Cascade Validation] Rechazado con 400: Avatar base no proporcionado.")
+        raise HTTPException(
+            status_code=400,
+            detail="Se requiere la imagen base del usuario (human_image) o un user_id registrado para aplicar la cascada."
+        )
+
+
+async def _execute_waterfall_cascade(
+    payload: CascadeTryOnRequest,
+    base_url: str,
+    task_id: Optional[str] = None,
+) -> CascadeTryOnResponse:
+    """
+    Ejecuta la lógica estricta de la Cascada (Waterfall):
+    - Composición secuencial en 2D en Replicate IDM-VTON (paso a paso, esperando cada respuesta).
+    - Extrusión única en 3D con Tripo3D del lienzo final completamente vestido.
+    - Optimización Draco/WebP final.
+    """
+    # -------------------------------------------------------------------------
+    # STEP 0 (BASE): Recuperar imagen 2D base original del usuario (A-pose)
+    # -------------------------------------------------------------------------
+    base_human_image = _resolve_base_human_image(
+        user_id=payload.user_id,
+        human_image=payload.human_image,
+    )
+
+    if not base_human_image or not base_human_image.strip():
+        logger.error("[WATERFALL ERROR] No se pudo determinar una imagen base de usuario válida.")
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo determinar una imagen base de usuario válida para iniciar la cascada."
+        )
+
+    logger.info("=" * 75)
+    logger.info("[WATERFALL 2D->3D] >>> INICIANDO PIPELINE DE CASCADA <<<")
+    logger.info(f"  • Usuario: {payload.user_id or 'anónimo'}")
+    logger.info(f"  • Imagen Base 2D (Step 0): {base_human_image[:80]}...")
+
+    # -------------------------------------------------------------------------
+    # Normalizar prendas
+    # -------------------------------------------------------------------------
+    raw_garments: List[Dict[str, Any]] = []
+    if payload.garments:
+        for g in payload.garments:
+            raw_garments.append(g.model_dump() if hasattr(g, "model_dump") else g.__dict__)
+
+    # Si se pasaron IDs de prendas sin imagen, buscarlas en users_db (base_garments)
+    if payload.garment_ids and payload.user_id:
+        user_key = payload.user_id.lower()
+        if user_key in users_db:
+            user_base = users_db[user_key].get("base_garments", [])
+            for gid in payload.garment_ids:
+                if not any(rg.get("id") == gid for rg in raw_garments):
+                    for bg in user_base:
+                        if bg.get("id") == gid and bg.get("imageUrl"):
+                            raw_garments.append({
+                                "id": gid,
+                                "name": bg.get("name", "Prenda"),
+                                "category": bg.get("category", "Tops"),
+                                "image": bg.get("imageUrl"),
+                            })
+
+    valid_garments = [g for g in raw_garments if g.get("image") and str(g["image"]).strip()]
+    if not valid_garments:
+        logger.error("[WATERFALL ERROR] No se proporcionaron prendas con imágenes válidas.")
+        raise HTTPException(
+            status_code=400,
+            detail="Se requiere al menos una prenda con imagen válida para la cascada."
+        )
+
+    ordered_garments = _sort_garments_for_waterfall(valid_garments)
+    total_steps = len(ordered_garments)
+
+    logger.info(f"  • Prendas a encadenar en orden secuencial ({total_steps} piezas):")
+    for idx, g in enumerate(ordered_garments):
+        logger.info(f"    {idx + 1}. {g.get('name')} [{g.get('category')}]")
+    logger.info("=" * 75)
+
+    if task_id and task_id in _async_tasks:
+        _async_tasks[task_id].update({
+            "status": "processing",
+            "step": "waterfall_starting",
+            "progress": 0.10,
+            "total_garments": total_steps,
+            "current_garment_index": 0,
+            "current_garment_name": None,
+        })
+
+    # -------------------------------------------------------------------------
+    # STRICT SEQUENTIAL 2D WATERFALL LOOP (IDM-VTON)
+    # -------------------------------------------------------------------------
+    current_human_canvas = base_human_image
+    steps_history: List[CascadeStepInfo] = []
+
+    for i, garment in enumerate(ordered_garments):
+        step_num = i + 1
+        g_name = str(garment.get("name", f"Prenda {step_num}"))
+        g_img = str(garment.get("image", "")).strip()
+        raw_cat = str(garment.get("category", "upper_body"))
+
+        vton_cat = "upper_body"
+        if any(w in raw_cat.lower() for w in ("pant", "short", "lower", "trouser", "falda")):
+            vton_cat = "lower_body"
+        elif any(w in raw_cat.lower() for w in ("dress", "vestido")):
+            vton_cat = "dresses"
+
+        logger.info(f"[WATERFALL PASO {step_num}/{total_steps}] Aplicando '{g_name}' ({vton_cat})...")
+        logger.info(f"  -> Humano Base Anterior: {current_human_canvas[:70]}...")
+        logger.info(f"  -> Prenda a Superponer: {g_img[:70]}...")
+
+        if task_id and task_id in _async_tasks:
+            prog = 0.15 + (0.50 * (i / total_steps))
+            _async_tasks[task_id].update({
+                "step": f"vton_step_{step_num}",
+                "progress": prog,
+                "current_garment_index": step_num,
+                "current_garment_name": g_name,
+                "detail": f"Fusionando en 2D ({step_num}/{total_steps}): {g_name}",
+            })
+
+        try:
+            # ESPERA OBLIGATORIA (AWAIT) DE LA RESPUESTA DE IDM-VTON
+            fused_image_url = await generate_vton(
+                human_image_url=current_human_canvas,
+                garment_image_url=g_img,
+                category=vton_cat,
+                garment_description=g_name,
+            )
+            logger.info(f"[WATERFALL PASO {step_num} ÉXITO] Prenda '{g_name}' fusionada: {fused_image_url[:80]}...")
+            
+            # REGLA CRÍTICA: La salida de esta iteración es la base de la siguiente
+            current_human_canvas = fused_image_url
+            steps_history.append(
+                CascadeStepInfo(
+                    step_number=step_num,
+                    garment_name=g_name,
+                    category=vton_cat,
+                    dressed_image_url=current_human_canvas,
+                )
+            )
+        except Exception as vton_err:
+            logger.error(f"[WATERFALL PASO {step_num} FALLÓ] Error con {g_name}: {vton_err}")
+            status_code = vton_err.status_code if isinstance(vton_err, HTTPException) else 502
+            err_detail = vton_err.detail if isinstance(vton_err, HTTPException) else str(vton_err)
+
+            if task_id and task_id in _async_tasks:
+                _async_tasks[task_id].update({
+                    "status": "failed",
+                    "step": f"failed_vton_step_{step_num}",
+                    "error": f"Fallo en IDM-VTON al procesar '{g_name}' (Paso {step_num}/{total_steps}): {err_detail}",
+                    "detail": f"Error al procesar {g_name}: {err_detail}",
+                })
+
+            if not payload.allow_fallback:
+                raise HTTPException(status_code=status_code, detail=f"[Waterfall VTON Step {step_num}] {err_detail}")
+            logger.warning(f"[WATERFALL PASO {step_num} FALLBACK] Continuando con el lienzo previo.")
+
+    if len(steps_history) == 0:
+        if not payload.allow_fallback:
+            logger.error("[WATERFALL ERROR] Ninguna prenda pudo ser aplicada en la cascada 2D.")
+            err_msg = "Ninguna de las prendas seleccionadas pudo ser fusionada en 2D con IDM-VTON."
+            if task_id and task_id in _async_tasks:
+                _async_tasks[task_id].update({
+                    "status": "failed",
+                    "step": "failed_all_steps",
+                    "error": err_msg,
+                    "detail": err_msg,
+                })
+            raise HTTPException(status_code=502, detail=err_msg)
+        else:
+            logger.warning("[WATERFALL FALLBACK] Modo resiliente activado: procediendo a generar modelo 3D con silueta base y prendas seleccionadas.")
+            primary_garment_img = ordered_garments[0].get("image") if ordered_garments else base_human_image
+            current_human_canvas = primary_garment_img or base_human_image
+            steps_history.append(
+                CascadeStepInfo(
+                    step_number=1,
+                    garment_name=ordered_garments[0].get("name", "Look Combinado"),
+                    category="upper_body",
+                    dressed_image_url=current_human_canvas,
+                )
+            )
+
+    final_dressed_image = current_human_canvas
+    logger.info(f"[WATERFALL 2D COMPLETADO] Lienzo final completamente vestido: {final_dressed_image[:80]}...")
+
+    # -------------------------------------------------------------------------
+    # STEP 3: Generación 3D del Modelo Unificado (Tripo3D)
+    # -------------------------------------------------------------------------
+    if task_id and task_id in _async_tasks:
+        _async_tasks[task_id].update({
+            "step": "tripo3d_unified",
+            "progress": 0.70,
+            "final_dressed_image_url": final_dressed_image,
+            "detail": "Generando modelo 3D unificado con Tripo3D...",
+        })
+
+    logger.info("[WATERFALL 3D] Enviando lienzo final a Tripo3D (1 sola generación unificada)...")
+    try:
+        raw_3d_url = await generate_3d_model(image_url=final_dressed_image)
+        logger.info(f"[WATERFALL 3D ÉXITO] Modelo .glb recibido de Tripo3D: {raw_3d_url}")
+    except Exception as tripo_err:
+        logger.error(f"[WATERFALL 3D ERROR] Falló Tripo3D: {tripo_err}")
+        status_code = tripo_err.status_code if isinstance(tripo_err, HTTPException) else 502
+        err_detail = tripo_err.detail if isinstance(tripo_err, HTTPException) else str(tripo_err)
+
+        if task_id and task_id in _async_tasks:
+            _async_tasks[task_id].update({
+                "status": "failed",
+                "step": "tripo3d_failed",
+                "error": f"Fallo en generación 3D con Tripo3D: {err_detail}",
+                "detail": f"Error al generar modelo 3D unificado: {err_detail}",
+            })
+
+        raise HTTPException(status_code=status_code, detail=f"[Waterfall Tripo3D Error] {err_detail}")
+
+    # -------------------------------------------------------------------------
+    # STEP 4: Optimización Móvil (Draco + WebP)
+    # -------------------------------------------------------------------------
+    if task_id and task_id in _async_tasks:
+        _async_tasks[task_id].update({
+            "step": "optimizing_mesh",
+            "progress": 0.88,
+            "detail": "Optimizando malla 3D (Draco / WebP)...",
+        })
+
+    final_3d_url = raw_3d_url
+    try:
+        optimized_3d_url = await optimize_3d_model(raw_3d_url, base_url=base_url)
+        logger.info(f"[WATERFALL OPTIMIZACIÓN] Modelo 3D optimizado con éxito: {optimized_3d_url}")
+        final_3d_url = optimized_3d_url
+    except Exception as opt_err:
+        logger.warning(f"[WATERFALL OPTIMIZACIÓN] Aviso en optimización Draco ({opt_err}). Manteniendo original.")
+
+    return CascadeTryOnResponse(
+        status="completed",
+        user_id=payload.user_id,
+        base_human_image_url=base_human_image,
+        final_dressed_image_url=final_dressed_image,
+        model_3d_url=final_3d_url,
+        steps_completed=steps_history,
+        total_garments_applied=len(steps_history),
+        message=f"Cascada 2D a 3D completada con éxito. Se aplicaron {len(steps_history)} prendas en secuencia y se generó el modelo 3D unificado.",
+    )
+
+
+@router.post("/cascade", response_model=CascadeTryOnResponse)
+async def generate_cascade_tryon_endpoint(payload: CascadeTryOnRequest, request: Request = None) -> CascadeTryOnResponse:
+    """
+    Endpoint síncrono para el Virtual Try-On en Cascada (Waterfall):
+    1. Valida el estado no vacío del payload.
+    2. Paso 0: Obtiene la imagen base del usuario.
+    3. Bucle secuencial estricto 2D con IDM-VTON (Paso N recibe el output del Paso N-1).
+    4. Generación 3D única con Tripo3D a partir de la imagen vestida final.
+    5. Retorna el modelo 3D unificado (.glb) y el historial de pasos.
+    """
+    _validate_cascade_payload(payload)
+    base_url = _resolve_base_url(request)
+    return await _execute_waterfall_cascade(payload=payload, base_url=base_url)
+
+
+@router.post("/cascade/start")
+async def start_cascade_tryon_job(payload: CascadeTryOnRequest, request: Request = None):
+    """
+    Inicia la Cascada 2D a 3D en segundo plano para evitar cortes de timeout HTTP (60s).
+    Rechaza inmediatamente con 400 Bad Request si la lista de prendas o el avatar están vacíos.
+    El cliente móvil consulta el progreso periódicamente en /api/tryon/cascade/status/{task_id}.
+    """
+    # Validación síncrona inmediata antes de generar el task
+    _validate_cascade_payload(payload)
+
+    now = time.time()
+    # Limpieza preventiva
+    expired = [tid for tid, t in _async_tasks.items() if now - t.get("created_at", now) > 7200]
+    for tid in expired:
+        _async_tasks.pop(tid, None)
+
+    task_id = uuid.uuid4().hex[:12]
+    base_url = _resolve_base_url(request)
+
+    _async_tasks[task_id] = {
+        "task_id": task_id,
+        "status": "processing",
+        "step": "queued",
+        "progress": 0.05,
+        "detail": "Iniciando cascada de prendas...",
+        "image_2d_url": None,
+        "model_3d_url": None,
+        "result": None,
+        "error": None,
+        "created_at": now,
+    }
+
+    async def _cascade_worker():
+        try:
+            # Límite estricto de timeout global para todo el pipeline (360 segundos = 6 minutos)
+            res: CascadeTryOnResponse = await asyncio.wait_for(
+                _execute_waterfall_cascade(
+                    payload=payload,
+                    base_url=base_url,
+                    task_id=task_id,
+                ),
+                timeout=360.0
+            )
+            _async_tasks[task_id].update({
+                "status": "completed",
+                "step": "completed",
+                "progress": 1.0,
+                "detail": "Look completado",
+                "image_2d_url": res.final_dressed_image_url,
+                "model_3d_url": res.model_3d_url,
+                "result": res.model_dump(),
+            })
+            logger.info(f"[Cascade Job {task_id}] Cascada completada exitosamente: {res.model_3d_url}")
+        except asyncio.TimeoutError:
+            logger.error(f"[Cascade Job {task_id}] Tiempo límite de ejecución global excedido (Timeout 360s).")
+            _async_tasks[task_id].update({
+                "status": "failed",
+                "step": "timeout",
+                "error": "El pipeline de cascada excedió el tiempo límite de espera de 360 segundos.",
+                "detail": "Tiempo límite de espera global agotado (Timeout).",
+            })
+        except Exception as e:
+            err_text = e.detail if isinstance(e, HTTPException) else str(e)
+            logger.error(f"[Cascade Job {task_id}] Falló con error: {err_text}")
+            _async_tasks[task_id].update({
+                "status": "failed",
+                "step": "failed",
+                "error": err_text,
+                "detail": f"Error: {err_text}",
+            })
+
+    asyncio.create_task(_cascade_worker())
+
+    return {
+        "task_id": task_id,
+        "status": "processing",
+        "message": "Pipeline de cascada 2D a 3D iniciado en segundo plano",
+    }
+
+
+@router.get("/cascade/status/{task_id}")
+async def get_cascade_tryon_status(task_id: str):
+    """Consulta el estado en tiempo real del pipeline en Cascada."""
+    task = _async_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea de cascada no encontrada o expirada.")
+    return task
+

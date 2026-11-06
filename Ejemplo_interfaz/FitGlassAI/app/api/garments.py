@@ -45,18 +45,23 @@ async def analyze_garment_endpoint(request: Request):
 
         try:
             metadata = await analyze_garment(image_str)
-            return GarmentAnalysisResponse(success=True, data=metadata)
         except HTTPException as he:
+            if he.status_code == 400:
+                raise he
             if he.status_code == 502:
                 logger.warning(f"[analyze_garment_endpoint] Error 502 de Gemini: {he.detail}. Retornando mock de respaldo.")
                 return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
-            return JSONResponse(
-                status_code=he.status_code,
-                content={"success": False, "error": he.detail}
-            )
+            raise he
         except Exception as e:
             logger.warning(f"[analyze_garment_endpoint] Excepción al analizar prenda: {e}. Retornando mock de respaldo.")
             return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
+
+        if isinstance(metadata, dict):
+            is_valid = metadata.get("is_valid_image", True)
+            if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                err_msg = metadata.get("validation_error_message") or "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."
+                raise HTTPException(status_code=400, detail=err_msg)
+        return GarmentAnalysisResponse(success=True, data=metadata)
 
     # Caso 2: Multipart/form-data
     if "multipart/form-data" in content_type:
@@ -92,7 +97,8 @@ async def analyze_garment_endpoint(request: Request):
                 
             try:
                 analysis = analyze_garment_image(contents, file.content_type)
-                return GarmentAnalysisResponse(success=True, data=analysis)
+            except HTTPException:
+                raise
             except ValueError as ve:
                 return JSONResponse(
                     status_code=400,
@@ -102,22 +108,33 @@ async def analyze_garment_endpoint(request: Request):
                 logger.warning(f"[analyze_garment_endpoint] Error procesando imagen multipart: {e}. Retornando mock.")
                 return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
 
+            is_valid = getattr(analysis, "is_valid_image", True)
+            if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                err_msg = getattr(analysis, "validation_error_message", None) or "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."
+                raise HTTPException(status_code=400, detail=err_msg)
+            return GarmentAnalysisResponse(success=True, data=analysis)
+
         image_str = form.get("image") or form.get("image_data")
         if image_str and isinstance(image_str, str):
             try:
                 metadata = await analyze_garment(image_str)
-                return GarmentAnalysisResponse(success=True, data=metadata)
             except HTTPException as he:
+                if he.status_code == 400:
+                    raise he
                 if he.status_code == 502:
                     logger.warning(f"[analyze_garment_endpoint] Error 502 de Gemini: {he.detail}. Retornando mock de respaldo.")
                     return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
-                return JSONResponse(
-                    status_code=he.status_code,
-                    content={"success": False, "error": he.detail}
-                )
+                raise he
             except Exception as e:
                 logger.warning(f"[analyze_garment_endpoint] Excepción al analizar prenda multipart: {e}. Retornando mock.")
                 return GarmentAnalysisResponse(success=True, data=DEFAULT_GARMENT_METADATA_MOCK)
+
+            if isinstance(metadata, dict):
+                is_valid = metadata.get("is_valid_image", True)
+                if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                    err_msg = metadata.get("validation_error_message") or "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."
+                    raise HTTPException(status_code=400, detail=err_msg)
+            return GarmentAnalysisResponse(success=True, data=metadata)
 
         return JSONResponse(
             status_code=400,

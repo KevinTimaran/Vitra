@@ -1,3 +1,6 @@
+import io
+import os
+import base64
 import asyncio
 import logging
 import traceback
@@ -17,6 +20,99 @@ REPLICATE_API_BASE_URL = "https://api.replicate.com/v1"
 # Modificadores de prompt para forzar texturas de tela mate natural y evitar acabados plásticos/brillantes
 POSITIVE_MATTE_PROMPT = "matte fabric, cotton texture, soft studio lighting, diffused light, flat colors"
 NEGATIVE_MATTE_PROMPT = "shiny, glossy, plastic, latex, metallic, specular highlights, bright reflections, overexposed"
+
+
+async def _ensure_replicate_accessible_url(client: replicate.Client, image_input: str) -> str:
+    """
+    Garantiza que la imagen sea accesible para los servidores de Replicate:
+    - Si es Base64 (data: o crudo): decodifica los bytes y los sube a client.files.create(...)
+    - Si es una URL local / ngrok / localtunnel: descarga los bytes con bypass headers y los sube a client.files.create(...)
+    - Si es un archivo local del sistema (file:///... o /...): lo lee y sube a client.files.create(...)
+    - Si es una URL pública externa limpia (unsplash, replicate.delivery, api.replicate.com): la retorna directamente.
+    """
+    if not image_input or not isinstance(image_input, str):
+        return image_input
+
+    clean = image_input.strip()
+
+    # Caso 1: Archivo ya en almacenamiento oficial de Replicate o CDN público limpio
+    if clean.startswith("https://api.replicate.com") or clean.startswith("https://replicate.delivery"):
+        return clean
+    if ("images.unsplash.com" in clean or "cdn." in clean) and not any(tunnel in clean for tunnel in ("ngrok", "loca.lt", "localhost", "127.0.0.1")):
+        return clean
+
+    # Caso 2: Base64 (con prefijo data: o raw base64)
+    if clean.startswith("data:image/") or ";base64," in clean:
+        try:
+            b64_content = clean.split(",", 1)[1] if "," in clean else clean
+            missing_padding = len(b64_content) % 4
+            if missing_padding:
+                b64_content += "=" * (4 - missing_padding)
+            img_bytes = base64.b64decode(b64_content)
+            uploaded_file = client.files.create(io.BytesIO(img_bytes))
+            file_url = uploaded_file.urls.get("get") or str(uploaded_file)
+            logger.info(f"[Replicate Helper] Base64 subido con éxito a Replicate Files: {file_url}")
+            return file_url
+        except Exception as e:
+            logger.warning(f"[Replicate Helper] Error subiendo base64 a Replicate Files: {e}")
+
+    # Caso 3: Ruta de archivo local en el servidor (file:///... o /...)
+    local_path = clean.replace("file://", "")
+    if os.path.exists(local_path) and os.path.isfile(local_path):
+        try:
+            with open(local_path, "rb") as f:
+                uploaded_file = client.files.create(f)
+            file_url = uploaded_file.urls.get("get") or str(uploaded_file)
+            logger.info(f"[Replicate Helper] Archivo local subido con éxito a Replicate Files: {file_url}")
+            return file_url
+        except Exception as e:
+            logger.warning(f"[Replicate Helper] Error subiendo archivo local a Replicate Files: {e}")
+
+    # Caso 4: URL de ngrok, localtunnel o localhost (inaccesible externamente por warnings o IP local)
+    if any(h in clean for h in ("ngrok", "loca.lt", "127.0.0.1", "localhost")):
+        try:
+            # Si apunta a /static/ local, leer directo de disco
+            if "/static/" in clean:
+                filename = clean.split("/static/")[-1]
+                disk_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", filename)
+                if os.path.exists(disk_path):
+                    with open(disk_path, "rb") as f:
+                        uploaded_file = client.files.create(f)
+                    file_url = uploaded_file.urls.get("get") or str(uploaded_file)
+                    logger.info(f"[Replicate Helper] Archivo estático local subido a Replicate Files: {file_url}")
+                    return file_url
+
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                resp = await http_client.get(
+                    clean,
+                    headers={
+                        "ngrok-skip-browser-warning": "true",
+                        "Bypass-Tunnel-Reminder": "true",
+                    }
+                )
+                if resp.status_code == 200 and len(resp.content) > 500:
+                    uploaded_file = client.files.create(io.BytesIO(resp.content))
+                    file_url = uploaded_file.urls.get("get") or str(uploaded_file)
+                    logger.info(f"[Replicate Helper] URL de túnel descargada y subida a Replicate Files: {file_url}")
+                    return file_url
+        except Exception as e:
+            logger.warning(f"[Replicate Helper] Error descargando URL de túnel para Replicate: {e}")
+
+    # Si parece raw base64 largo (> 200 caracteres y sin protocolo http)
+    if len(clean) > 200 and not clean.startswith("http"):
+        try:
+            missing_padding = len(clean) % 4
+            if missing_padding:
+                clean += "=" * (4 - missing_padding)
+            img_bytes = base64.b64decode(clean)
+            uploaded_file = client.files.create(io.BytesIO(img_bytes))
+            file_url = uploaded_file.urls.get("get") or str(uploaded_file)
+            logger.info(f"[Replicate Helper] Raw Base64 subido a Replicate Files: {file_url}")
+            return file_url
+        except Exception as e:
+            logger.warning(f"[Replicate Helper] No se pudo decodificar como raw base64: {e}")
+
+    return clean
 
 
 async def generate_vton(
@@ -61,22 +157,17 @@ async def generate_vton(
     else:
         enhanced_description = desc_base
 
-    neg_prompt = negative_prompt.strip() if negative_prompt and negative_prompt.strip() else NEGATIVE_MATTE_PROMPT
-
-    input_payload = {
-        "garm_img": garment_image_url.strip(),
-        "human_img": human_image_url.strip(),
-        "garment_des": enhanced_description,
-        "negative_prompt": neg_prompt,
-        "category": category,
-        "crop": False,
-        "steps": 30,
-    }
+    # Normalizar categoría según enum de IDM-VTON: ['upper_body', 'lower_body', 'dresses']
+    clean_cat = "upper_body"
+    if any(w in category.lower() for w in ("pant", "short", "lower", "trouser", "falda")):
+        clean_cat = "lower_body"
+    elif any(w in category.lower() for w in ("dress", "vestido")):
+        clean_cat = "dresses"
 
     logger.info(
-        f"[Replicate VTON] Enviando solicitud a IDM-VTON: "
-        f"persona='{human_image_url[:80]}...', prenda='{garment_image_url[:80]}...', "
-        f"categoría='{category}', desc='{enhanced_description}', negative='{neg_prompt}'"
+        f"[Replicate VTON] Preparando solicitud a IDM-VTON: "
+        f"persona='{human_image_url[:60]}...', prenda='{garment_image_url[:60]}...', "
+        f"categoría='{clean_cat}', desc='{enhanced_description}'"
     )
 
     try:
@@ -85,6 +176,28 @@ async def generate_vton(
             api_token=settings.REPLICATE_API_TOKEN,
             timeout=httpx.Timeout(180.0, connect=30.0),
         )
+
+        # Garantizar que ambas imágenes sean URLs públicas accesibles por Replicate
+        safe_human_url = await _ensure_replicate_accessible_url(client, human_image_url)
+        safe_garment_url = await _ensure_replicate_accessible_url(client, garment_image_url)
+
+        neg_prompt = negative_prompt.strip() if negative_prompt and negative_prompt.strip() else NEGATIVE_MATTE_PROMPT
+
+        input_payload = {
+            "garm_img": safe_garment_url,
+            "human_img": safe_human_url,
+            "garment_des": enhanced_description,
+            "negative_prompt": neg_prompt,
+            "category": clean_cat,
+            "crop": False,
+            "steps": 30,
+        }
+
+        logger.info(
+            f"[Replicate VTON] Ejecutando modelo con URLs de Replicate Files: "
+            f"garm_img={safe_garment_url}, human_img={safe_human_url}"
+        )
+
         try:
             output = await client.async_run(
                 REPLICATE_VTON_MODEL,

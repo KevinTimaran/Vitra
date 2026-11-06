@@ -1,13 +1,13 @@
 {
   "demo@vitra.ai": {
     "email": "demo@vitra.ai",
-    "hashed_password": "$2b$12$K80f5sI8JhkDgWib6OrTuewhMobTQV35lrVfaWUAnZhxnrLRhPGQ6",
+    "hashed_password": "$2b$12$mDbDGLjvnC760H0gmp23L.9/5wwSO3s/P9JhW4EB.uSyLho7wtGsK",
     "name": "Usuario Vitra",
     "created_at": "2026-10-23T21:33:17.764417+00:00"
   },
   "stivenbuesquillo731@gmail.com": {
     "email": "stivenbuesquillo731@gmail.com",
-    "hashed_password": "$2b$12$RSPW8JgfIkIdgd3vGvqn..U0o6mceMnDa7SI51lmoiln37mBBC2d2",
+    "hashed_password": "$2b$12$vWs2agnQr71HINg1UoNPMebWMQ5exbYVma.U7fRXSDj.aU4hUPEhS",
     "name": "Stiven",
     "gender": "male",
     "age": 21,
@@ -20,5 +20,65 @@
     "hashed_password": "$2b$12$S4/EmCdhxXmRAzgl7/j/gOFq9rhXG5CCRqzas1QP8CLF7muSSCVmK",
     "name": "Nuevo Usuario",
     "created_at": "2026-10-23T21:35:26.421466+00:00"
+  },
+  "kevinstiventimaran@gmail.com": {
+    "email": "kevinstiventimaran@gmail.com",
+    "hashed_password": "$2b$12$mQwr1QijhSUwytCFvQusUOAjO9q/EGMtYejNQqoiqDOP7psequxbS",
+    "name": "Kevin",
+    "created_at": "2026-10-26T22:47:12.082205+00:00",
+    "age": 21,
+    "gender": "male",
+    "avatar_url": "https://fitglass-ai-kevin.loca.lt/static/models/tripo_pbr_model_237b2f34-7a76-_3bc395a0_opt.glb",
+    "avatar_type": "custom_3d",
+    "base_garments": [
+      {
+        "id": "base-top-1",
+        "name": "Classic Heavyweight Tee",
+        "category": "Tops",
+        "colorName": "Obsidian Black",
+        "colorHex": "#18181B",
+        "size": "M",
+        "fit": "Regular",
+        "silhouetteType": "tshirt",
+        "paletteHarmony": true,
+        "imageUrl": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        "id": "base-bottom-1",
+        "name": "Tailored Straight Trousers",
+        "category": "Pants",
+        "colorName": "Slate Graphite",
+        "colorHex": "#27272A",
+        "size": "M",
+        "fit": "Regular",
+        "silhouetteType": "trousers",
+        "paletteHarmony": true,
+        "imageUrl": "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=800&q=80"
+      }
+    ],
+    "color_profile": {
+      "skin_tone": "#D5A88B",
+      "hair_color": "#28211D",
+      "eye_color": "#4A3528",
+      "season": "Invierno Profundo",
+      "palette_name": "Paleta de Contrastes Intensos y Fríos",
+      "description": "El sujeto presenta un contraste alto y una base de color profunda. Su piel tiene un trasfondo neutro-cálido, pero su cabello oscuro y ojos intensos dictan una armonía propia de las estaciones de invierno. El 'Invierno Profundo' es la opción ideal, ya que favorece los tonos saturados, oscuros y nítidos que no compiten con su pigmentación natural, sino que resaltan la profundidad de su mirada y definen mejor sus rasgos faciales.",
+      "recommended_colors": [
+        "#000000",
+        "#1A2A3A",
+        "#0F2922",
+        "#4A0404",
+        "#4C1D95",
+        "#E5E7EB"
+      ],
+      "colors_to_avoid": [
+        "#F59E0B",
+        "#D97706",
+        "#84CC16",
+        "#FCA5A5"
+      ]
+    },
+    "face_image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD...",
+    "body_image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD..."
   }
 }

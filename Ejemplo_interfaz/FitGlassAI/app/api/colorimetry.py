@@ -29,11 +29,17 @@ async def analyze_user_colorimetry(request: Request):
 
         try:
             result = await analyze_colorimetry(image_str)
-            return ColorimetryResponse(success=True, data=ColorimetryData(**result))
-        except HTTPException as he:
-            return JSONResponse(status_code=he.status_code, content={"success": False, "error": he.detail})
+        except HTTPException:
+            raise
         except Exception as e:
-            return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+            return JSONResponse(status_code=500, content={"success": False, "error": str(e), "detail": str(e)})
+
+        if isinstance(result, dict):
+            is_valid = result.get("is_valid_image", True)
+            if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                err_msg = result.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                raise HTTPException(status_code=400, detail=err_msg)
+        return ColorimetryResponse(success=True, data=ColorimetryData(**result))
 
     # Caso 2: Multipart/form-data
     if "multipart/form-data" in content_type:
@@ -57,11 +63,17 @@ async def analyze_user_colorimetry(request: Request):
 
         try:
             result = await analyze_colorimetry(image_str)
-            return ColorimetryResponse(success=True, data=ColorimetryData(**result))
-        except HTTPException as he:
-            return JSONResponse(status_code=he.status_code, content={"success": False, "error": he.detail})
+        except HTTPException:
+            raise
         except Exception as e:
-            return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+            return JSONResponse(status_code=500, content={"success": False, "error": str(e), "detail": str(e)})
+
+        if isinstance(result, dict):
+            is_valid = result.get("is_valid_image", True)
+            if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                err_msg = result.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                raise HTTPException(status_code=400, detail=err_msg)
+        return ColorimetryResponse(success=True, data=ColorimetryData(**result))
 
     return JSONResponse(
         status_code=400,

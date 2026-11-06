@@ -8,11 +8,14 @@ from google import genai
 from google.genai import types
 
 from app.config import settings
-from app.schemas.garment import GarmentAnalysis
+from app.schemas.garment import GarmentAnalysis, GarmentMetadata
+from app.schemas.colorimetry import ColorimetryData
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_GARMENT_METADATA_MOCK = {
+    "is_valid_image": True,
+    "validation_error_message": None,
     "tipo_prenda": "Prenda de prueba",
     "color_dominante": "#000000",
     "colores_secundarios": ["#FFFFFF"],
@@ -36,7 +39,9 @@ def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis
     Analiza la siguiente imagen de una prenda de ropa.
     Debes devolver UNICAMENTE un objeto JSON válido que cumpla exactamente con la siguiente estructura y reglas.
     
-    Reglas:
+    Reglas estrictas de validación:
+    - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o por defecto.
+    - Si la imagen contiene una prenda de vestir reconocible, establece "is_valid_image" en true y "validation_error_message" en null.
     - Analiza ÚNICAMENTE lo que puedas observar en la fotografía.
     - NO inventes la talla.
     - NO inventes medidas físicas.
@@ -52,6 +57,8 @@ def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis
     
     Estructura JSON requerida:
     {
+      "is_valid_image": true,
+      "validation_error_message": null,
       "category": "Tops",
       "sleeve": "Short",
       "neck": "Crew",
@@ -89,6 +96,8 @@ def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis
             text_response = text_response[3:-3]
             
         data = json.loads(text_response.strip())
+        data.setdefault("is_valid_image", True)
+        data.setdefault("validation_error_message", None)
         analysis = GarmentAnalysis(**data)
         return analysis
     except Exception as e:
@@ -128,6 +137,9 @@ async def _resolve_image_bytes(image_input: str) -> tuple[bytes, str]:
             mime = "image/jpeg"
             if ";" in header and ":" in header:
                 mime = header.split(":")[1].split(";")[0].strip()
+            missing_padding = len(encoded) % 4
+            if missing_padding:
+                encoded += "=" * (4 - missing_padding)
             return base64.b64decode(encoded), mime
         except Exception as e:
             raise HTTPException(
@@ -137,7 +149,9 @@ async def _resolve_image_bytes(image_input: str) -> tuple[bytes, str]:
 
     # Caso 3: Base64 en bruto
     try:
-        data = base64.b64decode(image_input)
+        missing_padding = len(image_input) % 4
+        padded_input = image_input + ("=" * (4 - missing_padding)) if missing_padding else image_input
+        data = base64.b64decode(padded_input)
         return data, "image/jpeg"
     except Exception as e:
         raise HTTPException(
@@ -205,8 +219,15 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
         prompt = """
         Eres el motor analítico de moda de FitGlassAI / Vitra.
         Analiza la fotografía de la prenda adjunta y extrae sus metadatos principales.
+        
+        Instrucciones estrictas de validación:
+        - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o nulos.
+        - Si la imagen contiene una prenda de vestir reconocible, establece "is_valid_image" en true y "validation_error_message" en null.
+        
         Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura exacta:
         {
+          "is_valid_image": true,
+          "validation_error_message": null,
           "tipo_prenda": "Tipo de prenda (ej. Camiseta, Camisa, Pantalón, Vestido, Chaqueta, Abrigo, Zapatos, Accesorio)",
           "color_dominante": "Código HEX (#RRGGBB) y nombre común en español",
           "colores_secundarios": ["#HEX1", "#HEX2"],
@@ -225,6 +246,7 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
             ],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=GarmentMetadata,
             )
         )
 
@@ -235,6 +257,14 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
             raw_text = raw_text[3:-3]
             
         data = json.loads(raw_text.strip())
+        data.setdefault("is_valid_image", True)
+        data.setdefault("validation_error_message", None)
+        try:
+            validated = GarmentMetadata(**data)
+            data["is_valid_image"] = validated.is_valid_image
+            data["validation_error_message"] = validated.validation_error_message
+        except Exception:
+            pass
         return data
     except Exception as e:
         logger.warning(
@@ -275,8 +305,14 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
     Eres un estilista profesional y consultor biométrico experto en teoría del color y colorimetría estacional de FitGlassAI / Vitra.
     Analiza con precisión la fotografía facial y frontal de la persona adjunta.
     
+    Instrucciones estrictas de validación:
+    - Primero, determina si la imagen claramente muestra un rostro humano o una persona. Si no es así (por ejemplo, si muestra un animal, un vehículo, comida, un objeto aleatorio o está completamente borrosa), establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."), y deja el resto de los campos vacíos o nulos.
+    - Si la imagen contiene claramente a una persona o rostro humano, establece "is_valid_image" en true y "validation_error_message" en null.
+    
     Determina su armonía cromática y devuelve ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
     {
+      "is_valid_image": true,
+      "validation_error_message": null,
       "skin_tone": "#E5B899 (Tono de piel)",
       "hair_color": "#2C1B18 (Color de cabello)",
       "eye_color": "#3B261C (Color de ojos)",
@@ -314,6 +350,7 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
             ],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=ColorimetryData,
             )
         )
     except Exception as e:
@@ -330,6 +367,14 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
             raw_text = raw_text[3:-3]
             
         data = json.loads(raw_text.strip())
+        data.setdefault("is_valid_image", True)
+        data.setdefault("validation_error_message", None)
+        try:
+            validated = ColorimetryData(**data)
+            data["is_valid_image"] = validated.is_valid_image
+            data["validation_error_message"] = validated.validation_error_message
+        except Exception:
+            pass
         return data
     except Exception as e:
         raise HTTPException(

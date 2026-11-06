@@ -15,13 +15,15 @@ class ColorimetryRequest(BaseModel):
 
 
 class ColorimetryData(BaseModel):
-    skin_tone: str = Field(..., description="Código HEX y descripción del tono de piel")
-    hair_color: str = Field(..., description="Código HEX del color de cabello")
+    is_valid_image: bool = Field(True, description="Indica si la imagen muestra claramente un rostro o persona")
+    validation_error_message: Optional[str] = Field(None, description="Mensaje explicativo si la imagen no es válida")
+    skin_tone: Optional[str] = Field(None, description="Código HEX y descripción del tono de piel")
+    hair_color: Optional[str] = Field(None, description="Código HEX del color de cabello")
     eye_color: Optional[str] = Field(None, description="Código HEX del color de ojos")
-    season: str = Field(..., description="Estación de colorimetría (ej. Invierno Brillante, Otoño Cálido)")
+    season: Optional[str] = Field(None, description="Estación de colorimetría (ej. Invierno Brillante, Otoño Cálido)")
     palette_name: Optional[str] = Field(None, description="Nombre descriptivo de la paleta")
-    description: str = Field(..., description="Explicación estética de la armonía de color")
-    recommended_colors: List[str] = Field(..., description="Lista de códigos HEX de prendas recomendadas")
+    description: Optional[str] = Field(None, description="Explicación estética de la armonía de color")
+    recommended_colors: List[str] = Field(default_factory=list, description="Lista de códigos HEX de prendas recomendadas")
     colors_to_avoid: Optional[List[str]] = Field(default_factory=list, description="Lista de colores no recomendados")
 
 

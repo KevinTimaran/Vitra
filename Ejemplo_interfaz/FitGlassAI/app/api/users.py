@@ -4,7 +4,12 @@ from typing import Optional, List, Dict, Any, Tuple
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.schemas.user import UserProfileSetup, UserProfileSetupResponse
+from app.schemas.user import (
+    UserProfileSetup,
+    UserProfileSetupResponse,
+    ColorimetryUpdateRequest,
+    ColorimetryUpdateResponse,
+)
 from app.services.auth_service import decode_access_token
 from app.api.auth import users_db, save_users_db
 from app.services.optimizer_service import get_or_create_optimized_default_avatar
@@ -72,6 +77,49 @@ async def setup_user_profile(
 
     gender_val = payload.gender or "female"
 
+    color_profile = None
+
+    # Guardrail con Gemini Vision: inspeccionar respuesta de colorimetría inmediatamente tras retornar
+    if payload.face_image and payload.face_image.strip():
+        from app.services.gemini_service import analyze_colorimetry
+        color_res = None
+        try:
+            color_res = await analyze_colorimetry(payload.face_image.strip())
+        except HTTPException as he:
+            if he.status_code == 400:
+                raise he
+            logger.warning(f"[Users] Advertencia HTTP en colorimetría facial durante setup: {he.detail}")
+        except Exception as c_err:
+            logger.warning(f"[Users] Advertencia en colorimetría facial durante setup: {c_err}")
+
+        if isinstance(color_res, dict):
+            is_valid = color_res.get("is_valid_image", True)
+            if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                err_msg = color_res.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+            if "season" in color_res:
+                color_profile = color_res
+    elif payload.body_image and payload.body_image.strip():
+        # Si omitió foto facial pero suministró foto corporal, validar que sea humana antes de invocar Tripo3D
+        from app.services.gemini_service import analyze_colorimetry
+        body_res = None
+        try:
+            body_res = await analyze_colorimetry(payload.body_image.strip())
+        except HTTPException as he:
+            if he.status_code == 400:
+                raise he
+            logger.warning(f"[Users] Advertencia HTTP al validar foto corporal durante setup: {he.detail}")
+        except Exception as b_err:
+            logger.warning(f"[Users] Advertencia al validar foto corporal durante setup: {b_err}")
+
+        if isinstance(body_res, dict):
+            is_valid = body_res.get("is_valid_image", True)
+            if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                err_msg = body_res.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+            if "season" in body_res:
+                color_profile = body_res
+
     async def _generate_avatar_task() -> Tuple[Optional[str], str]:
         # FLOW 1: Creación de Avatar Personalizado si se suministró body_image
         if payload.body_image and payload.body_image.strip():
@@ -94,24 +142,7 @@ async def setup_user_profile(
             fallback_url = await get_or_create_optimized_default_avatar(gender_val, base_url)
             return fallback_url, "preset"
 
-    async def _analyze_colorimetry_task() -> Optional[dict]:
-        # Análisis de colorimetría facial opcional si se proporcionó face_image
-        if payload.face_image and payload.face_image.strip():
-            try:
-                from app.services.gemini_service import analyze_colorimetry
-                color_res = await analyze_colorimetry(payload.face_image)
-                if color_res and isinstance(color_res, dict) and "season" in color_res:
-                    logger.info(f"[Users] Colorimetría facial analizada para setup: {color_res.get('season')}")
-                    return color_res
-            except Exception as c_err:
-                logger.warning(f"[Users] Advertencia en colorimetría durante setup: {c_err}")
-        return None
-
-    # Ejecución en paralelo de Tripo3D y Gemini para reducir el tiempo total a la mitad
-    (avatar_res, color_profile) = await asyncio.gather(
-        _generate_avatar_task(),
-        _analyze_colorimetry_task(),
-    )
+    avatar_res = await _generate_avatar_task()
     avatar_url, avatar_type = avatar_res
     base_garments = get_default_base_garments(gender_val)
 
@@ -243,5 +274,86 @@ async def delete_user_avatar(
         "avatar_type": "preset",
         "avatar_url": default_url,
     }
+
+
+@router.put("/colorimetry", response_model=ColorimetryUpdateResponse, status_code=status.HTTP_200_OK)
+@router.post("/colorimetry", response_model=ColorimetryUpdateResponse, status_code=status.HTTP_200_OK)
+async def update_user_colorimetry(
+    payload: ColorimetryUpdateRequest,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+):
+    """
+    Actualiza o recalibra el perfil de colorimetría estacional del usuario autenticado.
+    Acepta un `color_profile` precalculado o una imagen facial (`image`/`face_image`) para
+    analizarla en tiempo real mediante Gemini Vision y persistirla en la base de datos.
+    """
+    user_email = None
+    if credentials:
+        try:
+            token_data = decode_access_token(credentials.credentials)
+            user_email = token_data.get("sub") or token_data.get("email")
+        except Exception as te:
+            logger.warning(f"[Users] Token inválido en actualización de colorimetría: {te}")
+
+    if not user_email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Se requiere autenticación para actualizar el perfil de colorimetría.",
+        )
+
+    user_key = user_email.lower()
+    if user_key not in users_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado en la base de datos.",
+        )
+
+    final_color_profile = None
+
+    # Caso 1: Se proporcionó un perfil precalculado
+    if payload.color_profile:
+        final_color_profile = payload.color_profile
+
+    # Caso 2: Se proporcionó una imagen para analizar con Gemini Vision
+    img_to_analyze = payload.image or payload.face_image
+    if not final_color_profile and img_to_analyze and img_to_analyze.strip():
+        from app.services.gemini_service import analyze_colorimetry
+        try:
+            final_color_profile = await analyze_colorimetry(img_to_analyze.strip())
+        except HTTPException:
+            raise
+        except Exception as ge:
+            logger.error(f"[Users] Error analizando colorimetría con Gemini Vision: {ge}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Error al analizar la imagen con Gemini Vision: {str(ge)}",
+            )
+
+        if isinstance(final_color_profile, dict):
+            is_valid = final_color_profile.get("is_valid_image", True)
+            if is_valid is False or str(is_valid).lower() in ("false", "0"):
+                err_msg = final_color_profile.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=err_msg,
+                )
+
+    if not final_color_profile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes proporcionar 'color_profile' o una imagen facial ('image'/'face_image') para analizar.",
+        )
+
+    # Persistir en la base de datos del usuario
+    users_db[user_key]["color_profile"] = final_color_profile
+    save_users_db()
+    logger.info(f"[Users] Colorimetría estacional actualizada para {user_email}: {final_color_profile.get('season')}")
+
+    return ColorimetryUpdateResponse(
+        status="success",
+        message="Colorimetría estacional actualizada correctamente",
+        color_profile=final_color_profile,
+    )
+
 
 

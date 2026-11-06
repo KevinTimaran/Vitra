@@ -19,6 +19,8 @@ class GarmentAnalysisRequest(BaseModel):
 
 
 class GarmentMetadata(BaseModel):
+    is_valid_image: bool = Field(True, description="Indica si la imagen contiene una prenda válida")
+    validation_error_message: Optional[str] = Field(None, description="Mensaje explicativo si la imagen no es válida")
     tipo_prenda: Optional[str] = Field(None, description="Tipo o categoría de la prenda detectada")
     color_dominante: Optional[str] = Field(None, description="Color dominante de la prenda")
     colores_secundarios: Optional[List[str]] = Field(default_factory=list, description="Lista de colores secundarios")
@@ -65,17 +67,19 @@ class FitEnum(str, Enum):
 
 
 class GarmentAnalysis(BaseModel):
-    category: CategoryEnum = Field(description="Categoría principal de la prenda")
-    sleeve: SleeveEnum = Field(description="Tipo de manga de la prenda")
-    neck: NeckEnum = Field(description="Tipo de cuello de la prenda")
-    fit: FitEnum = Field(description="Corte o ajuste de la prenda")
-    dominantColor: str = Field(description="Color dominante en formato HEX (ej. #FFFFFF)")
-    secondaryColors: List[str] = Field(description="Lista de colores secundarios en formato HEX")
-    pattern: str = Field(description="Patrón de la prenda (ej. Solid, Striped, Plaid)")
-    hasPocket: bool = Field(description="¿Tiene bolsillos visibles?")
-    hasButtons: bool = Field(description="¿Tiene botones visibles?")
-    hasZipper: bool = Field(description="¿Tiene cremallera visible?")
-    confidence: float = Field(ge=0.0, le=1.0, description="Confianza del análisis entre 0 y 1")
+    is_valid_image: bool = Field(True, description="Indica si la imagen contiene una prenda válida")
+    validation_error_message: Optional[str] = Field(None, description="Mensaje explicativo si la imagen no es válida")
+    category: Optional[CategoryEnum] = Field(default=CategoryEnum.Other, description="Categoría principal de la prenda")
+    sleeve: Optional[SleeveEnum] = Field(default=SleeveEnum.Unknown, description="Tipo de manga de la prenda")
+    neck: Optional[NeckEnum] = Field(default=NeckEnum.Unknown, description="Tipo de cuello de la prenda")
+    fit: Optional[FitEnum] = Field(default=FitEnum.Unknown, description="Corte o ajuste de la prenda")
+    dominantColor: Optional[str] = Field(default="#000000", description="Color dominante en formato HEX (ej. #FFFFFF)")
+    secondaryColors: Optional[List[str]] = Field(default_factory=list, description="Lista de colores secundarios en formato HEX")
+    pattern: Optional[str] = Field(default="Solid", description="Patrón de la prenda (ej. Solid, Striped, Plaid)")
+    hasPocket: Optional[bool] = Field(default=False, description="¿Tiene bolsillos visibles?")
+    hasButtons: Optional[bool] = Field(default=False, description="¿Tiene botones visibles?")
+    hasZipper: Optional[bool] = Field(default=False, description="¿Tiene cremallera visible?")
+    confidence: Optional[float] = Field(default=0.0, ge=0.0, le=1.0, description="Confianza del análisis entre 0 y 1")
 
 
 class GarmentAnalysisResponse(BaseModel):

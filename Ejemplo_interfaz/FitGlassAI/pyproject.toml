@@ -16,6 +16,7 @@ dependencies = [
     "python-jose[cryptography]",
     "pillow",
     "rembg[cpu]",
+    "pyngrok",
 ]
 
 [project.optional-dependencies]

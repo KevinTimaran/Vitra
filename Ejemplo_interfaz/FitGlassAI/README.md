@@ -11,7 +11,7 @@ Backend para FitGlass enfocado en el análisis de prendas de ropa utilizando la 
 Abre una terminal Fish y ejecuta:
 
 ```fish
-cd ~/Universidad/interfaces/AppMovil/Vitra/Ejemplo_interfaz/FitGlassAI
+cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassAI
 
 source .venv/bin/activate.fish
 
@@ -28,7 +28,7 @@ Verifica que el backend esté funcionando abriendo en el navegador:
 Abre otra terminal Fish:
 
 ```fish
-cd ~/Universidad/interfaces/AppMovil/Vitra/Ejemplo_interfaz/FitGlassApp
+cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassApp
 
 npx expo start -c
 ```
@@ -58,7 +58,7 @@ EXPO_PUBLIC_API_BASE_URL=http://192.168.1.11:8000
 ### Terminal 1 — Backend (FastAPI)
 
 ```fish
-cd ~/Universidad/interfaces/AppMovil/Vitra/Ejemplo_interfaz/FitGlassAI
+cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassAI
 
 source .venv/bin/activate.fish
 
@@ -67,18 +67,26 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 Si el proyecto está en otra ruta del portátil, utiliza la ruta real donde tengas la carpeta `FitGlassAI`.
 
-### Terminal 2 — Frontend (Expo)
+### Terminal 2 — Frontend (Expo con Túnel)
 
 ```fish
-cd ~/Universidad/interfaces/AppMovil/Vitra/Ejemplo_interfaz/FitGlassApp
-
-npx expo start -c
-
-npx expo start --tunnel
+cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassApp
 
 npx expo start -c --tunnel
-
 ```
+
+### Terminal 3 — Túnel del Backend (Obligatorio al usar --tunnel o redes universitarias)
+
+Cuando ejecutas Expo con `--tunnel`, el iPhone se conecta por internet fuera de la red local. Por lo tanto, el backend FastAPI también necesita su propio túnel público:
+
+```fish
+cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassApp
+
+npm run tunnel:backend
+```
+
+*(Esto inicia localtunnel vinculando el backend a `https://fitglass-ai-kevin.loca.lt`, que es la URL ya configurada en `FitGlassApp/.env`).*
+
 
 ### Configurar la IP del portátil
 
@@ -143,7 +151,7 @@ Si no abre, comprueba que FastAPI esté ejecutándose con `--host 0.0.0.0`, que 
 Si al activar `.venv` aparece un error porque no encuentra el archivo, crea el entorno e instala las dependencias desde `pyproject.toml`:
 
 ```fish
-cd ~/Universidad/interfaces/AppMovil/Vitra/Ejemplo_interfaz/FitGlassAI
+cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassAI
 
 python -m venv .venv
 
