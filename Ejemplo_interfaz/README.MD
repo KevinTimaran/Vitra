@@ -60,3 +60,12 @@ Optimización de la experiencia para que el prototipo se sienta como una aplicac
 ### Frontend (FitGlassApp)
 * Añadir sistema de caché: si el usuario vuelve a probarse una combinación que ya generó antes, la app no llama a la IA, sino que carga el `.glb` guardado localmente.
 * Refinar las transiciones *Glassmorphism* y animaciones de micro-interacciones.
+
+
+
+
+Creé el script [`scripts/setup.mjs`](/home/kevin/Universidad/interfaces/AppMovil/Vitra/scripts/setup.mjs). Desde la raíz del clon, ejecútalo con:
+
+node scripts/setup.mjs 
+
+
