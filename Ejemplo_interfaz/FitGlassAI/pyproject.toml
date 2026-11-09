@@ -16,6 +16,7 @@ dependencies = [
     "python-jose[cryptography]",
     "pillow",
     "rembg[cpu]",
+    "replicate",
     "pyngrok",
 ]
 
