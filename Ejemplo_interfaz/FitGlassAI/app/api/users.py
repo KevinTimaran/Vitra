@@ -79,7 +79,7 @@ async def setup_user_profile(
 
     color_profile = None
 
-    # Guardrail con Gemini Vision: inspeccionar respuesta de colorimetría inmediatamente tras retornar
+    # Guardrail con FitGlass AI: inspeccionar respuesta de colorimetría inmediatamente tras retornar
     if payload.face_image and payload.face_image.strip():
         from app.services.gemini_service import analyze_colorimetry
         color_res = None
@@ -223,7 +223,13 @@ async def update_user_avatar(
         )
 
     logger.info(f"[Users] [Flow 3] Actualizando avatar 3D desde Ajustes/Perfil para usuario: {user_email or 'anónimo'}...")
-    new_avatar_url = await _execute_avatar_generation(image_str, base_url)
+    try:
+        new_avatar_url = await _execute_avatar_generation(image_str, base_url)
+    except Exception as e:
+        logger.warning(f"[Users] [Flow 3] Falló pipeline Tripo3D: {e}. Usando modelo de respaldo seguro.")
+        gender = users_db.get(user_email.lower(), {}).get("gender") if user_email and user_email.lower() in users_db else "female"
+        default_file = "default_girl_opt.glb" if gender == "female" else "default_men_opt.glb"
+        new_avatar_url = f"{base_url}/static/models/{default_file}"
 
     if user_email and user_email.lower() in users_db:
         users_db[user_email.lower()].update({
@@ -285,7 +291,7 @@ async def update_user_colorimetry(
     """
     Actualiza o recalibra el perfil de colorimetría estacional del usuario autenticado.
     Acepta un `color_profile` precalculado o una imagen facial (`image`/`face_image`) para
-    analizarla en tiempo real mediante Gemini Vision y persistirla en la base de datos.
+    analizarla en tiempo real mediante FitGlass AI y persistirla en la base de datos.
     """
     user_email = None
     if credentials:
@@ -314,7 +320,7 @@ async def update_user_colorimetry(
     if payload.color_profile:
         final_color_profile = payload.color_profile
 
-    # Caso 2: Se proporcionó una imagen para analizar con Gemini Vision
+    # Caso 2: Se proporcionó una imagen para analizar con FitGlass AI
     img_to_analyze = payload.image or payload.face_image
     if not final_color_profile and img_to_analyze and img_to_analyze.strip():
         from app.services.gemini_service import analyze_colorimetry
@@ -323,10 +329,10 @@ async def update_user_colorimetry(
         except HTTPException:
             raise
         except Exception as ge:
-            logger.error(f"[Users] Error analizando colorimetría con Gemini Vision: {ge}")
+            logger.error(f"[Users] Error analizando colorimetría con FitGlass AI: {ge}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Error al analizar la imagen con Gemini Vision: {str(ge)}",
+                detail=f"Error al analizar la imagen con FitGlass AI: {str(ge)}",
             )
 
         if isinstance(final_color_profile, dict):

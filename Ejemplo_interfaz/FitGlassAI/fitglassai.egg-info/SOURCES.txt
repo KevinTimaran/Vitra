@@ -33,6 +33,8 @@ tests/test_api.py
 tests/test_async_avatar.py
 tests/test_async_tryon.py
 tests/test_auth.py
+tests/test_enhancer.py
+tests/test_image_guardrails.py
 tests/test_image_preprocessor.py
 tests/test_services.py
 tests/test_users.py

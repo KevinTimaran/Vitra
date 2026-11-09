@@ -3,7 +3,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi import HTTPException
 
 from app.config import settings
-from app.services.gemini_service import analyze_garment
+from app.services.gemini_service import analyze_garment, analyze_garment_image, analyze_colorimetry
 from app.services.replicate_service import generate_vton
 from app.services.tripo_service import generate_3d_model
 
@@ -13,19 +13,21 @@ from app.services.tripo_service import generate_3d_model
 # ---------------------------------------------------------
 @pytest.mark.anyio
 async def test_analyze_garment_missing_api_key():
-    with patch.object(settings, "GEMINI_API_KEY", ""):
-        with pytest.raises(HTTPException) as exc_info:
-            await analyze_garment("data:image/jpeg;base64,1234")
-        assert exc_info.value.status_code == 500
-        assert "GEMINI_API_KEY" in exc_info.value.detail
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", ""):
+            with pytest.raises(HTTPException) as exc_info:
+                await analyze_garment("data:image/jpeg;base64,1234")
+            assert exc_info.value.status_code == 500
+            assert "GEMINI_API_KEY" in exc_info.value.detail
 
 
 @pytest.mark.anyio
 async def test_analyze_garment_empty_input():
-    with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
-        with pytest.raises(HTTPException) as exc_info:
-            await analyze_garment("   ")
-        assert exc_info.value.status_code == 400
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
+            with pytest.raises(HTTPException) as exc_info:
+                await analyze_garment("   ")
+            assert exc_info.value.status_code == 400
 
 
 @pytest.mark.anyio
@@ -48,12 +50,13 @@ async def test_analyze_garment_success():
     mock_client = MagicMock()
     mock_client.aio.models.generate_content = mock_generate_content
 
-    with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
-        with patch("app.services.gemini_service.genai.Client", return_value=mock_client):
-            result = await analyze_garment("data:image/jpeg;base64,dGVzdA==")
-            assert result["tipo_prenda"] == "Camiseta"
-            assert result["color_dominante"] == "#FFFFFF"
-            assert result["estilo_recomendado"] == "Casual"
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
+            with patch("app.services.gemini_service.genai.Client", return_value=mock_client):
+                result = await analyze_garment("data:image/jpeg;base64,dGVzdA==")
+                assert result["tipo_prenda"] == "Camiseta"
+                assert result["color_dominante"] == "#FFFFFF"
+                assert result["estilo_recomendado"] == "Casual"
 
 
 @pytest.mark.anyio
@@ -62,12 +65,92 @@ async def test_analyze_garment_gemini_error_returns_fallback_mock():
     mock_client = MagicMock()
     mock_client.aio.models.generate_content = mock_generate_content
 
-    with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
-        with patch("app.services.gemini_service.genai.Client", return_value=mock_client):
-            result = await analyze_garment("data:image/jpeg;base64,dGVzdA==")
-            assert result["tipo_prenda"] == "Prenda de prueba"
-            assert result["color_dominante"] == "#000000"
-            assert "mock de respaldo" in result["detalles"]
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
+            with patch("app.services.gemini_service.genai.Client", return_value=mock_client):
+                result = await analyze_garment("data:image/jpeg;base64,dGVzdA==")
+                assert result["tipo_prenda"] == "Prenda de prueba"
+                assert result["color_dominante"] == "#000000"
+                assert "mock de respaldo" in result["detalles"]
+
+
+def test_analyze_garment_image_gemini_missing_key():
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", ""), patch.dict("os.environ", {"GEMINI_API_KEY": ""}):
+            with pytest.raises(ValueError) as exc_info:
+                analyze_garment_image(b"dummy_bytes", "image/jpeg")
+            assert "GEMINI_API_KEY" in str(exc_info.value)
+
+
+def test_analyze_garment_image_dispatch_openai():
+    with patch.object(settings, "AI_PROVIDER", "openai"):
+        with patch("app.services.openai_service.analyze_garment_image_openai") as mock_openai:
+            mock_openai.return_value = "mock_result"
+            res = analyze_garment_image(b"dummy_bytes", "image/jpeg")
+            mock_openai.assert_called_once_with(b"dummy_bytes", "image/jpeg")
+            assert res == "mock_result"
+
+
+@pytest.mark.anyio
+async def test_analyze_colorimetry_missing_api_key():
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", ""):
+            with pytest.raises(HTTPException) as exc_info:
+                await analyze_colorimetry("data:image/jpeg;base64,1234")
+            assert exc_info.value.status_code == 500
+            assert "GEMINI_API_KEY" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_analyze_colorimetry_empty_input():
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
+            with pytest.raises(HTTPException) as exc_info:
+                await analyze_colorimetry("   ")
+            assert exc_info.value.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_analyze_colorimetry_dispatch_openai():
+    with patch.object(settings, "AI_PROVIDER", "openai"):
+        with patch("app.services.openai_service.analyze_colorimetry_openai", new_callable=AsyncMock) as mock_openai:
+            mock_openai.return_value = {"is_valid_image": True, "skin_tone": "#3A1F13"}
+            res = await analyze_colorimetry("data:image/jpeg;base64,dGVzdA==")
+            mock_openai.assert_called_once_with("data:image/jpeg;base64,dGVzdA==")
+            assert res["skin_tone"] == "#3A1F13"
+
+
+@pytest.mark.anyio
+async def test_analyze_colorimetry_gemini_success():
+    mock_payload = {
+        "is_valid_image": True,
+        "validation_error_message": None,
+        "skin_tone": "#3A1F13 (Morena profunda)",
+        "hair_color": "#111111 (Negro)",
+        "eye_color": "#1A1110 (Marrón oscuro)",
+        "season": "Otoño Profundo",
+        "palette_name": "Tierra Cálida",
+        "description": "Excelente armonía.",
+        "recommended_colors": ["#3A1F13", "#C68642", "#047857", "#1E3A8A", "#7C3AED", "#FFFFFF"],
+        "colors_to_avoid": ["#FFF0E5", "#F5D6C6", "#FFCC99"]
+    }
+
+    mock_generate_content = AsyncMock()
+    mock_response = MagicMock()
+    import json
+    mock_response.text = json.dumps(mock_payload)
+    mock_generate_content.return_value = mock_response
+
+    mock_client = MagicMock()
+    mock_client.aio.models.generate_content = mock_generate_content
+
+    with patch.object(settings, "AI_PROVIDER", "gemini"):
+        with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
+            with patch("app.services.gemini_service.genai.Client", return_value=mock_client):
+                res = await analyze_colorimetry("data:image/jpeg;base64,dGVzdA==")
+                assert res["is_valid_image"] is True
+                assert res["skin_tone"] == "#3A1F13 (Morena profunda)"
+                assert res["season"] == "Otoño Profundo"
 
 
 # ---------------------------------------------------------

@@ -13,9 +13,20 @@ Abre una terminal Fish y ejecuta:
 ```fish
 cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassAI
 
+# linux
 source .venv/bin/activate.fish
 
+# windows 
+.\.venv\Scripts\activate
+
+
+# Linux
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Windows
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+  
 ```
 
 Verifica que el backend esté funcionando abriendo en el navegador:

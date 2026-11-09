@@ -35,7 +35,7 @@ function run(command, commandArgs, cwd) {
 
 function findPython() {
   const candidates = windows
-    ? [['py', ['-3']], ['python', []]]
+    ? [['py', ['-3.12']], ['py', ['-3.11']], ['py', ['-3.10']], ['py', ['-3']], ['python', []]]
     : [['python3', []], ['python', []]];
 
   for (const [command, prefixArgs] of candidates) {

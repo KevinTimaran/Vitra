@@ -68,7 +68,15 @@ async def get_latest_avatar_model(request: Request = None):
 
 
     if not candidates:
-        raise HTTPException(status_code=404, detail="No hay modelos 3D generados recientemente.")
+        default_file = "default_girl_opt.glb" if os.path.exists(os.path.join(STATIC_MODELS_DIR, "default_girl_opt.glb")) else "default_men_opt.glb"
+        default_url = f"{base_url}/static/models/{default_file}"
+        logger.info(f"[Avatar Latest] Retornando modelo predeterminado de respaldo: {default_url}")
+        return {
+            "avatar_url": default_url,
+            "filename": default_file,
+            "size_bytes": 0,
+            "updated_at": 0,
+        }
 
     candidates.sort(key=lambda x: x[0], reverse=True)
     latest_mtime, latest_filename, latest_size = candidates[0]

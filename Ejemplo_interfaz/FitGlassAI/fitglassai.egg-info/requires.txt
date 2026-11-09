@@ -9,6 +9,8 @@ bcrypt<4.1.0
 python-jose[cryptography]
 pillow
 rembg[cpu]
+replicate
+pyngrok
 
 [dev]
 pytest

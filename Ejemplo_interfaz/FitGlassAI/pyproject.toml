@@ -18,6 +18,7 @@ dependencies = [
     "rembg[cpu]",
     "replicate",
     "pyngrok",
+    "openai",
 ]
 
 [project.optional-dependencies]

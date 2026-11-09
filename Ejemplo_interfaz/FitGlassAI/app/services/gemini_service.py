@@ -28,11 +28,15 @@ DEFAULT_GARMENT_METADATA_MOCK = {
 
 def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis:
     """Función síncrona para compatibilidad con endpoints y tests previos."""
+    if settings.active_ai_provider == "openai":
+        from app.services.openai_service import analyze_garment_image_openai
+        return analyze_garment_image_openai(image_bytes, mime_type)
+
     api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurada")
 
-    model_name = settings.GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    model_name = settings.GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     client = genai.Client(api_key=api_key)
 
     prompt = """
@@ -160,7 +164,7 @@ async def _resolve_image_bytes(image_input: str) -> tuple[bytes, str]:
         )
 
 
-FALLBACK_GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash"]
+FALLBACK_GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]
 
 
 async def _generate_content_with_fallback(
@@ -188,6 +192,10 @@ async def _generate_content_with_fallback(
 
 
 async def analyze_garment(image_base64_or_url: str) -> dict:
+    """Analiza una prenda de ropa utilizando el proveedor activo (Gemini u OpenAI) de forma asíncrona."""
+    if settings.active_ai_provider == "openai":
+        from app.services.openai_service import analyze_garment_openai
+        return await analyze_garment_openai(image_base64_or_url)
     """
     Analiza una prenda de ropa utilizando Google Gemini de forma asíncrona.
     Extrae metadatos estructurados: tipo de prenda, color dominante y estilo recomendado.
@@ -274,6 +282,10 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
 
 
 async def analyze_colorimetry(image_base64_or_url: str) -> dict:
+    """Analiza la fotografía facial/frontal del usuario utilizando el proveedor activo (Gemini u OpenAI)."""
+    if settings.active_ai_provider == "openai":
+        from app.services.openai_service import analyze_colorimetry_openai
+        return await analyze_colorimetry_openai(image_base64_or_url)
     """
     Analiza la fotografía facial/frontal del usuario utilizando Google Gemini (Vision).
     Extrae la paleta de colorimetría estacional:
@@ -305,38 +317,50 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
     Eres un estilista profesional y consultor biométrico experto en teoría del color y colorimetría estacional de FitGlassAI / Vitra.
     Analiza con precisión la fotografía facial y frontal de la persona adjunta.
     
-    Instrucciones estrictas de validación:
-    - Primero, determina si la imagen claramente muestra un rostro humano o una persona. Si no es así (por ejemplo, si muestra un animal, un vehículo, comida, un objeto aleatorio o está completamente borrosa), establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."), y deja el resto de los campos vacíos o nulos.
-    - Si la imagen contiene claramente a una persona o rostro humano, establece "is_valid_image" en true y "validation_error_message" en null.
+    Instrucciones de validación:
+    - Acepta fotografías reales, selfies, retratos de estudio o capturas de cámara con cualquier iluminación, sombras, contraste, ángulos, resolución o tono de piel. Establece "is_valid_image" en true y "validation_error_message" en null.
+    - ÚNICAMENTE establece "is_valid_image" en false si la imagen definitivamente NO contiene ningún rostro humano ni persona (por ejemplo, si muestra exclusivamente un perro, un coche, un paisaje desierto, comida o ropa sola sin rostro). En tal caso proporciona un mensaje explicativo amigable en "validation_error_message" (ej. "Esta imagen no parece ser de una persona. Por favor sube una foto tuya.") y deja el resto de campos en null.
+
+    Instrucciones estrictas de extracción biométrica cromática:
+    - Mide y extrae con total fidelidad el tono HEX real dominante (#RRGGBB) de la piel de la persona a partir de los píxeles de su rostro (frente, mejillas, sin sombras extremas ni reflejos especulares).
+    - IMPORTANTE: No utilices valores fijos o predeterminados. Debes reconocer todo el espectro humano de fototipos y tonalidades:
+      * Tez muy clara / pálida / nórdica (ej. rango #FFF0E5 a #F5D6C6)
+      * Tez clara / marfil / beige (ej. rango #EDC4B3 a #DFAC89)
+      * Tez trigueña / oliva / intermedia / canela (ej. rango #C68642 a #A0673B)
+      * Tez morena oscura / afrodescendiente / ébano / negra profunda (ej. rango #6F4733 a #3A1F13 o #2B170B)
+    - En "skin_tone", incluye primero el código HEX real medido de la piel seguido de una descripción entre paréntesis, por ejemplo: "#HEX (Subtono descriptivo)".
+    - En "hair_color", mide e indica el código HEX real y nombre del color de su cabello visible, por ejemplo: "#HEX (Nombre)".
+    - En "eye_color", mide e indica el código HEX real y nombre del color del iris de sus ojos, por ejemplo: "#HEX (Nombre)".
+    - Determina su estación cromática real ("season", ej. Invierno Brillante, Otoño Cálido, Verano Suave, Primavera Brillante, etc.) evaluando el contraste real entre su piel, cabello y ojos.
     
-    Determina su armonía cromática y devuelve ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
+    Estructura JSON requerida:
     {
       "is_valid_image": true,
       "validation_error_message": null,
-      "skin_tone": "#E5B899 (Tono de piel)",
-      "hair_color": "#2C1B18 (Color de cabello)",
-      "eye_color": "#3B261C (Color de ojos)",
-      "season": "Estación de color (ej. Invierno Brillante, Otoño Cálido, Verano Suave, Primavera Cálida)",
+      "skin_tone": "#HEX (Subtono descriptivo)",
+      "hair_color": "#HEX (Nombre)",
+      "eye_color": "#HEX (Nombre)",
+      "season": "Estación cromática identificada",
       "palette_name": "Nombre descriptivo de la paleta",
-      "description": "Explicación detallada de por qué esta estación armoniza con su contraste natural de piel, ojos y cabello, y cómo realza su rostro.",
+      "description": "Explicación personalizada de cómo armoniza esta estación con el contraste real y tono medido de esta persona",
       "recommended_colors": [
-        "#1E3A8A",
-        "#047857",
-        "#B91C1C",
-        "#7C3AED",
-        "#0F172A",
-        "#FFFFFF"
+        "#HEX1",
+        "#HEX2",
+        "#HEX3",
+        "#HEX4",
+        "#HEX5",
+        "#HEX6"
       ],
       "colors_to_avoid": [
-        "#D97706",
-        "#84CC16",
-        "#F59E0B"
+        "#HEX1",
+        "#HEX2",
+        "#HEX3"
       ]
     }
     
     Reglas:
     - Todos los códigos de color en recommended_colors y colors_to_avoid deben ser códigos HEX válidos (#RRGGBB).
-    - Proporciona al menos 6 colores recomendados para prendas de vestir.
+    - Proporciona al menos 6 colores recomendados para prendas de vestir acordes a su estación.
     - Proporciona entre 3 y 5 colores a evitar.
     - Responde únicamente el objeto JSON sin texto introductorio ni formato extra.
     """

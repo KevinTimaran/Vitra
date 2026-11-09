@@ -1,6 +1,9 @@
 import asyncio
 import logging
 import os
+import struct
+import json
+import shutil
 import subprocess
 import tempfile
 import uuid
@@ -13,6 +16,54 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 # Directorio donde se almacenan los modelos 3D optimizados (.glb con Draco y WebP)
+
+def sanitize_glb_material_names(path: str) -> None:
+    """
+    Sanitiza los nombres de materiales en el archivo GLB para prevenir
+    el error de compilación GLSL en WebGL / Three.js (ERROR___ERROR_IN_EXPONENT)
+    cuando los nombres contienen guiones o patrones tipo UUID (ej. 904e-d624).
+    """
+    try:
+        if not os.path.exists(path) or os.path.getsize(path) < 20:
+            return
+        with open(path, "rb") as f:
+            header = f.read(12)
+            if len(header) < 12:
+                return
+            magic, version, total_len = struct.unpack("<4sII", header)
+            if magic != b"glTF":
+                return
+            c0_len, c0_type = struct.unpack("<II", f.read(8))
+            c0_data = f.read(c0_len)
+            rest = f.read()
+
+        gltf = json.loads(c0_data.decode("utf-8"))
+        changed = False
+        for i, mat in enumerate(gltf.get("materials", [])):
+            if "name" in mat and ("-" in mat["name"] or " " in mat["name"]):
+                mat["name"] = f"VitraMaterial_{i}"
+                changed = True
+
+        if not changed:
+            return
+
+        new_json = json.dumps(gltf, separators=(",", ":")).encode("utf-8")
+        pad_len = (4 - (len(new_json) % 4)) % 4
+        new_json += b" " * pad_len
+
+        new_total_len = 12 + 8 + len(new_json) + len(rest)
+        new_header = struct.pack("<4sII", magic, version, new_total_len)
+        new_c0_header = struct.pack("<II", len(new_json), c0_type)
+
+        with open(path, "wb") as f:
+            f.write(new_header)
+            f.write(new_c0_header)
+            f.write(new_json)
+            f.write(rest)
+        logger.info(f"[Optimizer] Nombres de materiales en GLB sanitizados para WebGL: {path}")
+    except Exception as e:
+        logger.warning(f"[Optimizer] Aviso sanitizando materiales en GLB: {e}")
+
 STATIC_MODELS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "models")
 )
@@ -76,8 +127,9 @@ async def optimize_3d_model(
             input_file_path = input_clean
 
         # 2. Ejecutar @gltf-transform/cli optimize compatible con React Native (sin Draco/WebP que requieren Web Workers en navegador)
+        npx_bin = shutil.which("npx") or "npx"
         cmd = [
-            "npx",
+            npx_bin,
             "-y",
             "@gltf-transform/cli",
             "optimize",
@@ -98,7 +150,8 @@ async def optimize_3d_model(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=90,
+                timeout=120,
+                shell=(os.name == "nt"),
             )
 
         result = await asyncio.to_thread(_run_cli)
@@ -106,6 +159,7 @@ async def optimize_3d_model(
         if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             original_size = os.path.getsize(input_file_path) if os.path.exists(input_file_path) else 0
             optimized_size = os.path.getsize(output_path)
+            sanitize_glb_material_names(output_path)
             logger.info(
                 f"[Optimizer] Modelo optimizado con éxito: {original_size / 1024:.1f} KB -> {optimized_size / 1024:.1f} KB"
             )
@@ -179,8 +233,9 @@ async def get_or_create_optimized_default_avatar(
         logger.warning(f"[Optimizer] No se encontró el archivo base de avatar en: {source_path}")
         return f"{effective_base}/static/models/{source_filename}"
 
+    npx_bin = shutil.which("npx") or "npx"
     cmd = [
-        "npx",
+        npx_bin,
         "-y",
         "@gltf-transform/cli",
         "optimize",
@@ -195,7 +250,7 @@ async def get_or_create_optimized_default_avatar(
     ]
 
     def _run():
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=120, shell=(os.name == "nt"))
 
     res = await asyncio.to_thread(_run)
 
@@ -210,4 +265,3 @@ async def get_or_create_optimized_default_avatar(
         f"Retornando modelo original como fallback."
     )
     return f"{effective_base}/static/models/default_avatar/{source_filename}"
-
