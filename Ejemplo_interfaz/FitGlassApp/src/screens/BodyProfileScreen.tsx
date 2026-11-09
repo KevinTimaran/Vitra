@@ -245,7 +245,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
 
       // 1. Análisis de Colorimetría si se proporcionó foto de rostro
       if (hasFace) {
-        setProcessStep('Analizando colorimetría facial con Gemini Vision...');
+        setProcessStep('Analizando colorimetría facial con FitGlass AI...');
         Animated.timing(progressAnim, { toValue: 0.45, duration: 2500, useNativeDriver: false }).start();
         try {
           const colorRes = await analyzeColorimetry(faceImageBase64 || faceImageUri!);
@@ -576,7 +576,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
             </View>
           </View>
           <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-            Gemini Vision analiza tu tono de piel y cabello para extraer tu paleta estacional HEX.
+            FitGlass AI analiza tu tono de piel y cabello para extraer tu paleta estacional HEX.
           </Text>
 
           <GlassCard style={styles.photoCaptureCard}>

@@ -551,7 +551,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
               <Text style={[styles.metaFieldValue, { color: colors.secondaryText }]}>
                 {garment.details ||
                   garment.material ||
-                  'Análisis de textura e iluminación generado por Gemini Vision.'}
+                  'Análisis de textura e iluminación generado por FitGlass AI.'}
               </Text>
             </View>
 

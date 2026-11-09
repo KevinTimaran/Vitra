@@ -2,7 +2,7 @@ import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, NavigationIndependentTree, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -99,7 +99,8 @@ function NavigationRoot() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationIndependentTree>
+      <NavigationContainer theme={navigationTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack.Navigator
         key={userToken ? 'user-main' : 'guest-auth'}
@@ -222,6 +223,7 @@ function NavigationRoot() {
         )}
       </Stack.Navigator>
     </NavigationContainer>
+    </NavigationIndependentTree>
   );
 }
 

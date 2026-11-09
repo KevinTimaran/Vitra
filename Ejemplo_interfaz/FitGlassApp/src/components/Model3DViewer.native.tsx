@@ -363,34 +363,40 @@ const DynamicGarmentModel: React.FC<{
   const scene = useMemo(() => {
     const rawScene = (gltf as any)?.scene;
     if (!rawScene) return null;
-    const cloned = rawScene.clone(true);
-
-    // Override physical material properties on all meshes: roughness 0.9, metalness 0.0 (matte fabric)
-    cloned.traverse((node: any) => {
-      if (node.isMesh && node.material) {
-        const applyMatte = (mat: any) => {
-          if (!mat) return;
-          mat.roughness = 0.9;
-          mat.metalness = 0.0;
-          if ('specular' in mat && mat.specular?.set) {
-            mat.specular.set(0x000000);
-          }
-          if ('shininess' in mat) {
-            mat.shininess = 0;
-          }
-          if ('clearcoat' in mat) {
-            mat.clearcoat = 0;
-          }
-          mat.needsUpdate = true;
-        };
-
-        if (Array.isArray(node.material)) {
-          node.material.forEach(applyMatte);
-        } else {
-          applyMatte(node.material);
-        }
+    // Override physical material properties and sanitize names to prevent GLSL shader compilation error: ERROR___ERROR_IN_EXPONENT
+    const sanitizeMaterial = (mat: any) => {
+      if (!mat) return;
+      // Prevenir error GLSL cuando nombres de materiales de Tripo3D contienen guiones y 'e' (ej. -904e-)
+      mat.name = 'VitraModelMaterial';
+      mat.roughness = 0.9;
+      mat.metalness = 0.0;
+      if ('specular' in mat && mat.specular?.set) {
+        mat.specular.set(0x000000);
       }
-    });
+      if ('shininess' in mat) {
+        mat.shininess = 0;
+      }
+      if ('clearcoat' in mat) {
+        mat.clearcoat = 0;
+      }
+      mat.needsUpdate = true;
+    };
+
+    const processHierarchy = (root: any) => {
+      root?.traverse?.((node: any) => {
+        if (node.isMesh && node.material) {
+          if (Array.isArray(node.material)) {
+            node.material.forEach(sanitizeMaterial);
+          } else {
+            sanitizeMaterial(node.material);
+          }
+        }
+      });
+    };
+
+    processHierarchy(rawScene);
+    const cloned = rawScene.clone(true);
+    processHierarchy(cloned);
 
     return cloned;
   }, [gltf]);
@@ -511,7 +517,7 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
         const targetFile = new File(Paths.cache, `fitglass_${cleanName}`);
 
         if (targetFile.exists) {
-          if (targetFile.size > 50_000) {
+          if (targetFile.size > 10_000) {
             console.log('[Model3DViewer] Modelo recuperado de caché local válido:', targetFile.uri, `(${targetFile.size} bytes)`);
             if (!isCancelled) {
               setLocalUri(targetFile.uri);
@@ -545,15 +551,13 @@ const useResolvedModelUri = (remoteUrl: string | null) => {
           try {
             downloadedFile = await File.downloadFileAsync(targetDownloadUrl, targetFile, {
               headers: {
-                'Bypass-Tunnel-Reminder': 'true',
-                'bypass-tunnel-reminder': 'true',
-                'ngrok-skip-browser-warning': 'true',
+                ...(targetDownloadUrl.includes('ngrok') || targetDownloadUrl.includes('loca.lt') || targetDownloadUrl.includes('127.0.0.1') || targetDownloadUrl.includes('localhost') ? { 'Bypass-Tunnel-Reminder': 'true', 'bypass-tunnel-reminder': 'true', 'ngrok-skip-browser-warning': 'true' } : {}),
               },
               idempotent: true,
             });
 
             // Validar que el archivo descargado sea un modelo 3D real y no un error HTML
-            if (targetFile.exists && targetFile.size < 50_000) {
+            if (targetFile.exists && targetFile.size < 10_000) {
               console.warn(`[Model3DViewer] Intento ${attempt}: Tamaño de archivo sospechoso (${targetFile.size} bytes). Reintentando...`);
               try { targetFile.delete(); } catch {}
               throw new Error(`Respuesta no válida del servidor (${targetFile.size} bytes)`);

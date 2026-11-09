@@ -283,34 +283,40 @@ const DynamicGarmentModel: React.FC<{
   const scene = useMemo(() => {
     const rawScene = (gltf as any)?.scene;
     if (!rawScene) return null;
-    const cloned = rawScene.clone(true);
-
-    // Override physical material properties on all meshes: roughness 0.9, metalness 0.0 (matte fabric)
-    cloned.traverse((node: any) => {
-      if (node.isMesh && node.material) {
-        const applyMatte = (mat: any) => {
-          if (!mat) return;
-          mat.roughness = 0.9;
-          mat.metalness = 0.0;
-          if ('specular' in mat && mat.specular?.set) {
-            mat.specular.set(0x000000);
-          }
-          if ('shininess' in mat) {
-            mat.shininess = 0;
-          }
-          if ('clearcoat' in mat) {
-            mat.clearcoat = 0;
-          }
-          mat.needsUpdate = true;
-        };
-
-        if (Array.isArray(node.material)) {
-          node.material.forEach(applyMatte);
-        } else {
-          applyMatte(node.material);
-        }
+    // Override physical material properties and sanitize names to prevent GLSL shader compilation error: ERROR___ERROR_IN_EXPONENT
+    const sanitizeMaterial = (mat: any) => {
+      if (!mat) return;
+      // Prevenir error GLSL cuando nombres de materiales de Tripo3D contienen guiones y 'e' (ej. -904e-)
+      mat.name = 'VitraModelMaterial';
+      mat.roughness = 0.9;
+      mat.metalness = 0.0;
+      if ('specular' in mat && mat.specular?.set) {
+        mat.specular.set(0x000000);
       }
-    });
+      if ('shininess' in mat) {
+        mat.shininess = 0;
+      }
+      if ('clearcoat' in mat) {
+        mat.clearcoat = 0;
+      }
+      mat.needsUpdate = true;
+    };
+
+    const processHierarchy = (root: any) => {
+      root?.traverse?.((node: any) => {
+        if (node.isMesh && node.material) {
+          if (Array.isArray(node.material)) {
+            node.material.forEach(sanitizeMaterial);
+          } else {
+            sanitizeMaterial(node.material);
+          }
+        }
+      });
+    };
+
+    processHierarchy(rawScene);
+    const cloned = rawScene.clone(true);
+    processHierarchy(cloned);
 
     return cloned;
   }, [gltf]);

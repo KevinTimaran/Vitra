@@ -38,7 +38,7 @@ interface GarmentProcessingScreenProps {
 
 const PIPELINE_STEPS = [
   { id: 1, title: 'Iniciando conexión', detail: 'Conectando con el orquestador FitGlassAI...' },
-  { id: 2, title: 'Análisis Gemini', detail: 'Extrayendo fisionomía, colores y estilo de la prenda...' },
+  { id: 2, title: 'Análisis FitGlass AI', detail: 'Extrayendo fisionomía, colores y estilo de la prenda...' },
   { id: 3, title: 'Fusión 2D (VTON)', detail: 'Combinando la prenda sobre el cuerpo con IDM-VTON...' },
   { id: 4, title: 'Extrusión 3D', detail: 'Generando malla poligonal y materiales PBR en Tripo3D...' },
   { id: 5, title: 'Optimizando .glb', detail: 'Empaquetando modelo 3D para renderizado interactivo...' },
@@ -97,9 +97,9 @@ export const GarmentProcessingScreen: React.FC<GarmentProcessingScreenProps> = (
     }).start();
 
     try {
-      // Paso 1 & 2: Análisis con Gemini
+      // Paso 1 & 2: Análisis con FitGlass AI
       setCurrentStepIndex(1);
-      console.log('[Processing] Ejecutando análisis Gemini...');
+      console.log('[Processing] Ejecutando análisis FitGlass AI...');
       let metadata: GarmentMetadata | undefined;
       try {
         const analysisRes = await analyzeGarment(imageBase64 || imageUri);

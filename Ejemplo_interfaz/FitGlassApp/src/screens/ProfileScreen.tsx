@@ -173,7 +173,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
     : [];
   const skinColor =
     typeof colorProfile?.skin_tone === 'string' && colorProfile.skin_tone.trim()
-      ? colorProfile.skin_tone.split(' ')[0]
+      ? (colorProfile.skin_tone.match(/#[0-9A-Fa-f]{6}\b/)?.[0] || (colorProfile.skin_tone.split(' ')[0].startsWith('#') ? colorProfile.skin_tone.split(' ')[0] : '#E8BEAC'))
       : '#E8BEAC';
 
   const presetLabel = PRESET_AVATARS[gender]?.label || 'Silueta Atelier';

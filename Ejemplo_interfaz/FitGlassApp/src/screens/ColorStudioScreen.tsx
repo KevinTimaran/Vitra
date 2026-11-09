@@ -10,13 +10,14 @@ import {
   Modal,
   ActivityIndicator,
   Image,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
-import { Header } from '../components/Header';
-import { PrimaryButton, SecondaryButton } from '../components/Buttons';
+import { Typography, Spacing, Radius } from '../theme';
 import { LiquidGlassView } from '../components/LiquidGlassView';
 import { VibrantBackground } from '../components/VibrantBackground';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -27,8 +28,20 @@ import { analyzeColorimetry, updateUserColorimetry } from '../services/ai/garmen
 import { filterHarmoniousGarments, getSeasonEducationalInfo } from '../utils/colorHarmony';
 import { Garment } from '../types';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SCREEN_GUTTER = 12;
+const SCREEN_GUTTER = 16;
+
+const extractHexSafe = (val?: string | null, fallback: string = '#E8BEAC'): string => {
+  if (!val || typeof val !== 'string') return fallback;
+  const match = val.match(/#[0-9A-Fa-f]{6}\b/);
+  if (match) return match[0];
+  const first = val.trim().split(' ')[0];
+  return first.startsWith('#') ? first : fallback;
+};
 
 interface ColorStudioScreenProps {
   navigation?: any;
@@ -49,6 +62,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
   const [isRecalibrateModalOpen, setIsRecalibrateModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGuideExpanded, setIsGuideExpanded] = useState(false);
 
   const recommendedColors = useMemo(() => {
     return Array.isArray(colorProfile?.recommended_colors) && colorProfile.recommended_colors.length > 0
@@ -64,15 +78,18 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
     recommendedColors[0] || null
   );
 
-  // Guía educativa y consejos estilísticos derivados de la estación activa
   const educationalInfo = useMemo(() => {
     return getSeasonEducationalInfo(colorProfile?.season);
   }, [colorProfile?.season]);
 
-  // Filtro de prendas armoniosas del armario utilizando el algoritmo perceptual
   const harmoniousGarments = useMemo(() => {
     return filterHarmoniousGarments(wardrobe_items || [], recommendedColors, 72);
   }, [wardrobe_items, recommendedColors]);
+
+  const toggleGuide = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsGuideExpanded(!isGuideExpanded);
+  };
 
   const handleRecalibrate = () => {
     if (onRecalibrate) {
@@ -132,7 +149,6 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         console.warn('[ColorStudioScreen] Advertencia optimizando imagen:', mErr);
       }
 
-      // 1. Invocar Gemini Vision en backend
       const colorRes = await analyzeColorimetry(b64);
       if (!colorRes.success || !colorRes.data) {
         throw new Error(colorRes.error || 'No fue posible extraer la colorimetría de la imagen.');
@@ -148,7 +164,6 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         throw valErr;
       }
 
-      // 2. Persistir en backend endpoint PUT /api/users/colorimetry
       const token = await getAuthToken();
       if (token) {
         await updateUserColorimetry({ color_profile: updatedProfile }, token).catch((err) => {
@@ -156,9 +171,9 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         });
       }
 
-      // 3. Actualizar UserContext & SecureStore/localStorage
       updateColorProfile(updatedProfile);
       setIsRecalibrateModalOpen(false);
+      setActiveHex(updatedProfile.recommended_colors?.[0] || null);
 
       Alert.alert(
         '¡Análisis Completado!',
@@ -181,31 +196,12 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
     }
   };
 
-  const handleOpenWardrobe = () => {
-    if (onViewRecommendations) {
-      onViewRecommendations();
-    } else if (navigation) {
-      navigation.navigate('Wardrobe');
-    }
-  };
-
-  const handleOpenFittingRoom = () => {
-    if (navigation) {
-      navigation.navigate('FittingRoom');
-    }
-  };
-
   const handleSelectHarmoniousGarment = (garment: Garment) => {
     if (navigation) {
       navigation.navigate('FittingRoom', { garmentId: garment.id });
     }
   };
 
-  const handleCopyHex = (hex: string) => {
-    setActiveHex(hex);
-  };
-
-  // Glassmorphic surface helpers
   const glassSurface = {
     backgroundColor: isDark ? 'rgba(30, 30, 36, 0.72)' : 'rgba(255, 255, 255, 0.82)',
     borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
@@ -220,366 +216,195 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Glassmorphic Season Badge Hero Card */}
+        {/* HERO CARD REDISEÑADA: Identidad Cromática */}
         <LiquidGlassView style={styles.glassHeroCard} intensity={85} borderRadius={Radius.xl}>
+          
           <View style={styles.seasonTagRow}>
-            <View
-              style={[
-                styles.seasonPill,
-                {
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
-                },
-              ]}
-            >
-              <Ionicons name="sparkles" size={13} color={colors.primaryText} />
-              <Text style={[styles.seasonPillText, { color: colors.primaryText }]}>
-                {colorProfile.season.toUpperCase()}
-              </Text>
+            <View style={styles.headerPill}>
+               <Ionicons name="sparkles" size={14} color={colors.primaryText} />
+               <Text style={[styles.headerPillText, { color: colors.primaryText }]}>
+                 PERFIL CROMÁTICO
+               </Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.recalibrateBtnMini}
-              onPress={handleRecalibrate}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="scan-outline" size={14} color={colors.secondaryText} />
-              <Text style={[styles.recalibrateBtnMiniText, { color: colors.secondaryText }]}>
-                Recalibrar
-              </Text>
-            </TouchableOpacity>
           </View>
 
           <Text style={[styles.paletteName, { color: colors.primaryText }]}>
-            {colorProfile.palette_name || `Paleta ${colorProfile.season}`}
+            {colorProfile.season}
           </Text>
 
-          {/* Abstract Spectral Dispersion Ring Graphic */}
-          <View style={styles.chromaRingBox}>
-            <View
-              style={[
-                styles.outerOrb,
-                { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)' },
-              ]}
-            >
-              <View
-                style={[
-                  styles.innerOrb,
-                  { borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)' },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.centerCore,
-                    {
-                      backgroundColor:
-                        activeHex || recommendedColors[0] || colors.primaryText,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* Orbiting spectral color dots */}
-            <View style={styles.orbitRow}>
-              {recommendedColors.slice(0, 5).map((hex, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.orbitDot,
-                    {
-                      backgroundColor: hex,
-                      borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)',
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
-        </LiquidGlassView>
-
-        {/* Biometric Base Tones: Skin Tone, Hair & Eyes */}
-        <View style={styles.sectionWrapper}>
-          <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
-            Fisiología & Subtono Base
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-            Parámetros extraídos por Gemini Vision a partir de tu fotografía frontal
-          </Text>
-
-          <View style={styles.baseTonesGrid}>
-            {/* Piel */}
-            <LiquidGlassView style={styles.baseToneCard} intensity={75} borderRadius={Radius.lg}>
-              <View
-                style={[
-                  styles.toneCircularSwatch,
-                  {
-                    backgroundColor: typeof colorProfile?.skin_tone === 'string' && colorProfile.skin_tone.trim()
-                      ? colorProfile.skin_tone.split(' ')[0]
-                      : '#E8BEAC',
-                    borderColor: colors.borderLight,
-                  },
-                ]}
-              />
-              <View style={styles.toneTextCol}>
-                <Text style={[styles.toneTypeLabel, { color: colors.tertiaryText }]}>
-                  TONO DE PIEL
-                </Text>
-                <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
-                  {colorProfile?.skin_tone || '#E8BEAC'}
-                </Text>
-              </View>
-            </LiquidGlassView>
-
-            {/* Cabello */}
-            <LiquidGlassView style={styles.baseToneCard} intensity={75} borderRadius={Radius.lg}>
-              <View
-                style={[
-                  styles.toneCircularSwatch,
-                  {
-                    backgroundColor: typeof colorProfile?.hair_color === 'string' && colorProfile.hair_color.trim()
-                      ? colorProfile.hair_color.split(' ')[0]
-                      : '#2C1B18',
-                    borderColor: colors.borderLight,
-                  },
-                ]}
-              />
-              <View style={styles.toneTextCol}>
-                <Text style={[styles.toneTypeLabel, { color: colors.tertiaryText }]}>
-                  COLOR DE CABELLO
-                </Text>
-                <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
-                  {colorProfile?.hair_color || '#2C1B18'}
-                </Text>
-              </View>
-            </LiquidGlassView>
-
-            {/* Ojos si está disponible */}
-            {colorProfile?.eye_color ? (
-              <LiquidGlassView style={styles.baseToneCard} intensity={75} borderRadius={Radius.lg}>
-                <View
-                  style={[
-                    styles.toneCircularSwatch,
-                    {
-                      backgroundColor: typeof colorProfile.eye_color === 'string' && colorProfile.eye_color.trim()
-                        ? colorProfile.eye_color.split(' ')[0]
-                        : '#3B261C',
-                      borderColor: colors.borderLight,
-                    },
-                  ]}
-                />
-                <View style={styles.toneTextCol}>
-                  <Text style={[styles.toneTypeLabel, { color: colors.tertiaryText }]}>
-                    COLOR DE OJOS
-                  </Text>
-                  <Text style={[styles.toneValueText, { color: colors.primaryText }]} numberOfLines={1}>
-                    {colorProfile.eye_color}
-                  </Text>
-                </View>
-              </LiquidGlassView>
-            ) : null}
-          </View>
-        </View>
-
-        {/* AI Stylist Explanation Card */}
-        <LiquidGlassView style={styles.explanationCard} intensity={75} borderRadius={Radius.lg}>
-          <View style={styles.explanationHeader}>
-            <Ionicons name="sparkles" size={16} color={colors.primaryText} />
-            <Text style={[styles.explanationLabel, { color: colors.primaryText }]}>
-              Dictamen Estético de Colorimetría
-            </Text>
-          </View>
-          <Text style={[styles.explanationBody, { color: colors.secondaryText }]}>
-            "{colorProfile.description}"
-          </Text>
-        </LiquidGlassView>
-
-        {/* SECCIÓN EDUCATIVA: Guía de Estilismo de la Estación */}
-        <View style={styles.sectionWrapper}>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
-              {educationalInfo.familyTitle}
-            </Text>
-            <View style={[styles.taglineBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
-              <Ionicons name="ribbon-outline" size={13} color={colors.primary} />
-              <Text style={[styles.taglineText, { color: colors.primaryText }]}>
-                {educationalInfo.tagline}
-              </Text>
-            </View>
-          </View>
-          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-            {educationalInfo.undertoneDescription}
-          </Text>
-
-          {/* Tarjeta de Guía Editorial */}
-          <LiquidGlassView style={styles.editorialCard} intensity={75} borderRadius={Radius.lg}>
-            <Text style={[styles.blockTitle, { color: colors.primaryText }]}>
-              Claves de Estilo para tu Estación
-            </Text>
-            <View style={styles.tipsList}>
-              {educationalInfo.stylingTips.map((tip, idx) => (
-                <View key={`tip-${idx}`} style={styles.tipRow}>
-                  <View style={[styles.tipBullet, { backgroundColor: colors.primary }]}>
-                    <Ionicons name="checkmark" size={11} color="#FFFFFF" />
-                  </View>
-                  <Text style={[styles.tipText, { color: colors.primaryText }]}>
-                    {tip}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Metales recomendados */}
-            <View style={styles.metalRow}>
-              <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
-              <View style={styles.metalTextCol}>
-                <Text style={[styles.metalLabel, { color: colors.tertiaryText }]}>
-                  JOYERÍA & METALES RECOMENDADOS
-                </Text>
-                <Text style={[styles.metalValue, { color: colors.primaryText }]}>
-                  {educationalInfo.recommendedMetals}
-                </Text>
-              </View>
-            </View>
-
-            {/* Combinaciones clave */}
-            <View style={styles.combosSection}>
-              <Text style={[styles.comboLabel, { color: colors.tertiaryText }]}>
-                COMBINACIONES CROMÁTICAS CLAVE
-              </Text>
-              <View style={styles.comboChipsWrap}>
-                {educationalInfo.bestCombinations.map((combo, idx) => (
-                  <View key={`combo-${idx}`} style={[styles.comboChip, glassSurface]}>
-                    <Ionicons name="color-palette-outline" size={12} color={colors.primary} />
-                    <Text style={[styles.comboChipText, { color: colors.primaryText }]}>
-                      {combo}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </LiquidGlassView>
-        </View>
-
-        {/* Circular Swatches: Recommended Garment Colors */}
-        <View style={styles.sectionWrapper}>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
-              Colores Óptimos de Ropa
-            </Text>
-            <Text style={[styles.badgeCount, { color: colors.tertiaryText }]}>
-              {recommendedColors.length} TONOS
-            </Text>
-          </View>
-          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-            Selecciona una muestra circular para ver el código HEX de diseño textil
-          </Text>
-
-          <View style={styles.swatchesContainer}>
+          {/* LA PALETA ES LA PROTAGONISTA (Fila de bloques de color) */}
+          <View style={styles.paletteRow}>
             {recommendedColors.map((hex, index) => {
               const isSelected = activeHex === hex;
               return (
                 <TouchableOpacity
                   key={`${hex}-${index}`}
-                  style={[
-                    styles.swatchCard,
-                    glassSurface,
-                    isSelected && {
-                      borderColor: colors.primaryText,
-                      borderWidth: 2,
-                    },
-                  ]}
-                  onPress={() => handleCopyHex(hex)}
-                  activeOpacity={0.7}
+                  style={styles.paletteBlockWrapper}
+                  onPress={() => setActiveHex(hex)}
+                  activeOpacity={0.8}
                 >
                   <View
                     style={[
-                      styles.circularSwatch,
-                      {
-                        backgroundColor: hex,
-                        borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-                      },
-                      isSelected && styles.circularSwatchSelected,
+                      styles.paletteBlock,
+                      { backgroundColor: hex },
+                      isSelected && styles.paletteBlockSelected
                     ]}
-                  />
-                  <Text
-                    style={[
-                      styles.swatchHexCode,
-                      { color: isSelected ? colors.primaryText : colors.secondaryText },
-                      isSelected && { fontWeight: '700' },
-                    ]}
-                    numberOfLines={1}
                   >
-                    {hex.toUpperCase()}
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={20} color="#FFFFFF" style={styles.paletteCheckIcon} />
+                    )}
+                  </View>
+                  <Text style={[styles.paletteHexText, { color: isSelected ? colors.primaryText : colors.tertiaryText }]}>
+                    {hex.replace('#', '').toUpperCase()}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </View>
 
-        {/* Selected Swatch Highlight Card */}
-        {activeHex && (
-          <LiquidGlassView style={styles.selectedSwatchCard} intensity={75} borderRadius={Radius.lg}>
-            <View
-              style={[
-                styles.largeSwatchBlock,
-                {
-                  backgroundColor: activeHex,
-                  borderColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
-                },
-              ]}
-            />
-            <View style={styles.selectedSwatchDetails}>
-              <Text style={[styles.selectedSwatchLabel, { color: colors.tertiaryText }]}>
-                CÓDIGO HEX SELECCIONADO
-              </Text>
-              <Text style={[styles.selectedSwatchHex, { color: colors.primaryText }]}>
-                {activeHex.toUpperCase()}
-              </Text>
-              <Text style={[styles.selectedSwatchHint, { color: colors.secondaryText }]}>
-                Filtro cromático activo para el probador y recomendaciones de prendas.
+          <Text style={[styles.paletteDesc, { color: colors.secondaryText }]}>
+            "{colorProfile.description}"
+          </Text>
+
+          {/* Fisiología Base (Piel, Cabello, Ojos) */}
+          <View style={[styles.baseTonesRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+            <View style={styles.toneCompactItem}>
+              <View style={[styles.toneCompactSwatch, { backgroundColor: extractHexSafe(colorProfile?.skin_tone, '#E8BEAC') }]} />
+              <View>
+                <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>PIEL</Text>
+                <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{extractHexSafe(colorProfile?.skin_tone, 'N/A')}</Text>
+              </View>
+            </View>
+            <View style={styles.toneCompactItem}>
+              <View style={[styles.toneCompactSwatch, { backgroundColor: extractHexSafe(colorProfile?.hair_color, '#2C1B18') }]} />
+              <View>
+                <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>CABELLO</Text>
+                <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{extractHexSafe(colorProfile?.hair_color, 'N/A')}</Text>
+              </View>
+            </View>
+            {colorProfile?.eye_color && (
+              <View style={styles.toneCompactItem}>
+                <View style={[styles.toneCompactSwatch, { backgroundColor: extractHexSafe(colorProfile?.eye_color, '#3B261C') }]} />
+                <View>
+                  <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>OJOS</Text>
+                  <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{extractHexSafe(colorProfile?.eye_color, 'N/A')}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* NUEVO BOTÓN DE RECALIBRAR PROMINENTE */}
+          <TouchableOpacity 
+            style={[
+              styles.prominentRecalibrateBtn, 
+              { borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }
+            ]} 
+            onPress={handleRecalibrate} 
+            activeOpacity={0.7}
+          >
+            <Ionicons name="scan-outline" size={18} color={colors.primaryText} />
+            <Text style={[styles.prominentRecalibrateText, { color: colors.primaryText }]}>
+              Recalibrar con IA
+            </Text>
+          </TouchableOpacity>
+
+        </LiquidGlassView>
+
+        {/* ACORDEÓN: Guía de Estilismo (Progressive Disclosure) */}
+        <LiquidGlassView style={[styles.explanationCard, { padding: 0, overflow: 'hidden' }]} intensity={75} borderRadius={Radius.lg}>
+          <TouchableOpacity 
+            style={styles.accordionHeader} 
+            onPress={toggleGuide}
+            activeOpacity={0.8}
+          >
+            <View style={styles.explanationHeader}>
+              <Ionicons name="ribbon-outline" size={20} color={colors.primaryText} />
+              <Text style={[styles.explanationLabel, { color: colors.primaryText }]}>
+                Guía de Estilismo {educationalInfo.familyTitle}
               </Text>
             </View>
-          </LiquidGlassView>
-        )}
+            <Ionicons name={isGuideExpanded ? "chevron-up" : "chevron-down"} size={20} color={colors.secondaryText} />
+          </TouchableOpacity>
 
-        {/* Colores a Evitar */}
-        {colorsToAvoid.length > 0 ? (
-          <View style={styles.sectionWrapper}>
-            <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
-              Colores Desaconsejados
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-              Matices que restan luminosidad o generan tono apagado en tu subtono
-            </Text>
+          {isGuideExpanded && (
+            <View style={styles.accordionBody}>
+              <Text style={[styles.accordionSubtitle, { color: colors.secondaryText }]}>
+                {educationalInfo.undertoneDescription}
+              </Text>
 
-            <View style={styles.avoidChipsRow}>
-              {colorsToAvoid.map((hex, i) => (
-                <View key={`avoid-${i}`} style={[styles.avoidChip, glassSurface]}>
-                  <View style={[styles.avoidDot, { backgroundColor: hex }]} />
-                  <Ionicons name="close-circle" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
-                  <Text style={[styles.avoidHexText, { color: colors.secondaryText }]}>
-                    {hex.toUpperCase()}
+              <View style={styles.tipsList}>
+                {educationalInfo.stylingTips.map((tip, idx) => (
+                  <View key={`tip-${idx}`} style={styles.tipRow}>
+                    <View style={[styles.tipBullet, { backgroundColor: colors.primary }]}>
+                      <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+                    </View>
+                    <Text style={[styles.tipText, { color: colors.primaryText }]}>
+                      {tip}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.metalRow}>
+                <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
+                <View style={styles.metalTextCol}>
+                  <Text style={[styles.metalLabel, { color: colors.tertiaryText }]}>
+                    METALES RECOMENDADOS
+                  </Text>
+                  <Text style={[styles.metalValue, { color: colors.primaryText }]}>
+                    {educationalInfo.recommendedMetals}
                   </Text>
                 </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
+              </View>
 
-        {/* RECOMENDACIONES DE PRENDAS ARMONIOSAS */}
+              <View style={styles.combosSection}>
+                <Text style={[styles.comboLabel, { color: colors.tertiaryText }]}>
+                  COMBINACIONES CLAVE
+                </Text>
+                <View style={styles.comboChipsWrap}>
+                  {educationalInfo.bestCombinations.map((combo, idx) => (
+                    <View key={`combo-${idx}`} style={[styles.comboChip, glassSurface]}>
+                      <Ionicons name="color-palette-outline" size={12} color={colors.primary} />
+                      <Text style={[styles.comboChipText, { color: colors.primaryText }]}>
+                        {combo}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {colorsToAvoid.length > 0 && (
+                <View style={styles.avoidSection}>
+                   <Text style={[styles.comboLabel, { color: colors.tertiaryText, marginTop: Spacing.md }]}>
+                    COLORES A EVITAR
+                  </Text>
+                  <View style={styles.avoidChipsRow}>
+                    {colorsToAvoid.map((hex, i) => (
+                      <View key={`avoid-${i}`} style={[styles.avoidChip, glassSurface]}>
+                        <View style={[styles.avoidDot, { backgroundColor: hex }]} />
+                        <Ionicons name="close-circle" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
+                        <Text style={[styles.avoidHexText, { color: colors.secondaryText }]}>
+                          {hex.toUpperCase()}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+        </LiquidGlassView>
+
+        {/* SECCIÓN: Prendas Armonizadas */}
         <View style={styles.sectionWrapper}>
           <View style={styles.rowBetween}>
             <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
-              Prendas de tu Armario Armonizadas
+              Tu Armario Armonizado
             </Text>
             <Text style={[styles.badgeCount, { color: colors.tertiaryText }]}>
-              {harmoniousGarments.length} DE {(wardrobe_items || []).length} PRENDAS
+              {harmoniousGarments.length} PRENDAS
             </Text>
           </View>
-          <Text style={[styles.sectionSubtitle, { color: colors.secondaryText }]}>
-            Prendas que armonizan con tu paleta estacional mediante comparación perceptual de color
-          </Text>
 
           {harmoniousGarments.length > 0 ? (
             <ScrollView
@@ -593,18 +418,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   activeOpacity={0.85}
                   onPress={() => handleSelectHarmoniousGarment(garment)}
                 >
-                  <LiquidGlassView
-                    style={styles.garmentCard}
-                    intensity={80}
-                    borderRadius={Radius.lg}
-                  >
+                  <LiquidGlassView style={styles.garmentCard} intensity={80} borderRadius={Radius.lg}>
                     <View style={styles.garmentImageWrap}>
                       {garment.imageUrl ? (
-                        <Image
-                          source={{ uri: garment.imageUrl }}
-                          style={styles.garmentImage}
-                          resizeMode="cover"
-                        />
+                        <Image source={{ uri: garment.imageUrl }} style={styles.garmentImage} resizeMode="cover" />
                       ) : (
                         <View style={styles.garmentPlaceholder}>
                           <Ionicons name="shirt-outline" size={28} color={colors.secondaryText} />
@@ -618,23 +435,12 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
                     <View style={styles.garmentMeta}>
                       <View style={styles.garmentColorRow}>
-                        <View
-                          style={[
-                            styles.garmentColorDot,
-                            {
-                              backgroundColor: garment.colorHex || '#000000',
-                              borderColor: colors.borderLight,
-                            },
-                          ]}
-                        />
+                        <View style={[styles.garmentColorDot, { backgroundColor: garment.colorHex || '#000000', borderColor: colors.borderLight }]} />
                         <Text style={[styles.garmentCategoryText, { color: colors.tertiaryText }]}>
                           {garment.category?.toUpperCase() || 'PRENDA'}
                         </Text>
                       </View>
-                      <Text
-                        style={[styles.garmentNameText, { color: colors.primaryText }]}
-                        numberOfLines={1}
-                      >
+                      <Text style={[styles.garmentNameText, { color: colors.primaryText }]} numberOfLines={1}>
                         {garment.name}
                       </Text>
                       <Text style={[styles.tryOnLink, { color: colors.primary }]}>
@@ -661,30 +467,15 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               >
                 <Ionicons name="add" size={16} color={colors.bg} />
                 <Text style={[styles.emptyAddBtnText, { color: colors.bg }]}>
-                  Añadir Prenda a Armario
+                  Añadir Prenda
                 </Text>
               </TouchableOpacity>
             </LiquidGlassView>
           )}
         </View>
-
-        {/* Acciones principales */}
-        <View style={styles.actionButtonsCol}>
-          <PrimaryButton
-            label="Ver Prendas Armonizadas en Armario"
-            onPress={handleOpenWardrobe}
-            icon="shirt-outline"
-          />
-          <SecondaryButton
-            label="Abrir Probador Virtual 3D"
-            onPress={handleOpenFittingRoom}
-            icon="sparkles-outline"
-            style={{ marginTop: Spacing.sm }}
-          />
-        </View>
       </ScrollView>
 
-      {/* MODAL IN-SCREEN: Recalibración con Cámara / Galería */}
+      {/* MODAL IN-SCREEN: Recalibración */}
       <Modal
         visible={isRecalibrateModalOpen}
         transparent={true}
@@ -704,7 +495,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   Analizando Colorimetría con IA
                 </Text>
                 <Text style={[styles.analyzingSubtitle, { color: colors.secondaryText }]}>
-                  Gemini Vision está examinando tu tono de piel, contraste de cabello y estación cromática óptima...
+                  FitGlass AI está examinando tu tono de piel, contraste de cabello y estación cromática óptima...
                 </Text>
               </View>
             ) : (
@@ -715,13 +506,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                       Recalibrar Colorimetría
                     </Text>
                     <Text style={[styles.modalSubtitle, { color: colors.secondaryText }]}>
-                      Captura o selecciona una foto frontal iluminada con luz natural uniforme para recalcular tu paleta.
+                      Captura o selecciona una foto frontal iluminada con luz natural uniforme.
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => setIsRecalibrateModalOpen(false)}
-                    style={styles.modalCloseBtn}
-                  >
+                  <TouchableOpacity onPress={() => setIsRecalibrateModalOpen(false)} style={styles.modalCloseBtn}>
                     <Ionicons name="close" size={20} color={colors.secondaryText} />
                   </TouchableOpacity>
                 </View>
@@ -809,285 +597,165 @@ const styles = StyleSheet.create({
   },
   seasonTagRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
-  seasonPill: {
+  headerPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radius.full,
     gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(150, 150, 150, 0.1)',
   },
-  seasonPillText: {
+  headerPillText: {
     ...Typography.micro,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1.2,
-  },
-  recalibrateBtnMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  recalibrateBtnMiniText: {
-    ...Typography.micro,
-    fontSize: 11,
+    letterSpacing: 0.5,
   },
   paletteName: {
     ...Typography.headlineMd,
-    fontSize: 24,
-    lineHeight: 32,
-    marginTop: Spacing.xs,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontFamily: Typography.bodoni.bold,
+    fontSize: 28,
+    lineHeight: 34,
+    marginBottom: Spacing.lg,
   },
-  chromaRingBox: {
-    height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.md,
-    position: 'relative',
-  },
-  outerOrb: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  innerOrb: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerCore: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  orbitRow: {
+  
+  // PALETA PROTAGONISTA (BLOQUES)
+  paletteRow: {
     flexDirection: 'row',
-    position: 'absolute',
-    bottom: 0,
-    gap: 10,
-  },
-  orbitDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-  },
-  sectionWrapper: {
-    marginHorizontal: SCREEN_GUTTER,
-    marginTop: Spacing.lg,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.xs,
+    marginBottom: Spacing.lg,
   },
-  sectionHeading: {
-    ...Typography.headlineMd,
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  badgeCount: {
-    ...Typography.labelSm,
-    letterSpacing: 1,
-  },
-  sectionSubtitle: {
-    ...Typography.bodySm,
-    marginTop: 2,
-    marginBottom: Spacing.md,
-  },
-  baseTonesGrid: {
-    gap: Spacing.sm,
-  },
-  baseToneCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-  },
-  toneCircularSwatch: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    marginRight: Spacing.md,
-  },
-  toneTextCol: {
+  paletteBlockWrapper: {
     flex: 1,
+    alignItems: 'center',
+    gap: 6,
   },
-  toneTypeLabel: {
-    ...Typography.micro,
-    fontSize: 9,
-    letterSpacing: 1,
-    fontWeight: '700',
+  paletteBlock: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  toneValueText: {
-    ...Typography.callout,
-    fontWeight: '600',
-    marginTop: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.12)',
+  paletteBlockSelected: {
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  paletteCheckIcon: {
+    textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+  paletteHexText: {
+    ...Typography.micro,
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+
+  paletteDesc: {
+    ...Typography.bodySm,
+    fontSize: 13,
+    lineHeight: 18,
+    fontStyle: 'italic',
+    marginBottom: Spacing.lg,
+    opacity: 0.9,
+  },
+  baseTonesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    marginBottom: Spacing.lg,
+  },
+  toneCompactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toneCompactSwatch: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  toneLabelMini: {
+    ...Typography.micro,
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  toneValueMini: {
+    ...Typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  // NUEVO BOTÓN DE RECALIBRAR DESTACADO
+  prominentRecalibrateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    backgroundColor: 'rgba(150, 150, 150, 0.05)', // Fondo sutil que resalta sobre el vidrio
+  },
+  prominentRecalibrateText: {
+    ...Typography.labelMd,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
   explanationCard: {
     marginHorizontal: SCREEN_GUTTER,
-    marginTop: Spacing.md,
+    marginTop: Spacing.xl,
     borderRadius: Radius.lg,
-    padding: Spacing.lg,
     borderWidth: 1,
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.md,
   },
   explanationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: Spacing.xs,
+    gap: 8,
   },
   explanationLabel: {
     ...Typography.caption,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    fontSize: 14,
   },
-  explanationBody: {
-    ...Typography.body,
+  accordionBody: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(150,150,150,0.2)',
+    paddingTop: Spacing.md,
+  },
+  accordionSubtitle: {
+    ...Typography.bodySm,
     fontSize: 13,
-    lineHeight: 19,
-    fontStyle: 'italic',
-    textShadowColor: 'rgba(0, 0, 0, 0.10)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  swatchesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  swatchCard: {
-    width: (Dimensions.get('window').width - SCREEN_GUTTER * 2 - Spacing.sm * 3) / 4,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: 4,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circularSwatch: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    marginBottom: 6,
-  },
-  circularSwatchSelected: {
-    transform: [{ scale: 1.08 }],
-  },
-  swatchHexCode: {
-    ...Typography.micro,
-    fontSize: 9,
-    textAlign: 'center',
-  },
-  selectedSwatchCard: {
-    marginHorizontal: SCREEN_GUTTER,
-    marginTop: Spacing.md,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  largeSwatchBlock: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-  },
-  selectedSwatchDetails: {
-    flex: 1,
-  },
-  selectedSwatchLabel: {
-    ...Typography.micro,
-    fontSize: 9,
-    letterSpacing: 1,
-    fontWeight: '700',
-  },
-  selectedSwatchHex: {
-    ...Typography.title2,
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.12)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  selectedSwatchHint: {
-    ...Typography.micro,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  avoidChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
-  },
-  avoidChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    gap: 4,
-  },
-  avoidDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  avoidHexText: {
-    ...Typography.micro,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  actionButtonsCol: {
-    marginHorizontal: SCREEN_GUTTER,
-    marginTop: Spacing.lg,
-  },
-  taglineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-    gap: 4,
-  },
-  taglineText: {
-    ...Typography.micro,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  editorialCard: {
-    padding: Spacing.md,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-  },
-  blockTitle: {
-    ...Typography.caption,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: Spacing.sm,
+    lineHeight: 18,
+    marginBottom: Spacing.md,
   },
   tipsList: {
     gap: 8,
@@ -1165,9 +833,59 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
+  avoidSection: {
+    marginTop: Spacing.sm,
+  },
+  avoidChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  avoidChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    gap: 4,
+  },
+  avoidDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  avoidHexText: {
+    ...Typography.micro,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  sectionWrapper: {
+    marginHorizontal: SCREEN_GUTTER,
+    marginTop: Spacing.xl,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
+  },
+  sectionHeading: {
+    ...Typography.headlineMd,
+    fontFamily: Typography.bodoni.bold,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  badgeCount: {
+    ...Typography.labelSm,
+    fontSize: 10,
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
   garmentCarouselContainer: {
     gap: Spacing.sm,
     paddingVertical: 4,
+    marginTop: Spacing.xs,
   },
   garmentCard: {
     width: 150,
@@ -1236,9 +954,6 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontWeight: '600',
     marginTop: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.12)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   tryOnLink: {
     ...Typography.micro,
@@ -1252,6 +967,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     textAlign: 'center',
+    marginTop: Spacing.sm,
   },
   emptyHarmoniousTitle: {
     ...Typography.headlineSm,

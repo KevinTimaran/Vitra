@@ -192,8 +192,14 @@ export function useUserProfileState(isReady: boolean) {
         avatarUrl = response.avatar_url;
       } catch (backendError) {
         console.warn('[UserContext] La ruta de avatar autenticada falló; se probará la ruta compatible:', errorMessage(backendError));
-        const fallback = await generateAvatar(imageUriOrBase64);
-        avatarUrl = fallback.avatar_url;
+        try {
+          const fallback = await generateAvatar(imageUriOrBase64);
+          avatarUrl = fallback.avatar_url;
+        } catch (genError) {
+          console.warn('[UserContext] Error en generación de avatar, usando modelo base optimizado:', errorMessage(genError));
+          const defaultAvatar = await getDefaultAvatarModel(profileRef.current.gender || DEFAULT_GENDER);
+          avatarUrl = defaultAvatar?.avatar_url || DEFAULT_SAMPLE_MODEL_URL;
+        }
       }
 
       if (!avatarUrl) throw new Error('El servidor no devolvió la URL del avatar.');

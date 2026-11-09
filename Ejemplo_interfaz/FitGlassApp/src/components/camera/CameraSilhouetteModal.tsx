@@ -12,6 +12,7 @@ import {
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SilhouetteGuideSvg } from './SilhouetteGuideSvg';
 import { ImageCropperModal } from './ImageCropperModal';
 
@@ -30,6 +31,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
   onPhotoSelected,
   gender = 'female',
 }) => {
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [isCapturing, setIsCapturing] = useState(false);
@@ -60,6 +62,30 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
       }
     } catch (gErr) {
       console.error('[CameraSilhouetteModal] Error en galería:', gErr);
+    }
+  };
+
+  // Respaldo directo: abrir cámara del sistema si se prefiere
+  const handleSystemCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso Requerido', 'Se requiere acceso a la cámara.');
+        return;
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.9,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setCapturedUri(res.assets[0].uri);
+        setShowCropper(true);
+      }
+    } catch (cErr) {
+      console.error('[CameraSilhouetteModal] Error en cámara del sistema:', cErr);
     }
   };
 
@@ -120,7 +146,8 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
       }
     } catch (err: any) {
       console.error('[CameraSilhouetteModal] Error capturando foto:', err);
-      Alert.alert('Error', 'No se pudo capturar la fotografía.');
+      Alert.alert('Error', 'No se pudo capturar con el visor rápido. Abriendo cámara del sistema...');
+      handleSystemCamera();
     } finally {
       setIsCapturing(false);
     }
@@ -139,15 +166,21 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
     onClose();
   };
 
+  const topInset = Math.max(insets.top, 24);
+  const bottomInset = Math.max(insets.bottom, 24);
+
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
+    <Modal visible={visible} animationType="slide" transparent={false} statusBarTranslucent>
       <View style={styles.container}>
-        {/* Visor de Cámara de Expo */}
+        {/* Visor de Cámara de Expo (Sin vistas hijas para que las capas nativas de video no oculten controles) */}
         <CameraView
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing={facing}
-        >
+        />
+
+        {/* Capa de interfaz de usuario superpuesta */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           {/* Overlay Silueta Humana A-Pose Translúcida */}
           <View style={styles.silhouetteOverlay} pointerEvents="none">
             <SilhouetteGuideSvg
@@ -157,8 +190,19 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
             />
           </View>
 
+          {/* Barra Superior con Controles (Cerrar / Cambiar Cámara) */}
+          <View style={[styles.topBar, { top: topInset + 10 }]}>
+            <TouchableOpacity style={styles.iconCircleBtn} onPress={onClose} activeOpacity={0.7}>
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.iconCircleBtn} onPress={toggleCameraFacing} activeOpacity={0.7}>
+              <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
           {/* Banner Flotante de Instrucción */}
-          <View style={styles.floatingBannerContainer}>
+          <View style={[styles.floatingBannerContainer, { top: topInset + 64 }]}>
             <View style={styles.floatingBanner}>
               <View style={styles.bannerIconBadge}>
                 <Ionicons name="body-outline" size={16} color="#0D0D0D" />
@@ -166,35 +210,23 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
               <View style={styles.bannerTextContent}>
                 <Text style={styles.bannerTitle}>POSTURA BIOMÉTRICA (A-POSE)</Text>
                 <Text style={styles.bannerMessage}>
-                  Align your body with the silhouette. Stand with arms slightly away from your sides (A-pose). Ensure good lighting.
-                </Text>
-                <Text style={styles.bannerMessageEs}>
-                  Alinea tu cuerpo con la silueta. Mantén los brazos ligeramente separados (postura A) y buena iluminación.
+                  Alinea tu cuerpo con la silueta dorada con los brazos separados y buena luz.
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* Barra Superior con Controles (Cerrar / Cambiar Cámara) */}
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.iconCircleBtn} onPress={onClose}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.iconCircleBtn} onPress={toggleCameraFacing}>
-              <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Barra Inferior con Disparador y Galería */}
-          <View style={styles.bottomBar}>
+          {/* Barra Inferior con Disparador Dorado, Galería y Cámara del Sistema */}
+          <View style={[styles.bottomBar, { bottom: bottomInset + 16 }]}>
             {/* Botón de Galería */}
-            <TouchableOpacity style={styles.galleryBtn} onPress={handlePickFromGallery}>
-              <Ionicons name="images-outline" size={24} color="#FFFFFF" />
-              <Text style={styles.galleryBtnLabel}>Galería</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={handlePickFromGallery} activeOpacity={0.7}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="images-outline" size={22} color="#FFFFFF" />
+              </View>
+              <Text style={styles.actionBtnLabel}>Galería</Text>
             </TouchableOpacity>
 
-            {/* Disparador de Alta Gama Vitra */}
+            {/* Disparador de Alta Gama Vitra (Centro) */}
             <TouchableOpacity
               style={styles.shutterOuterRing}
               onPress={handleTakePicture}
@@ -203,17 +235,22 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
             >
               <View style={styles.shutterInnerCircle}>
                 {isCapturing ? (
-                  <ActivityIndicator color="#0D0D0D" size="small" />
+                  <ActivityIndicator color="#D4AF37" size="small" />
                 ) : (
                   <View style={styles.shutterCore} />
                 )}
               </View>
             </TouchableOpacity>
 
-            {/* Placeholder equilibrador derecho */}
-            <View style={{ width: 60 }} />
+            {/* Botón Cámara de Sistema Alternativa */}
+            <TouchableOpacity style={styles.actionBtn} onPress={handleSystemCamera} activeOpacity={0.7}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="camera-outline" size={22} color="#FFFFFF" />
+              </View>
+              <Text style={styles.actionBtnLabel}>Cámara</Text>
+            </TouchableOpacity>
           </View>
-        </CameraView>
+        </View>
 
         {/* Modal de Recorte Ajustado Posterior */}
         <ImageCropperModal
@@ -294,17 +331,16 @@ const styles = StyleSheet.create({
   },
   floatingBannerContainer: {
     position: 'absolute',
-    top: 98,
     left: 16,
     right: 16,
     zIndex: 10,
   },
   floatingBanner: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(13, 13, 13, 0.88)',
+    alignItems: 'center',
+    backgroundColor: 'rgba(13, 13, 13, 0.90)',
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.4)',
     shadowColor: '#000000',
@@ -321,7 +357,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    marginTop: 2,
   },
   bannerTextContent: {
     flex: 1,
@@ -331,25 +366,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   bannerMessage: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     lineHeight: 16,
-  },
-  bannerMessageEs: {
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 11,
-    marginTop: 4,
-    lineHeight: 15,
   },
   topBar: {
     position: 'absolute',
-    top: 48,
-    left: 16,
-    right: 16,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     zIndex: 10,
@@ -358,47 +386,61 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   bottomBar: {
     position: 'absolute',
-    bottom: 38,
-    left: 20,
-    right: 20,
+    left: 30,
+    right: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    zIndex: 10,
+    zIndex: 20,
   },
-  galleryBtn: {
+  actionBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 60,
+    width: 64,
   },
-  galleryBtnLabel: {
+  actionIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  actionBtnLabel: {
     color: '#FFFFFF',
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 6,
     fontWeight: '600',
   },
   shutterOuterRing: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     borderWidth: 4,
     borderColor: '#D4AF37',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    backgroundColor: 'rgba(212, 175, 55, 0.22)',
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+    elevation: 10,
   },
   shutterInnerCircle: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -407,6 +449,8 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F0E6D2',
+    borderWidth: 2,
+    borderColor: '#D4AF37',
   },
 });

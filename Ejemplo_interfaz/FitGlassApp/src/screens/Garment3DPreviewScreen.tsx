@@ -134,6 +134,7 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
           if (mesh.material) {
             const applyMatte = (mat: any) => {
               if (!mat) return;
+              mat.name = 'VitraModelMaterial';
               mat.roughness = 0.9;
               mat.metalness = 0.0;
               if ('specular' in mat && mat.specular?.set) {

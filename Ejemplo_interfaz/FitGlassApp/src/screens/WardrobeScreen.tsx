@@ -20,7 +20,6 @@ import { Garment } from '../types';
 import { GarmentViewScreen } from './GarmentViewScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
 
 const CATEGORY_FILTERS = [
   { id: 'Todas', label: 'Todas', icon: 'grid-outline' },
@@ -152,9 +151,6 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
       {/* Cabecera Superior de la Biblioteca */}
       <View style={[styles.headerBar, { borderBottomColor: colors.borderLight }]}>
         <View style={styles.headerTitleBox}>
-          <Text style={[styles.headerSublabel, { color: colors.tertiaryText }]}>
-            BIBLIOTECA VIRTUAL
-          </Text>
           <Text style={[styles.headerMainTitle, { color: colors.primaryText }]}>
             Mi Armario
           </Text>
@@ -331,12 +327,6 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                 <Text style={[styles.cardTitle, { color: colors.primaryText }]} numberOfLines={2}>
                   {item.name}
                 </Text>
-
-                {item.fit && (
-                  <Text style={[styles.cardFitText, { color: colors.secondaryText }]}>
-                    Corte: {item.fit}
-                  </Text>
-                )}
               </View>
             </TouchableOpacity>
           );
@@ -450,12 +440,6 @@ const styles = StyleSheet.create({
   headerTitleBox: {
     flex: 1,
   },
-  headerSublabel: {
-    fontFamily: Typography.outfit.bold,
-    fontSize: 9,
-    letterSpacing: 1.2,
-    marginBottom: 2,
-  },
   headerMainTitle: {
     fontFamily: Typography.bodoni.bold,
     fontSize: 28,
@@ -503,24 +487,33 @@ const styles = StyleSheet.create({
     fontFamily: Typography.outfit.regular,
     fontSize: 12,
   },
+  
+  // CONTENEDOR DE LA CUADRÍCULA ADAPTADO PARA WEB Y MÓVIL
   gridContainer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.xs,
     paddingBottom: 95,
+    width: '100%',
+    maxWidth: 768, // Evita que las tarjetas se estiren demasiado en pantallas grandes
+    alignSelf: 'center', // Centra la cuadrícula en el navegador
   },
   gridRow: {
     justifyContent: 'space-between',
     marginBottom: Spacing.md,
   },
+  
+  // TARJETA RESPONSIVA
   garmentCard: {
-    width: CARD_WIDTH,
+    width: '48%', // Se adapta al contenedor sin importar el tamaño de pantalla
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },
+  
+  // IMAGEN RESPONSIVA CON PROPORCIÓN
   imageFrame: {
     width: '100%',
-    height: CARD_WIDTH * 1.15,
+    aspectRatio: 0.85, // Reemplaza la altura fija por una proporción
     backgroundColor: 'rgba(0,0,0,0.03)',
     position: 'relative',
     overflow: 'hidden',
@@ -587,11 +580,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.outfit.semiBold,
     fontSize: 13,
     lineHeight: 17,
-  },
-  cardFitText: {
-    fontFamily: Typography.outfit.regular,
-    fontSize: 11,
-    marginTop: 2,
   },
   filterEmptyBox: {
     alignItems: 'center',

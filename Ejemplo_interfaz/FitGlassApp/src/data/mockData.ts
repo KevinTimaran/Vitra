@@ -13,22 +13,7 @@ export const INITIAL_BODY_PROFILE: BodyProfile = {
 };
 
 export const MOCK_GARMENTS: Garment[] = [
-  {
-    id: 'g-1',
-    name: 'Essential Heavyweight T-Shirt',
-    category: 'Tops',
-    colorName: 'Charcoal Black',
-    colorHex: '#1C1C1E',
-    size: 'M',
-    fit: 'Regular',
-    brand: 'Studio Glass',
-    material: '100% Organic Pima Cotton',
-    addedDate: '24 Sep 2026',
-    silhouetteType: 'tshirt',
-    paletteHarmony: true,
-    imageUrl:
-      'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80',
-  },
+  // SE ELIMINÓ LA PRENDA: 'Essential Heavyweight T-Shirt' (g-1)
   {
     id: 'g-2',
     name: 'Structured Minimal Blazer',
@@ -182,7 +167,8 @@ export const MOCK_SAVED_LOOKS: SavedLookItem[] = [
     date: '27 Sep 2026',
     category: 'Elegante',
     isFavorite: true,
-    garments: [MOCK_GARMENTS[0], MOCK_GARMENTS[1], MOCK_GARMENTS[2], MOCK_GARMENTS[4]],
+    // Índices ajustados (0 = Blazer, 1 = Trousers, 3 = Shoes)
+    garments: [MOCK_GARMENTS[0], MOCK_GARMENTS[1], MOCK_GARMENTS[3]],
     fitScore: 'Balanced · Regular Fit',
     paletteTheme: 'Deep Neutral Harmony',
   },
@@ -192,7 +178,8 @@ export const MOCK_SAVED_LOOKS: SavedLookItem[] = [
     date: '20 Sep 2026',
     category: 'Fiesta',
     isFavorite: false,
-    garments: [MOCK_GARMENTS[5], MOCK_GARMENTS[3], MOCK_GARMENTS[2]],
+    // Índices ajustados (4 = Mockneck, 2 = Overcoat, 1 = Trousers)
+    garments: [MOCK_GARMENTS[4], MOCK_GARMENTS[2], MOCK_GARMENTS[1]],
     fitScore: 'Editorial · Slightly Oversized',
     paletteTheme: 'Cool Mineral Muted',
   },

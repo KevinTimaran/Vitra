@@ -134,7 +134,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           >
             <Ionicons name="scan-outline" size={13} color={colors.primary} />
             <Text style={[styles.calibrationText, { color: colors.primaryText }]}>
-              ESCÁNER 1:1 · GEMINI VISION & TRIPO 3D
+              ESCÁNER 1:1 · FITGLASS AI & TRIPO 3D
             </Text>
           </View>
         </GlassCard>
@@ -150,7 +150,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 1. Colorimetría Estacional
               </Text>
               <Text style={[styles.pillarDesc, { color: colors.secondaryText }]}>
-                Gemini Vision analiza tu subtono de piel y cabello para definir tu paleta HEX de máxima armonía.
+                FitGlass AI analiza tu subtono de piel y cabello para definir tu paleta HEX de máxima armonía.
               </Text>
             </View>
           </GlassCard>
