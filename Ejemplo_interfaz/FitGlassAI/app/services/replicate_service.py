@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 # Modelo oficial y estable de Virtual Try-On en Replicate (IDM-VTON)
 REPLICATE_VTON_MODEL = "cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985"
+# Modelo CodeFormer para restauración facial y upscaling HD
+REPLICATE_CODEFORMER_MODEL = "sczhou/codeformer:cc4956dd26fa5a7185d5660cc9100fab1b8070a1d1654a8bb5eb6d443b020bb2"
 REPLICATE_API_BASE_URL = "https://api.replicate.com/v1"
 
 # Modificadores de prompt para forzar texturas de tela mate natural y evitar acabados plásticos/brillantes
@@ -338,3 +340,109 @@ async def _generate_vton_via_rest(input_payload: dict) -> str:
             status_code=504,
             detail="Tiempo de espera agotado esperando el resultado de Replicate VTON."
         )
+
+
+async def restore_image_quality(image_url: str, fidelity: float = 0.7) -> str:
+    """
+    Restaura la calidad facial y resolución de una imagen usando CodeFormer en Replicate.
+    Prioriza reconstrucción facial y nitidez de texturas antes de la extracción 3D.
+
+    CRITICAL SAFETY REQUIREMENT:
+    Envuelto en un bloque try-except. Si la API de Replicate expira el timeout, lanza un error,
+    o retorna nulo/inválido, captura la excepción, la registra como advertencia y retorna
+    image_url (la imagen original sin procesar). Esto garantiza que el pipeline nunca colapsará.
+    """
+    if not image_url or not isinstance(image_url, str) or not image_url.strip():
+        logger.warning("[CodeFormer Restoration] image_url vacía o no válida. Retornando entrada original.")
+        return image_url
+
+    clean_image_url = image_url.strip()
+
+    if not settings.has_replicate or not settings.REPLICATE_API_TOKEN:
+        logger.warning(
+            "[CodeFormer Restoration] REPLICATE_API_TOKEN no configurado en entorno. "
+            "Omitiendo restauración y retornando imagen original."
+        )
+        return clean_image_url
+
+    try:
+        client = replicate.Client(
+            api_token=settings.REPLICATE_API_TOKEN,
+            timeout=httpx.Timeout(120.0, connect=30.0),
+        )
+
+        safe_image_url = await _ensure_replicate_accessible_url(client, clean_image_url)
+
+        input_payload = {
+            "image": safe_image_url,
+            "upscale": 2,
+            "face_upsample": True,
+            "background_enhance": True,
+            "codeformer_fidelity": fidelity,
+        }
+
+        logger.info(f"[CodeFormer Restoration] Ejecutando CodeFormer para: {safe_image_url[:80]}...")
+        raw_output = await asyncio.wait_for(
+            client.async_run(
+                REPLICATE_CODEFORMER_MODEL,
+                input=input_payload,
+            ),
+            timeout=120.0,
+        )
+
+        if not raw_output:
+            logger.warning("[CodeFormer Restoration] CodeFormer retornó un output nulo o vacío. Retornando imagen original.")
+            return clean_image_url
+
+        # Manejar generadores / iteradores asíncronos o síncronos
+        output = raw_output
+        if hasattr(output, "__aiter__"):
+            chunks = []
+            async for item in output:
+                chunks.append(item)
+            output = chunks
+        elif hasattr(output, "__iter__") and not isinstance(output, (str, bytes, list, dict, set, tuple)):
+            output = list(output)
+
+        # Extraer URL del resultado (soporta lista, FileOutput, dict o string)
+        if isinstance(output, (list, tuple)):
+            output = output[0] if len(output) > 0 else None
+
+        if isinstance(output, dict):
+            output = output.get("image") or output.get("url") or output.get("output") or output.get("file")
+
+        url_attr = getattr(output, "url", None)
+        if url_attr:
+            res_url = str(url_attr)
+        elif output is not None:
+            res_url = str(output)
+        else:
+            res_url = ""
+
+        res_url = res_url.strip()
+        if not res_url or res_url.lower() in ("none", "null", "undefined"):
+            logger.warning("[CodeFormer Restoration] Output de CodeFormer no contiene una URL válida. Retornando imagen original.")
+            return clean_image_url
+
+        # Validar esquema de URL para evitar strings residuales o mensajes de error
+        if not (
+            res_url.startswith("http://")
+            or res_url.startswith("https://")
+            or res_url.startswith("data:image/")
+            or res_url.startswith("file://")
+        ):
+            logger.warning(
+                f"[CodeFormer Restoration] Output de CodeFormer ('{res_url[:60]}...') no es un esquema de URL válido. "
+                "Retornando imagen original."
+            )
+            return clean_image_url
+
+        logger.info(f"[CodeFormer Restoration] Éxito con CodeFormer. URL HD: {res_url}")
+        return res_url
+
+    except Exception as e:
+        logger.warning(
+            f"[CodeFormer Restoration] Error al restaurar calidad con CodeFormer ({type(e).__name__}: {e}). "
+            f"Fallback seguro activo: retornando imagen original: {clean_image_url[:80]}..."
+        )
+        return clean_image_url

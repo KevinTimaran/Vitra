@@ -13,10 +13,9 @@ from app.schemas.tryon import (
     CascadeTryOnRequest,
     CascadeTryOnResponse,
     CascadeStepInfo,
-    CascadeGarmentInput,
 )
 from app.api.auth import users_db
-from app.services.replicate_service import generate_vton
+from app.services.replicate_service import generate_vton, restore_image_quality
 from app.services.tripo_service import generate_3d_model
 from app.services.optimizer_service import optimize_3d_model, STATIC_MODELS_DIR
 
@@ -656,32 +655,52 @@ async def _execute_waterfall_cascade(
             logger.warning(f"[WATERFALL PASO {step_num} FALLBACK] Continuando con el lienzo previo.")
 
     if len(steps_history) == 0:
-        if not payload.allow_fallback:
-            logger.error("[WATERFALL ERROR] Ninguna prenda pudo ser aplicada en la cascada 2D.")
-            err_msg = "Ninguna de las prendas seleccionadas pudo ser fusionada en 2D con IDM-VTON."
-            if task_id and task_id in _async_tasks:
-                _async_tasks[task_id].update({
-                    "status": "failed",
-                    "step": "failed_all_steps",
-                    "error": err_msg,
-                    "detail": err_msg,
-                })
-            raise HTTPException(status_code=502, detail=err_msg)
-        else:
-            logger.warning("[WATERFALL FALLBACK] Modo resiliente activado: procediendo a generar modelo 3D con silueta base y prendas seleccionadas.")
-            primary_garment_img = ordered_garments[0].get("image") if ordered_garments else base_human_image
-            current_human_canvas = primary_garment_img or base_human_image
-            steps_history.append(
-                CascadeStepInfo(
-                    step_number=1,
-                    garment_name=ordered_garments[0].get("name", "Look Combinado"),
-                    category="upper_body",
-                    dressed_image_url=current_human_canvas,
-                )
-            )
+        logger.error("[WATERFALL ERROR] Ninguna prenda pudo ser aplicada en la cascada 2D.")
+        err_msg = "Ninguna de las prendas seleccionadas pudo ser fusionada en 2D con IDM-VTON. No se generó un modelo 3D para evitar mostrar una prenda suelta como si fuera el avatar vestido."
+        if task_id and task_id in _async_tasks:
+            _async_tasks[task_id].update({
+                "status": "failed",
+                "step": "failed_all_steps",
+                "error": err_msg,
+                "detail": err_msg,
+            })
+        raise HTTPException(status_code=502, detail=err_msg)
 
     final_dressed_image = current_human_canvas
     logger.info(f"[WATERFALL 2D COMPLETADO] Lienzo final completamente vestido: {final_dressed_image[:80]}...")
+
+    # -------------------------------------------------------------------------
+    # RESTORATION: Inyección de CodeFormer (Face Restoration & Upscaling)
+    # -------------------------------------------------------------------------
+    vton_image_url = final_dressed_image
+    logger.info(f"[Step 1/3] VTON completed. Original URL: {vton_image_url}")
+    logger.info("[Step 2/3] Executing CodeFormer restoration...")
+
+    if task_id and task_id in _async_tasks:
+        _async_tasks[task_id].update({
+            "step": "restoring_quality",
+            "progress": 0.65,
+            "detail": "Restaurando rostro y mejorando nitidez HD con CodeFormer...",
+        })
+
+    try:
+        hd_image_url = await restore_image_quality(vton_image_url)
+    except Exception as cf_err:
+        logger.warning(
+            f"[WATERFALL RESTORATION] Excepción inesperada en restore_image_quality: {cf_err}. "
+            f"Fallback seguro: conservando lienzo VTON original."
+        )
+        hd_image_url = vton_image_url
+
+    if not hd_image_url or not str(hd_image_url).strip():
+        logger.warning("[WATERFALL RESTORATION] URL resultante vacía. Conservando URL previa de VTON.")
+        hd_image_url = vton_image_url
+
+    logger.info(f"[Step 3/3] CodeFormer completed. HD URL: {hd_image_url}. Sending to Tripo3D.")
+    final_dressed_image = hd_image_url
+
+    if steps_history:
+        steps_history[-1].dressed_image_url = final_dressed_image
 
     # -------------------------------------------------------------------------
     # STEP 3: Generación 3D del Modelo Unificado (Tripo3D)
@@ -690,13 +709,13 @@ async def _execute_waterfall_cascade(
         _async_tasks[task_id].update({
             "step": "tripo3d_unified",
             "progress": 0.70,
-            "final_dressed_image_url": final_dressed_image,
+            "final_dressed_image_url": hd_image_url,
             "detail": "Generando modelo 3D unificado con Tripo3D...",
         })
 
     logger.info("[WATERFALL 3D] Enviando lienzo final a Tripo3D (1 sola generación unificada)...")
     try:
-        raw_3d_url = await generate_3d_model(image_url=final_dressed_image)
+        raw_3d_url = await generate_3d_model(image_url=hd_image_url)
         logger.info(f"[WATERFALL 3D ÉXITO] Modelo .glb recibido de Tripo3D: {raw_3d_url}")
     except Exception as tripo_err:
         logger.error(f"[WATERFALL 3D ERROR] Falló Tripo3D: {tripo_err}")
