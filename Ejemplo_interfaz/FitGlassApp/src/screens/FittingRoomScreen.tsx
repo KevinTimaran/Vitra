@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Model3DViewer, preloadGLTF } from '../components/Model3DViewer';
-import { GlassCard } from '../components/GlassCard';
+import { LiquidGlassView } from '../components/LiquidGlassView';
 import { VibrantBackground } from '../components/VibrantBackground';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
@@ -25,7 +25,6 @@ import {
   generateTryOn,
   generateOutfitTryOn,
   generateWaterfallCascadeTryOn,
-  getLatestModel,
   CascadeStepProgress,
 } from '../services/ai/garmentAnalyzer';
 import { Garment, SavedLookItem } from '../types';
@@ -224,15 +223,27 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       currentGarmentIndex: 0,
     });
 
-    const humanImage =
-      avatar_2d_image ||
-      (gender === 'male'
+    // Las URI file:// se invalidan al reinstalar/abrir otra sesión Expo. En ese
+    // caso dejamos que el backend resuelva la imagen persistida del usuario.
+    const candidateHumanImage = avatar_2d_image || '';
+    const isExpiredLocalImage =
+      candidateHumanImage.startsWith('file://') ||
+      candidateHumanImage.startsWith('ph://') ||
+      candidateHumanImage.startsWith('content://');
+    const presetHumanImage =
+      gender === 'male'
         ? 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=800&q=80'
-        : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80');
+        : gender === 'non-binary'
+        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
+        : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
+    const humanImage = isExpiredLocalImage ? presetHumanImage : candidateHumanImage || presetHumanImage;
 
     try {
       console.log(
         `[FittingRoom Waterfall] Ejecutando Cascada para look con ${selectedGarments.length} prendas...`
+      );
+      console.log(
+        `[FittingRoom Waterfall] Imagen base: ${isExpiredLocalImage ? 'foto local caducada; se usa imagen preset' : candidateHumanImage ? 'foto del perfil' : 'imagen preset'}.`
       );
       const garmentPayloads = selectedGarments.map((g) => ({
         image: g.imageUrl || '',
@@ -250,6 +261,11 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             : 'upper_body',
         name: g.name,
       }));
+      garmentPayloads.forEach((garment, index) => {
+        console.log(
+          `[FittingRoom Waterfall] Entrada ${index + 1}/${garmentPayloads.length}: ${garment.name} -> ${garment.category}, imagen ${garment.image ? 'disponible' : 'faltante'}.`
+        );
+      });
 
       // Invocación a la Cascada 2D secuencial y posterior generación 3D unificada con AbortSignal
       const result = await generateWaterfallCascadeTryOn(
@@ -267,8 +283,19 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       // Si el componente se desmontó mientras esperaba la respuesta, no actualizar estado
       if (!isMountedRef.current) return;
 
+      if (result.status !== 'completed' || !result.model_3d_url) {
+        throw new Error(result.message || 'El servidor no devolvió un modelo 3D para este look.');
+      }
+      const appliedGarments = result.total_garments_applied ?? result.steps_completed?.length;
+      if (appliedGarments !== undefined && appliedGarments < selectedGarments.length) {
+        throw new Error(
+          `Solo se pudieron aplicar ${appliedGarments} de ${selectedGarments.length} prendas. No se mostró el modelo incompleto.`
+        );
+      }
+
       if (result.model_3d_url) {
         console.log('[FittingRoom Waterfall] ¡Modelo 3D unificado recibido del backend!', result.model_3d_url);
+        console.log('[FittingRoom Waterfall] Entregando el nuevo GLB al visor 3D del Probador.');
         preloadGLTF(result.model_3d_url);
         // Intercambio fluido (swap) del modelo 3D unificado en el visor Three.js
         setActiveModelUrl(result.model_3d_url);
@@ -285,17 +312,8 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
       }
 
       console.warn('[FittingRoom Waterfall] Aviso en Cascada de look:', err?.message);
-      try {
-        const latest = await getLatestModel();
-        if (latest?.model_3d_url && isMountedRef.current) {
-          console.log('[FittingRoom] Modelo 3D recuperado con éxito del servidor tras aviso:', latest.model_3d_url);
-          preloadGLTF(latest.model_3d_url);
-          setActiveModelUrl(latest.model_3d_url);
-          setTryOnSuccess(true);
-        }
-      } catch {}
-      if (selectedGarments[0]?.imageUrl && isMountedRef.current) {
-        setCurrent2DUrl(selectedGarments[0].imageUrl);
+      if (isMountedRef.current) {
+        Alert.alert('No se pudo generar el look', err?.message || 'Intenta nuevamente en unos momentos.');
       }
     } finally {
       isGeneratingRef.current = false;
@@ -367,10 +385,10 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
               style={styles.image2DFull}
               resizeMode="contain"
             />
-            <GlassCard style={styles.badge2D} intensity={70}>
+            <LiquidGlassView style={styles.badge2D} intensity={80} borderRadius={Radius.pill}>
               <Ionicons name="sparkles" size={13} color="#8EB6C7" />
               <Text style={styles.badge2DText}>Resultado Fusión 2D (IDM-VTON)</Text>
-            </GlassCard>
+            </LiquidGlassView>
           </View>
         ) : (
           /* Visor 3D estricto con Canvas de @react-three/fiber */
@@ -397,16 +415,16 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             />
 
             {/* Guía táctil 360 */}
-            <View style={styles.touchHintBadge}>
+            <LiquidGlassView style={styles.touchHintBadge} intensity={70} borderRadius={Radius.pill}>
               <Ionicons name="finger-print-outline" size={15} color="#FFFFFF" />
               <Text style={styles.touchHintText}>{t('fittingRoom.touchHint')}</Text>
-            </View>
+            </LiquidGlassView>
           </View>
         )}
 
         {/* Tags Informativos Flotantes Glassmorphism (Top-Left) */}
         {selectedGarments.length > 0 && (
-          <GlassCard style={styles.floatingGarmentInfoTag} intensity={65}>
+          <LiquidGlassView style={styles.floatingGarmentInfoTag} intensity={85} borderRadius={Radius.lg}>
             <View style={styles.garmentHeaderRow}>
               {selectedGarments.length === 1 && selectedGarments[0] ? (
                 <>
@@ -467,84 +485,69 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                 </View>
               )}
             </View>
-          </GlassCard>
+          </LiquidGlassView>
         )}
 
         {/* Controles Flotantes Superiores (Top-Right): Reset Avatar, Alternar 2D/3D & Añadir Prenda */}
         <View style={styles.floatingControlsTopRight}>
           {avatar_3d_base_url && activeModelUrl !== avatar_3d_base_url && (
             <TouchableOpacity
-              style={[
-                styles.avatarResetBtn,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(20, 22, 28, 0.75)'
-                    : 'rgba(255, 255, 255, 0.88)',
-                  borderColor: isDark
-                    ? 'rgba(255, 255, 255, 0.18)'
-                    : 'rgba(0, 0, 0, 0.10)',
-                },
-              ]}
               onPress={handleResetViewerToAvatar}
               activeOpacity={0.7}
             >
-              <Ionicons name="person-circle-outline" size={15} color={colors.primaryText} />
-              <Text style={[styles.avatarResetText, { color: colors.primaryText }]}>
-                Avatar Base
-              </Text>
+              <LiquidGlassView
+                style={styles.avatarResetBtn}
+                intensity={85}
+                borderRadius={Radius.pill}
+              >
+                <Ionicons name="person-circle-outline" size={15} color={colors.primaryText} />
+                <Text style={[styles.avatarResetText, { color: colors.primaryText }]}>
+                  Avatar Base
+                </Text>
+              </LiquidGlassView>
             </TouchableOpacity>
           )}
 
           {current2DUrl && (
             <TouchableOpacity
-              style={[
-                styles.toggleBtn,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(20, 22, 28, 0.75)'
-                    : 'rgba(255, 255, 255, 0.88)',
-                  borderColor: isDark
-                    ? 'rgba(255, 255, 255, 0.18)'
-                    : 'rgba(0, 0, 0, 0.10)',
-                },
-              ]}
               onPress={() => setShow2DView(!show2DView)}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name={show2DView ? 'cube-outline' : 'image-outline'}
-                size={16}
-                color={colors.primaryText}
-              />
-              <Text style={[styles.toggleBtnText, { color: colors.primaryText }]}>
-                {show2DView ? t('fittingRoom.view3D') : t('fittingRoom.view2D')}
-              </Text>
+              <LiquidGlassView
+                style={styles.toggleBtn}
+                intensity={85}
+                borderRadius={Radius.pill}
+              >
+                <Ionicons
+                  name={show2DView ? 'cube-outline' : 'image-outline'}
+                  size={16}
+                  color={colors.primaryText}
+                />
+                <Text style={[styles.toggleBtnText, { color: colors.primaryText }]}>
+                  {show2DView ? t('fittingRoom.view3D') : t('fittingRoom.view2D')}
+                </Text>
+              </LiquidGlassView>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={[
-              styles.cameraQuickBtn,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(20, 22, 28, 0.75)'
-                  : 'rgba(255, 255, 255, 0.88)',
-                borderColor: isDark
-                  ? 'rgba(255, 255, 255, 0.18)'
-                  : 'rgba(0, 0, 0, 0.10)',
-              },
-            ]}
             onPress={handleLaunchAddGarment}
             activeOpacity={0.8}
           >
-            <Ionicons name="camera-outline" size={17} color={colors.primaryText} />
+            <LiquidGlassView
+              style={styles.cameraQuickBtn}
+              intensity={85}
+              borderRadius={18}
+            >
+              <Ionicons name="camera-outline" size={17} color={colors.primaryText} />
+            </LiquidGlassView>
           </TouchableOpacity>
         </View>
 
         {/* Estado Inmersivo de Carga durante la Fusión VTON en Cascada */}
         {isGenerating && (
           <View style={styles.generatingOverlay}>
-            <GlassCard style={styles.generatingModal} intensity={90}>
+            <LiquidGlassView style={styles.generatingModal} intensity={90} borderRadius={Radius.xl}>
               <ActivityIndicator size="large" color="#8B5CF6" />
               <Text style={[styles.generatingTitle, { color: colors.primaryText }]}>
                 {selectedGarments.length > 1 ? 'Aplicando Cascada 2D ➔ 3D' : 'Fusionando Prenda...'}
@@ -618,14 +621,14 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                   </View>
                 </View>
               )}
-            </GlassCard>
+            </LiquidGlassView>
           </View>
         )}
       </View>
 
       {/* SECCIÓN INFERIOR: Carrusel de Armario con Look Tray y Selección Multi-Prenda */}
       <View style={styles.bottomSection}>
-        <GlassCard style={styles.wardrobeCarouselCard} intensity={60}>
+        <LiquidGlassView style={styles.wardrobeCarouselCard} intensity={80} borderRadius={Radius.lg}>
           {/* BANDEJA DEL LOOK (CERO LLAMADAS A API HASTA PRESIONAR "Aplicar Cascada") */}
           <View style={styles.lookTrayContainer}>
             <View style={styles.lookTrayHeader}>
@@ -963,7 +966,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
               </View>
             }
           />
-        </GlassCard>
+        </LiquidGlassView>
       </View>
 
       {/* Modal de Detalle con Visor 3D y Opciones */}
@@ -1061,6 +1064,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '500',
     letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   // Tags flotantes superiores Glassmorphism
   floatingGarmentInfoTag: {
@@ -1093,6 +1099,9 @@ const styles = StyleSheet.create({
     ...Typography.labelMd,
     fontWeight: '700',
     fontSize: 13,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   garmentMetaRow: {
     flexDirection: 'row',
@@ -1318,6 +1327,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.2,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   lookTrayHeaderActions: {
     flexDirection: 'row',
@@ -1416,6 +1428,9 @@ const styles = StyleSheet.create({
     ...Typography.headlineMd,
     fontSize: 14,
     fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   carouselSubtitle: {
     ...Typography.micro,

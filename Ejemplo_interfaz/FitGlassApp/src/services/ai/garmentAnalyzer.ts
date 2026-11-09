@@ -938,6 +938,7 @@ export const generateWaterfallCascadeTryOn = async (
   abortSignal?: AbortSignal
 ): Promise<CascadeTryOnResponse> => {
   const baseUrl = getBaseUrl();
+  const startedAt = Date.now();
 
   if (abortSignal?.aborted) {
     throw new Error('Operación cancelada por el usuario.');
@@ -975,6 +976,18 @@ export const generateWaterfallCascadeTryOn = async (
   };
 
   console.log(
+    '[Waterfall 3D] Preparación lista: imagen base ' +
+      (formattedHumanImage ? 'incluida' : 'se resolverá en backend') +
+      ', ' + formattedGarments.length + ' prendas preparadas.'
+  );
+  formattedGarments.forEach((garment, index) => {
+    console.log(
+      '[Waterfall 3D] Prenda ' + (index + 1) + '/' + formattedGarments.length + ': ' +
+        garment.name + ' (' + garment.category + '), imagen ' + (garment.image ? 'lista' : 'vacía') + '.'
+    );
+  });
+
+  console.log(
     `[generateWaterfallCascadeTryOn] Iniciando Cascada de ${garments.length} prendas optimizadas en: ${baseUrl}/api/tryon/cascade...`
   );
 
@@ -996,6 +1009,7 @@ export const generateWaterfallCascadeTryOn = async (
       const taskId = startData.task_id;
       if (taskId) {
         console.log(`[Waterfall Cascade] Tarea asíncrona iniciada (task_id: ${taskId}).`);
+        console.log('[Waterfall 3D] IDM-VTON aplicará las prendas en secuencia; después Tripo3D generará el avatar vestido.');
         const maxAttempts = 120; // Hasta 240s para looks de varias prendas
 
         for (let i = 0; i < maxAttempts; i++) {
@@ -1046,6 +1060,16 @@ export const generateWaterfallCascadeTryOn = async (
 
             if (statusRes.ok) {
               const statusData = await statusRes.json();
+              const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
+              const progressPercent = Math.round((statusData.progress || 0) * 100);
+              const currentGarment = statusData.current_garment_name
+                ? ', prenda ' + (statusData.current_garment_index || '?') + ': ' + statusData.current_garment_name
+                : '';
+              console.log(
+                '[Waterfall 3D Polling] Sondeo ' + (i + 1) + '/' + maxAttempts + ' (' + elapsedSeconds + 's) -> estado: ' +
+                  (statusData.status || 'desconocido') + ', paso: ' + (statusData.step || 'sin paso') +
+                  ', progreso: ' + progressPercent + '%' + currentGarment + '. ' + (statusData.detail || '')
+              );
               if (onProgress && !abortSignal?.aborted) {
                 onProgress({
                   step: statusData.step || 'processing',
@@ -1058,39 +1082,53 @@ export const generateWaterfallCascadeTryOn = async (
               }
 
               if (statusData.status === 'completed' && statusData.model_3d_url) {
-                console.log('[Waterfall Cascade] ¡Look 3D unificado completado!', statusData.model_3d_url);
+                const applied = statusData.result?.total_garments_applied ?? statusData.result?.steps_completed?.length ?? garments.length;
+                console.log('[Waterfall 3D] Generación terminada en ' + elapsedSeconds + 's. Prendas aplicadas: ' + applied + '/' + garments.length + '.');
+                console.log('[Waterfall 3D] GLB unificado recibido:', statusData.model_3d_url);
                 return {
                   status: 'completed',
                   user_id: userId,
                   base_human_image_url: statusData.result?.base_human_image_url || humanImageUrl || '',
-                  final_dressed_image_url: statusData.image_2d_url || garments[0]?.image || '',
+                  final_dressed_image_url: statusData.image_2d_url || '',
                   model_3d_url: statusData.model_3d_url,
                   steps_completed: statusData.result?.steps_completed || [],
-                  total_garments_applied: statusData.result?.total_garments_applied || garments.length,
+                  total_garments_applied: statusData.result?.total_garments_applied ?? garments.length,
                   message: statusData.result?.message || 'Look completado exitosamente',
                 };
               }
 
               if (statusData.status === 'failed') {
-                throw new Error(statusData.error || 'Fallo durante el ciclo de cascada 2D a 3D.');
+                console.error('[Waterfall 3D] Tarea ' + taskId + ' fallida en el paso "' + (statusData.step || 'desconocido') + '":', statusData.error || statusData.detail);
+                throw new Error(`Tarea de cascada fallida: ${statusData.error || 'Fallo durante el ciclo de cascada 2D a 3D.'}`);
               }
+            } else {
+              console.warn('[Waterfall 3D Polling] Sondeo ' + (i + 1) + ': HTTP ' + statusRes.status + '.');
             }
           } catch (pollErr: any) {
             if (pollErr?.name === 'AbortError' || pollErr?.message?.includes('cancelad')) {
               throw pollErr;
             }
-            if (pollErr?.message?.includes('Fallo durante el ciclo')) {
+            if (pollErr?.message?.includes('Tarea de cascada fallida:')) {
               throw pollErr;
             }
+            console.warn('[Waterfall 3D Polling] No se pudo leer el estado del sondeo ' + (i + 1) + ':', pollErr?.message || pollErr);
           }
         }
+        console.warn('[Waterfall 3D] Se agotaron los sondeos asíncronos; se probará la ruta síncrona.');
+      } else {
+        console.warn('[Waterfall 3D] El servidor aceptó el inicio, pero no devolvió task_id.');
       }
+    } else {
+      console.warn('[Waterfall 3D] El inicio asíncrono respondió HTTP ' + startRes.status + '; se probará la ruta síncrona.');
     }
   } catch (asyncErr: any) {
     if (asyncErr?.name === 'AbortError' || asyncErr?.message?.includes('cancelad')) {
       throw asyncErr;
     }
-    console.warn('[Waterfall Cascade] Aviso en flujo asíncrono, intentando directo síncrono:', asyncErr?.message);
+    if (asyncErr?.message?.includes('Tarea de cascada fallida:')) {
+      throw asyncErr;
+    }
+    console.warn('[Waterfall 3D] No se completó el flujo asíncrono; se intentará la ruta síncrona:', asyncErr?.message);
   }
 
   if (abortSignal?.aborted) {
@@ -1110,7 +1148,7 @@ export const generateWaterfallCascadeTryOn = async (
   }
 
   try {
-    console.log(`[Waterfall Cascade] Invocando pipeline directo síncrono: ${baseUrl}/api/tryon/cascade...`);
+    console.log('[Waterfall 3D] Iniciando ruta síncrona de respaldo (hasta 180 segundos).');
     const response = await fetch(`${baseUrl}/api/tryon/cascade`, {
       method: 'POST',
       headers: {
@@ -1128,7 +1166,8 @@ export const generateWaterfallCascadeTryOn = async (
 
     if (response.ok) {
       const data: CascadeTryOnResponse = await response.json();
-      console.log('[Waterfall Cascade] Resultado recibido exitosamente:', data);
+      console.log('[Waterfall 3D] Ruta síncrona completada en ' + Math.round((Date.now() - startedAt) / 1000) + 's. Prendas aplicadas: ' + (data.total_garments_applied ?? data.steps_completed?.length ?? 'sin dato') + '/' + garments.length + '.');
+      console.log('[Waterfall 3D] GLB unificado recibido:', data.model_3d_url);
       return data;
     }
 
@@ -1137,6 +1176,7 @@ export const generateWaterfallCascadeTryOn = async (
       const errJson = await response.json();
       errorMsg = errJson.detail || errJson.error || errorMsg;
     } catch {}
+    console.error('[Waterfall 3D] La ruta síncrona respondió con error:', errorMsg);
     throw new Error(errorMsg);
   } catch (syncErr: any) {
     clearTimeout(timeoutId);
@@ -1147,22 +1187,6 @@ export const generateWaterfallCascadeTryOn = async (
     if (syncErr?.name === 'AbortError' && abortSignal?.aborted) {
       throw new Error('Operación cancelada por el usuario.');
     }
-
-    // Recuperación inteligente del último modelo generado en el servidor
-    try {
-      const latest = await getLatestModel();
-      if (latest?.model_3d_url) {
-        console.log('[Waterfall Cascade] Modelo recuperado del servidor:', latest.model_3d_url);
-        return {
-          status: 'completed',
-          user_id: userId,
-          base_human_image_url: humanImageUrl || '',
-          final_dressed_image_url: garments[0]?.image || humanImageUrl || '',
-          model_3d_url: latest.model_3d_url,
-          total_garments_applied: garments.length,
-        };
-      }
-    } catch {}
 
     console.error('[Waterfall Cascade] Error general en cascada:', syncErr);
     throw new Error(syncErr?.message || 'Error durante la ejecución de la Cascada 2D a 3D.');
@@ -1230,7 +1254,12 @@ export const fetchAvatarPresets = async (): Promise<AvatarPresetItem[]> => {
 /**
  * Elimina o desvincula el avatar 3D personalizado activo del usuario en el backend.
  */
-export const deleteCurrentAvatar = async (token?: string | null): Promise<{ status: string; message: string }> => {
+export const deleteCurrentAvatar = async (token?: string | null): Promise<{
+  status: string;
+  message: string;
+  avatar_url?: string | null;
+  avatar_type?: 'preset' | 'custom_3d' | 'none';
+}> => {
   const baseUrl = getBaseUrl();
   const headers: Record<string, string> = {
     Accept: 'application/json',

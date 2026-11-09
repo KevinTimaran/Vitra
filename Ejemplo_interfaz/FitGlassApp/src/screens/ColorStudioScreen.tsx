@@ -17,7 +17,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors as DefaultColors, Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { PrimaryButton, SecondaryButton } from '../components/Buttons';
-import { GlassCard } from '../components/GlassCard';
+import { LiquidGlassView } from '../components/LiquidGlassView';
 import { VibrantBackground } from '../components/VibrantBackground';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -221,7 +221,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* Glassmorphic Season Badge Hero Card */}
-        <GlassCard style={styles.glassHeroCard}>
+        <LiquidGlassView style={styles.glassHeroCard} intensity={85} borderRadius={Radius.xl}>
           <View style={styles.seasonTagRow}>
             <View
               style={[
@@ -295,7 +295,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               ))}
             </View>
           </View>
-        </GlassCard>
+        </LiquidGlassView>
 
         {/* Biometric Base Tones: Skin Tone, Hair & Eyes */}
         <View style={styles.sectionWrapper}>
@@ -308,7 +308,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
           <View style={styles.baseTonesGrid}>
             {/* Piel */}
-            <GlassCard style={styles.baseToneCard}>
+            <LiquidGlassView style={styles.baseToneCard} intensity={75} borderRadius={Radius.lg}>
               <View
                 style={[
                   styles.toneCircularSwatch,
@@ -328,10 +328,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   {colorProfile?.skin_tone || '#E8BEAC'}
                 </Text>
               </View>
-            </GlassCard>
+            </LiquidGlassView>
 
             {/* Cabello */}
-            <GlassCard style={styles.baseToneCard}>
+            <LiquidGlassView style={styles.baseToneCard} intensity={75} borderRadius={Radius.lg}>
               <View
                 style={[
                   styles.toneCircularSwatch,
@@ -351,11 +351,11 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   {colorProfile?.hair_color || '#2C1B18'}
                 </Text>
               </View>
-            </GlassCard>
+            </LiquidGlassView>
 
             {/* Ojos si está disponible */}
             {colorProfile?.eye_color ? (
-              <GlassCard style={styles.baseToneCard}>
+              <LiquidGlassView style={styles.baseToneCard} intensity={75} borderRadius={Radius.lg}>
                 <View
                   style={[
                     styles.toneCircularSwatch,
@@ -375,13 +375,13 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                     {colorProfile.eye_color}
                   </Text>
                 </View>
-              </GlassCard>
+              </LiquidGlassView>
             ) : null}
           </View>
         </View>
 
         {/* AI Stylist Explanation Card */}
-        <GlassCard style={styles.explanationCard}>
+        <LiquidGlassView style={styles.explanationCard} intensity={75} borderRadius={Radius.lg}>
           <View style={styles.explanationHeader}>
             <Ionicons name="sparkles" size={16} color={colors.primaryText} />
             <Text style={[styles.explanationLabel, { color: colors.primaryText }]}>
@@ -391,7 +391,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           <Text style={[styles.explanationBody, { color: colors.secondaryText }]}>
             "{colorProfile.description}"
           </Text>
-        </GlassCard>
+        </LiquidGlassView>
 
         {/* SECCIÓN EDUCATIVA: Guía de Estilismo de la Estación */}
         <View style={styles.sectionWrapper}>
@@ -411,7 +411,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           </Text>
 
           {/* Tarjeta de Guía Editorial */}
-          <GlassCard style={styles.editorialCard}>
+          <LiquidGlassView style={styles.editorialCard} intensity={75} borderRadius={Radius.lg}>
             <Text style={[styles.blockTitle, { color: colors.primaryText }]}>
               Claves de Estilo para tu Estación
             </Text>
@@ -457,7 +457,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 ))}
               </View>
             </View>
-          </GlassCard>
+          </LiquidGlassView>
         </View>
 
         {/* Circular Swatches: Recommended Garment Colors */}
@@ -519,7 +519,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
         {/* Selected Swatch Highlight Card */}
         {activeHex && (
-          <GlassCard style={styles.selectedSwatchCard}>
+          <LiquidGlassView style={styles.selectedSwatchCard} intensity={75} borderRadius={Radius.lg}>
             <View
               style={[
                 styles.largeSwatchBlock,
@@ -540,7 +540,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 Filtro cromático activo para el probador y recomendaciones de prendas.
               </Text>
             </View>
-          </GlassCard>
+          </LiquidGlassView>
         )}
 
         {/* Colores a Evitar */}
@@ -590,58 +590,63 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               {harmoniousGarments.map((garment) => (
                 <TouchableOpacity
                   key={`harm-${garment.id}`}
-                  style={[styles.garmentCard, glassSurface]}
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                   onPress={() => handleSelectHarmoniousGarment(garment)}
                 >
-                  <View style={styles.garmentImageWrap}>
-                    {garment.imageUrl ? (
-                      <Image
-                        source={{ uri: garment.imageUrl }}
-                        style={styles.garmentImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.garmentPlaceholder}>
-                        <Ionicons name="shirt-outline" size={28} color={colors.secondaryText} />
+                  <LiquidGlassView
+                    style={styles.garmentCard}
+                    intensity={80}
+                    borderRadius={Radius.lg}
+                  >
+                    <View style={styles.garmentImageWrap}>
+                      {garment.imageUrl ? (
+                        <Image
+                          source={{ uri: garment.imageUrl }}
+                          style={styles.garmentImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.garmentPlaceholder}>
+                          <Ionicons name="shirt-outline" size={28} color={colors.secondaryText} />
+                        </View>
+                      )}
+                      <View style={styles.harmonyBadgePill}>
+                        <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                        <Text style={styles.harmonyBadgeText}>Armonía</Text>
                       </View>
-                    )}
-                    <View style={styles.harmonyBadgePill}>
-                      <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                      <Text style={styles.harmonyBadgeText}>Armonía</Text>
                     </View>
-                  </View>
 
-                  <View style={styles.garmentMeta}>
-                    <View style={styles.garmentColorRow}>
-                      <View
-                        style={[
-                          styles.garmentColorDot,
-                          {
-                            backgroundColor: garment.colorHex || '#000000',
-                            borderColor: colors.borderLight,
-                          },
-                        ]}
-                      />
-                      <Text style={[styles.garmentCategoryText, { color: colors.tertiaryText }]}>
-                        {garment.category?.toUpperCase() || 'PRENDA'}
+                    <View style={styles.garmentMeta}>
+                      <View style={styles.garmentColorRow}>
+                        <View
+                          style={[
+                            styles.garmentColorDot,
+                            {
+                              backgroundColor: garment.colorHex || '#000000',
+                              borderColor: colors.borderLight,
+                            },
+                          ]}
+                        />
+                        <Text style={[styles.garmentCategoryText, { color: colors.tertiaryText }]}>
+                          {garment.category?.toUpperCase() || 'PRENDA'}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[styles.garmentNameText, { color: colors.primaryText }]}
+                        numberOfLines={1}
+                      >
+                        {garment.name}
+                      </Text>
+                      <Text style={[styles.tryOnLink, { color: colors.primary }]}>
+                        Probar en 3D →
                       </Text>
                     </View>
-                    <Text
-                      style={[styles.garmentNameText, { color: colors.primaryText }]}
-                      numberOfLines={1}
-                    >
-                      {garment.name}
-                    </Text>
-                    <Text style={[styles.tryOnLink, { color: colors.primary }]}>
-                      Probar en 3D →
-                    </Text>
-                  </View>
+                  </LiquidGlassView>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           ) : (
-            <GlassCard style={styles.emptyHarmoniousCard}>
+            <LiquidGlassView style={styles.emptyHarmoniousCard} intensity={75} borderRadius={Radius.lg}>
               <Ionicons name="sparkles-outline" size={28} color={colors.tertiaryText} />
               <Text style={[styles.emptyHarmoniousTitle, { color: colors.primaryText }]}>
                 Aún no hay prendas armonizadas
@@ -659,7 +664,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   Añadir Prenda a Armario
                 </Text>
               </TouchableOpacity>
-            </GlassCard>
+            </LiquidGlassView>
           )}
         </View>
 
@@ -691,7 +696,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         }}
       >
         <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalContainer}>
+          <LiquidGlassView style={styles.modalContainer} intensity={90} borderRadius={Radius.xl}>
             {isAnalyzing ? (
               <View style={styles.analyzingWrapper}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -772,7 +777,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 </TouchableOpacity>
               </>
             )}
-          </GlassCard>
+          </LiquidGlassView>
         </View>
       </Modal>
     </View>
@@ -835,6 +840,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 32,
     marginTop: Spacing.xs,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   chromaRingBox: {
     height: 120,
@@ -930,6 +938,9 @@ const styles = StyleSheet.create({
     ...Typography.callout,
     fontWeight: '600',
     marginTop: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.12)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   explanationCard: {
     marginHorizontal: SCREEN_GUTTER,
@@ -954,6 +965,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontStyle: 'italic',
+    textShadowColor: 'rgba(0, 0, 0, 0.10)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   swatchesContainer: {
     flexDirection: 'row',
@@ -1014,6 +1028,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     marginTop: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.12)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   selectedSwatchHint: {
     ...Typography.micro,
@@ -1219,6 +1236,9 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontWeight: '600',
     marginTop: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.12)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   tryOnLink: {
     ...Typography.micro,

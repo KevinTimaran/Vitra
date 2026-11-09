@@ -21,7 +21,6 @@ import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { SavedLookItem, Garment } from '../types';
-import { filterHarmoniousGarments } from '../utils/colorHarmony';
 import { SavedLookScreen } from './SavedLookScreen';
 import { GarmentViewScreen } from './GarmentViewScreen';
 
@@ -38,8 +37,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Estado global del usuario desde UserContext
   const {
     userProfile,
-    colorProfile,
-    wardrobe_items,
     avatarUrl,
     avatar_3d_base_url,
     savedLooks,
@@ -53,12 +50,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   } = useUser();
 
   const avatar_3d_url = avatar_3d_base_url || avatarUrl || userProfile?.avatar_url || null;
-
-  // Contador de prendas que armonizan con la colorimetría activa
-  const matchingHarmoniousCount = useMemo(() => {
-    if (!colorProfile?.recommended_colors || !wardrobe_items) return 0;
-    return filterHarmoniousGarments(wardrobe_items, colorProfile.recommended_colors, 72).length;
-  }, [colorProfile?.recommended_colors, wardrobe_items]);
 
   // Filtro de categorías activo en Home
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
@@ -177,7 +168,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         contentContainerStyle={[
           styles.mainScrollContent,
           {
-            paddingTop: insets.top + Spacing.sm,
+            paddingTop: insets.top + Spacing.md,
             paddingBottom: insets.bottom + 95,
           },
         ]}
@@ -191,111 +182,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           }
         }}
       >
-        {/* Cabecera Superior: Marca Atelier y Acciones Rápidas (Segura ante Dynamic Island) */}
+        {/* Cabecera Superior: Únicamente el Wordmark de la App (Centrado y Minimalista) */}
         <View style={styles.topHeader}>
-          <View style={styles.brandTitleContainer}>
-            <View style={styles.brandBadgePill}>
-              <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
-              <Text style={[styles.brandBadgeText, { color: colors.secondaryText }]}>
-                VITRA ATELIER · 3D
-              </Text>
-            </View>
-            <Text style={[styles.brandWordmark, { color: colors.primaryText }]}>VITRA</Text>
-            <Text style={[styles.greetingSubtitle, { color: colors.secondaryText }]}>
-              {userProfile?.name ? `Colección de ${userProfile.name.split(' ')[0]}` : 'Probador & Modelos 3D'}
-            </Text>
-          </View>
-
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={[
-                styles.headerActionBtn,
-                {
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.85)',
-                  borderColor: colors.borderLight,
-                },
-              ]}
-              onPress={() => navigation?.navigate('FittingRoom')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="sparkles" size={15} color="#8EB6C7" />
-              <Text style={[styles.headerActionBtnText, { color: colors.primaryText }]}>
-                Probador
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.headerActionIconBtn,
-                {
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.85)',
-                  borderColor: colors.borderLight,
-                },
-              ]}
-              onPress={() => navigation?.navigate('AddGarment')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={18} color={colors.primaryText} />
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.brandWordmark, { color: colors.primaryText }]}>
+            V I T R A
+          </Text>
         </View>
-
-        {/* Glassmorphic Colorimetry Quick-Card */}
-        <TouchableOpacity
-          style={styles.colorimetryCardTouch}
-          activeOpacity={0.85}
-          onPress={() => navigation?.navigate('ColorStudio')}
-        >
-          <GlassCard style={styles.colorimetryQuickCard} intensity={isDark ? 28 : 50}>
-            <View style={styles.colorimetryCardTopRow}>
-              <View style={styles.colorimetryBadge}>
-                <Ionicons name="sparkles" size={13} color="#D97706" />
-                <Text style={[styles.colorimetryBadgeText, { color: colors.primaryText }]}>
-                  {colorProfile?.season ? colorProfile.season.toUpperCase() : 'COLORIMETRÍA'}
-                </Text>
-              </View>
-
-              <View style={styles.colorimetryShortcutLink}>
-                <Text style={[styles.colorimetryShortcutText, { color: colors.primary }]}>
-                  Estudio de Color
-                </Text>
-                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
-              </View>
-            </View>
-
-            <View style={styles.colorimetryMainRow}>
-              <View style={styles.colorimetryTextGroup}>
-                <Text style={[styles.colorimetryTitle, { color: colors.primaryText }]}>
-                  {colorProfile?.palette_name || `Paleta ${colorProfile?.season || 'Estacional'}`}
-                </Text>
-                <Text style={[styles.colorimetrySubtitle, { color: colors.secondaryText }]}>
-                  {matchingHarmoniousCount}{' '}
-                  {matchingHarmoniousCount === 1 ? 'prenda en tu armario armoniza' : 'prendas en tu armario armonizan'}{' '}
-                  con tu paleta
-                </Text>
-              </View>
-
-              <View style={styles.colorimetrySwatchesRow}>
-                {(colorProfile?.recommended_colors || ['#1E3A8A', '#0F766E', '#B45309', '#C2410C'])
-                  .slice(0, 4)
-                  .map((hex, idx) => (
-                    <View
-                      key={`home-swatch-${idx}`}
-                      style={[
-                        styles.colorimetryMiniDot,
-                        {
-                          backgroundColor: hex,
-                          borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)',
-                          marginLeft: idx === 0 ? 0 : -6,
-                          zIndex: 10 - idx,
-                        },
-                      ]}
-                    />
-                  ))}
-              </View>
-            </View>
-          </GlassCard>
-        </TouchableOpacity>
 
         {/* Barra de Categorización con chips horizontales y botón de Crear Categoría */}
         <View style={styles.categoriesSection}>
@@ -960,68 +852,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.lg,
-  },
-  brandTitleContainer: {
-    flex: 1,
-  },
-  brandBadgePill: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  brandBadgeText: {
-    ...Typography.micro,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    justifyContent: 'center',
+    marginBottom: Spacing.xl,
+    marginTop: Spacing.xs,
   },
   brandWordmark: {
     ...Typography.displayLg,
     fontFamily: Typography.bodoni.bold,
-    fontSize: 28,
-    letterSpacing: 4,
-    lineHeight: 32,
-  },
-  greetingSubtitle: {
-    ...Typography.caption,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  headerActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
-  headerActionBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  headerActionIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 22, // Ligeramente más pequeño
+    letterSpacing: 8, // Más espaciado para toque editorial/premium
+    lineHeight: 28,
+    textAlign: 'center',
   },
   categoriesSection: {
     marginBottom: Spacing.lg,
@@ -1521,83 +1363,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
-  },
-  colorimetryCardTouch: {
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  colorimetryQuickCard: {
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-  },
-  colorimetryCardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  colorimetryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(217, 119, 6, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-    gap: 4,
-  },
-  colorimetryBadgeText: {
-    ...Typography.micro,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  colorimetryShortcutLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  colorimetryShortcutText: {
-    ...Typography.micro,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  colorimetryMainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  colorimetryTextGroup: {
-    flex: 1,
-    paddingRight: Spacing.sm,
-  },
-  colorimetryTitle: {
-    ...Typography.caption,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  colorimetrySubtitle: {
-    ...Typography.micro,
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  colorimetrySwatchesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 4,
-  },
-  colorimetryMiniDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-    elevation: 2,
   },
 });
