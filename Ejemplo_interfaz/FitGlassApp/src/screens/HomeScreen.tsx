@@ -168,7 +168,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         contentContainerStyle={[
           styles.mainScrollContent,
           {
-            paddingTop: insets.top + Spacing.md,
+            // insets.top asegura que el contenido no choque con la isla dinámica (Dynamic Island)
+            // Spacing.lg añade un margen respirable ahora que no está el logo
+            paddingTop: insets.top + Spacing.lg,
             paddingBottom: insets.bottom + 95,
           },
         ]}
@@ -182,13 +184,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           }
         }}
       >
-        {/* Cabecera Superior: Únicamente el Wordmark de la App (Centrado y Minimalista) */}
-        <View style={styles.topHeader}>
-          <Text style={[styles.brandWordmark, { color: colors.primaryText }]}>
-            V I T R A
-          </Text>
-        </View>
-
         {/* Barra de Categorización con chips horizontales y botón de Crear Categoría */}
         <View style={styles.categoriesSection}>
           <View style={styles.categoriesSectionHeader}>
@@ -850,20 +845,6 @@ const styles = StyleSheet.create({
   },
   mainScrollContent: {
     paddingHorizontal: Spacing.lg,
-  },
-  topHeader: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-    marginTop: Spacing.xs,
-  },
-  brandWordmark: {
-    ...Typography.displayLg,
-    fontFamily: Typography.bodoni.bold,
-    fontSize: 22, // Ligeramente más pequeño
-    letterSpacing: 8, // Más espaciado para toque editorial/premium
-    lineHeight: 28,
-    textAlign: 'center',
   },
   categoriesSection: {
     marginBottom: Spacing.lg,
