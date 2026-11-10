@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography, Spacing, Radius } from '../theme';
+import { Colors, Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.sm,
     width: '100%',
-    shadowColor: '#000',
+    shadowColor: Colors.buttons.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: Radius.pill,
-    shadowColor: '#000',
+    shadowColor: Colors.buttons.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 6,

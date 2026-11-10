@@ -447,12 +447,15 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                   </Text>
 
                   <TouchableOpacity
-                    style={styles.clearActionBtn}
+                    style={[
+                      styles.clearActionBtn,
+                      { backgroundColor: colors.buttons.dangerSoftBackground },
+                    ]}
                     onPress={clearSelection}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                    <Text style={styles.clearActionText}>Limpiar</Text>
+                    <Ionicons name="trash-outline" size={16} color={colors.buttons.dangerBackground} />
+                    <Text style={[styles.clearActionText, { color: colors.buttons.dangerBackground }]}>Limpiar</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -517,7 +520,9 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                       style={[
                         styles.tryOnLookPrimaryBtn,
                         {
-                          backgroundColor: isGenerating ? 'rgba(139, 92, 246, 0.45)' : colors.primaryText,
+                          backgroundColor: isGenerating
+                            ? colors.buttons.accentDisabledBackground
+                            : colors.primaryText,
                           opacity: isGenerating ? 0.6 : 1,
                         },
                       ]}
@@ -914,12 +919,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radius.pill,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   clearActionText: {
     ...Typography.labelSm,
     fontSize: 11,
-    color: '#EF4444',
     fontWeight: '600',
   },
   lookTrayBody: {

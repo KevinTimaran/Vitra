@@ -540,10 +540,8 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
             label={t('profile.signOut')}
             onPress={handleLogout}
             icon="log-out-outline"
-            style={{
-              marginTop: Spacing.sm,
-              borderColor: 'rgba(239, 68, 68, 0.4)',
-            }}
+            variant="danger"
+            style={{ marginTop: Spacing.sm }}
           />
         </Section>
       </ScrollView>
@@ -762,7 +760,6 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontSize: 11,
     fontWeight: '600',
-    color: '#EF4444',
     textDecorationLine: 'underline',
   },
 

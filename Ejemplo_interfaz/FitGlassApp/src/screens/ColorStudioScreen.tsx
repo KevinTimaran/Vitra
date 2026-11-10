@@ -251,7 +251,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                     ]}
                   >
                     {isSelected && (
-                      <Ionicons name="checkmark" size={20} color="#FFFFFF" style={styles.paletteCheckIcon} />
+                      <Ionicons name="checkmark" size={20} color={colors.buttons.overlayText} style={styles.paletteCheckIcon} />
                     )}
                   </View>
                   <Text style={[styles.paletteHexText, { color: isSelected ? colors.primaryText : colors.tertiaryText }]}>

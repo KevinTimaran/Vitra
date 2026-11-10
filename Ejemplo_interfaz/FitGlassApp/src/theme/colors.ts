@@ -219,6 +219,7 @@ export interface ButtonColors {
   apple: string;
   facebook: string;
   disabledOpacity: number;
+  shadow: string;
 }
 
 export interface ThemeColors {
@@ -379,6 +380,7 @@ export const lightThemeColors: ThemeColors = {
     apple: '#000000',
     facebook: '#1877F2',
     disabledOpacity: 0.45,
+    shadow: '#2E3238',
   },
 };
 
@@ -496,6 +498,7 @@ export const darkThemeColors: ThemeColors = {
     apple: '#000000',
     facebook: '#1877F2',
     disabledOpacity: 0.45,
+    shadow: '#000000',
   },
 };
 

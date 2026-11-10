@@ -102,7 +102,7 @@ export const ColorRecommendationsScreen: React.FC<ColorRecommendationsScreenProp
                         : 'footsteps-outline'
                     }
                     size={32}
-                    color={garment.colorHex === '#FFFFFF' ? '#71787C' : colors.primaryText}
+                    color={garment.colorHex === '#FFFFFF' ? colors.buttons.neutralMutedText : colors.primaryText}
                   />
 
                   <View style={styles.harmonyScorePill}>
@@ -177,7 +177,7 @@ export const ColorRecommendationsScreen: React.FC<ColorRecommendationsScreenProp
                         : 'shirt-outline'
                     }
                     size={32}
-                    color={garment.colorHex === '#FFFFFF' ? '#71787C' : colors.primaryText}
+                    color={garment.colorHex === '#FFFFFF' ? colors.buttons.neutralMutedText : colors.primaryText}
                   />
                 </View>
 

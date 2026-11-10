@@ -15,7 +15,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography, Spacing, Radius } from '../theme';
+import { Colors, Typography, Spacing, Radius } from '../theme';
 import { GlassCard } from '../components/GlassCard';
 import { VibrantBackground } from '../components/VibrantBackground';
 import { Model3DViewer } from '../components/Model3DViewer';
@@ -260,7 +260,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
           <TouchableOpacity
             style={[
               styles.headerCircleBtn,
-              { backgroundColor: isFavorite ? 'rgba(239, 68, 68, 0.15)' : colors.surfaceSubtle },
+              { backgroundColor: isFavorite ? colors.buttons.favoriteBackground : colors.surfaceSubtle },
             ]}
             onPress={handleToggleFavorite}
             activeOpacity={0.7}
@@ -268,7 +268,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
               size={20}
-              color={isFavorite ? '#EF4444' : colors.primaryText}
+              color={isFavorite ? colors.buttons.favorite : colors.primaryText}
             />
           </TouchableOpacity>
         </View>
@@ -583,12 +583,18 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
 
           {/* Botón de Eliminación */}
           <TouchableOpacity
-            style={[styles.deleteButton, { borderColor: 'rgba(239, 68, 68, 0.35)' }]}
+            style={[
+              styles.deleteButton,
+              {
+                backgroundColor: colors.buttons.dangerSoftBackground,
+                borderColor: colors.buttons.dangerBorder,
+              },
+            ]}
             onPress={handleDelete}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash-outline" size={16} color="#EF4444" />
-            <Text style={styles.deleteButtonText}>Eliminar prenda del armario</Text>
+            <Ionicons name="trash-outline" size={16} color={colors.buttons.dangerBackground} />
+            <Text style={[styles.deleteButtonText, { color: colors.buttons.dangerBackground }]}>Eliminar prenda del armario</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -649,7 +655,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                 onPress={() => setIsFullscreen3D(false)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="contract-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="contract-outline" size={20} color={colors.buttons.overlayText} />
               </TouchableOpacity>
 
               <View style={styles.fullscreenHeaderInfo} pointerEvents="none">
@@ -971,10 +977,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
     marginTop: Spacing.lg,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   deleteButtonText: {
-    color: '#EF4444',
     fontFamily: Typography.outfit.semiBold,
     fontSize: 13,
   },
@@ -1007,7 +1011,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: 14,
     borderRadius: Radius.pill,
-    shadowColor: '#000',
+    shadowColor: Colors.buttons.shadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,

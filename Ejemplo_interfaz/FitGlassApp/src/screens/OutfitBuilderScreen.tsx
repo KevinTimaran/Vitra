@@ -260,7 +260,7 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = (props) =
                     </View>
                     {isSelected && (
                       <View style={[styles.checkedBadge, { backgroundColor: colors.primary }]}>
-                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                        <Ionicons name="checkmark" size={12} color={colors.buttons.overlayText} />
                       </View>
                     )}
                   </GlassCard>

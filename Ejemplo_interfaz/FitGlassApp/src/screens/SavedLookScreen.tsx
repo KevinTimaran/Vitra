@@ -789,7 +789,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   deleteLookButtonText: {
-    color: '#EF4444',
     fontSize: 13,
     fontWeight: '600',
   },
