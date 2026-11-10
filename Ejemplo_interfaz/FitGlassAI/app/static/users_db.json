@@ -57,25 +57,27 @@
       }
     ],
     "color_profile": {
-      "skin_tone": "#D5A88B",
-      "hair_color": "#28211D",
-      "eye_color": "#4A3528",
-      "season": "Invierno Profundo",
-      "palette_name": "Paleta de Contrastes Intensos y Fríos",
-      "description": "El sujeto presenta un contraste alto y una base de color profunda. Su piel tiene un trasfondo neutro-cálido, pero su cabello oscuro y ojos intensos dictan una armonía propia de las estaciones de invierno. El 'Invierno Profundo' es la opción ideal, ya que favorece los tonos saturados, oscuros y nítidos que no compiten con su pigmentación natural, sino que resaltan la profundidad de su mirada y definen mejor sus rasgos faciales.",
+      "is_valid_image": true,
+      "validation_error_message": null,
+      "skin_tone": "#C08A5E (Cálido Oliva Medio)",
+      "hair_color": "#211E1D (Negro Azabache / Castaño Muy Oscuro)",
+      "eye_color": "#3B271D (Castaño Oscuro)",
+      "season": "Otoño Profundo",
+      "palette_name": "Armonía Cálida e Intensa",
+      "description": "Tu tono de piel oliva medio con matices cálidos combinado con el intenso contraste de tu cabello y ojos oscuros hace que los colores ricos, profundos y cálidos como el terracota, oliva, verde bosque y mostaza resalten tu rostro de manera natural.",
       "recommended_colors": [
-        "#000000",
-        "#1A2A3A",
-        "#0F2922",
-        "#4A0404",
-        "#4C1D95",
-        "#E5E7EB"
+        "#8B0000",
+        "#556B2F",
+        "#CC5500",
+        "#4B3621",
+        "#DAA520",
+        "#2E8B57"
       ],
       "colors_to_avoid": [
-        "#F59E0B",
-        "#D97706",
-        "#84CC16",
-        "#FCA5A5"
+        "#FFB6C1",
+        "#E0FFFF",
+        "#F08080",
+        "#7FFFD4"
       ]
     },
     "face_image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD...",
