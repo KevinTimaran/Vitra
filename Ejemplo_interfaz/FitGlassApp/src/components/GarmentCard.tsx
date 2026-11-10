@@ -91,7 +91,7 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
               size={16}
-              color={isFavorite ? '#EF4444' : colors.secondaryText}
+              color={isFavorite ? colors.buttons.favorite : colors.secondaryText}
             />
           </TouchableOpacity>
         )}

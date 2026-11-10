@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { styles, BUTTON_GRADIENT } from '../AuthScreen.styles';
+import { Colors } from '../../../theme';
 
 interface LoginFormProps {
   initialEmail?: string;
@@ -126,7 +127,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={18}
-              color="#64748B"
+              color={Colors.buttons.neutralMutedText}
             />
           </TouchableOpacity>
         </View>
@@ -145,7 +146,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               rememberMe && styles.checkboxBoxActive,
             ]}
           >
-            {rememberMe && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
+            {rememberMe && <Ionicons name="checkmark" size={12} color={Colors.buttons.authText} />}
           </View>
           <Text style={styles.checkboxLabel}>{t('auth.rememberMe')}</Text>
         </TouchableOpacity>
@@ -172,11 +173,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           style={styles.submitGradientPill}
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={Colors.buttons.authText} size="small" />
           ) : (
             <>
               <Text style={styles.submitButtonText}>{t('auth.signIn')}</Text>
-              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+              <Ionicons name="arrow-forward" size={16} color={Colors.buttons.authText} style={{ marginLeft: 6 }} />
             </>
           )}
         </LinearGradient>
@@ -197,21 +198,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           }}
           activeOpacity={0.75}
         >
-          <Ionicons name="logo-google" size={20} color="#EA4335" />
+          <Ionicons name="logo-google" size={20} color={Colors.buttons.google} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.socialCircleBtn}
           onPress={() => Alert.alert('Apple ID', 'Disponible en compilación nativa.')}
           activeOpacity={0.75}
         >
-          <Ionicons name="logo-apple" size={21} color="#000000" />
+          <Ionicons name="logo-apple" size={21} color={Colors.buttons.apple} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.socialCircleBtn}
           onPress={() => Alert.alert('Facebook', 'Disponible en compilación nativa.')}
           activeOpacity={0.75}
         >
-          <Ionicons name="logo-facebook" size={21} color="#1877F2" />
+          <Ionicons name="logo-facebook" size={21} color={Colors.buttons.facebook} />
         </TouchableOpacity>
       </View>
 

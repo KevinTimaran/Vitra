@@ -139,6 +139,13 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   }, [activeModelUrl]);
 
   useEffect(() => {
+    if (!props.model_3d_url && !props.route?.params?.model_3d_url && userAvatar3D) {
+      setActiveModelUrl(userAvatar3D);
+      preloadGLTF(userAvatar3D);
+    }
+  }, [userAvatar3D, props.model_3d_url, props.route?.params?.model_3d_url]);
+
+  useEffect(() => {
     const route3d = props.model_3d_url || props.route?.params?.model_3d_url;
     const route2d = props.image_2d_url || props.route?.params?.image_2d_url;
     const routeGarment = props.selectedGarment || props.route?.params?.selectedGarment;

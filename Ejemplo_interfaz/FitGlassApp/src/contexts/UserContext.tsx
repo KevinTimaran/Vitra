@@ -7,6 +7,7 @@ import { useSavedLooksState } from './user/useSavedLooksState';
 import { useUserProfileState } from './user/useUserProfileState';
 import { useWardrobeState } from './user/useWardrobeState';
 import type { UserContextValue } from './user/userTypes';
+import { useAuth } from './AuthContext';
 
 export { DEFAULT_LOOK_CATEGORIES, PRESET_AVATARS } from './user/userDefaults';
 export type { CompleteOnboardingData, UserContextValue } from './user/userTypes';
@@ -21,6 +22,7 @@ const normalizeGarments = (items: unknown[]): Garment[] =>
   });
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { userToken } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const profileState = useUserProfileState(isReady);
   const wardrobeState = useWardrobeState(isReady);
@@ -76,7 +78,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (isReady) void syncProfileWithBackend();
-  }, [isReady, syncProfileWithBackend]);
+  }, [isReady, userToken, syncProfileWithBackend]);
 
   const profile = profileState.profile;
   const presetForGender = PRESET_AVATARS[profile.gender] || PRESET_AVATARS.female;

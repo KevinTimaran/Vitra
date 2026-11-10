@@ -186,7 +186,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
           style={[
             styles.headerIconButton,
             {
-              backgroundColor: isFavorite ? '#FEE2E2' : colors.surfaceSubtle,
+              backgroundColor: isFavorite ? colors.buttons.favoriteBackground : colors.surfaceSubtle,
             },
           ]}
           activeOpacity={0.7}
@@ -194,7 +194,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
           <Ionicons
             name={isFavorite ? 'heart' : 'heart-outline'}
             size={22}
-            color={isFavorite ? '#EF4444' : colors.primaryText}
+            color={isFavorite ? colors.buttons.favorite : colors.primaryText}
           />
         </TouchableOpacity>
       </View>
@@ -251,19 +251,19 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
                 style={[
                   styles.viewModeBtn,
                   activeViewMode === '3d' && styles.viewModeBtnActive,
-                  { backgroundColor: activeViewMode === '3d' ? colors.primaryText : 'rgba(0,0,0,0.6)' },
+                  { backgroundColor: activeViewMode === '3d' ? colors.primaryText : colors.buttons.overlayBackground },
                 ]}
                 onPress={() => setActiveViewMode('3d')}
               >
                 <Ionicons
                   name="cube-outline"
                   size={14}
-                  color={activeViewMode === '3d' ? colors.bg : '#FFFFFF'}
+                  color={activeViewMode === '3d' ? colors.bg : colors.buttons.overlayText}
                 />
                 <Text
                   style={[
                     styles.viewModeBtnText,
-                    { color: activeViewMode === '3d' ? colors.bg : '#FFFFFF' },
+                    { color: activeViewMode === '3d' ? colors.bg : colors.buttons.overlayText },
                   ]}
                 >
                   3D
@@ -273,19 +273,19 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
                 style={[
                   styles.viewModeBtn,
                   activeViewMode === '2d' && styles.viewModeBtnActive,
-                  { backgroundColor: activeViewMode === '2d' ? colors.primaryText : 'rgba(0,0,0,0.6)' },
+                  { backgroundColor: activeViewMode === '2d' ? colors.primaryText : colors.buttons.overlayBackground },
                 ]}
                 onPress={() => setActiveViewMode('2d')}
               >
                 <Ionicons
                   name="image-outline"
                   size={14}
-                  color={activeViewMode === '2d' ? colors.bg : '#FFFFFF'}
+                  color={activeViewMode === '2d' ? colors.bg : colors.buttons.overlayText}
                 />
                 <Text
                   style={[
                     styles.viewModeBtnText,
-                    { color: activeViewMode === '2d' ? colors.bg : '#FFFFFF' },
+                    { color: activeViewMode === '2d' ? colors.bg : colors.buttons.overlayText },
                   ]}
                 >
                   2D
@@ -424,8 +424,8 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
             onPress={handleConfirmDelete}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash-outline" size={16} color="#EF4444" />
-            <Text style={styles.deleteLookButtonText}>Eliminar Look</Text>
+            <Ionicons name="trash-outline" size={16} color={colors.buttons.dangerBackground} />
+            <Text style={[styles.deleteLookButtonText, { color: colors.buttons.dangerBackground }]}>Eliminar Look</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

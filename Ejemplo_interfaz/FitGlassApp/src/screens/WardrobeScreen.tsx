@@ -297,7 +297,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                     styles.favBtn,
                     {
                       backgroundColor: isFav
-                        ? 'rgba(239, 68, 68, 0.85)'
+                        ? colors.buttons.dangerBackground
                         : isDark
                         ? 'rgba(20, 22, 28, 0.65)'
                         : 'rgba(255, 255, 255, 0.85)',
@@ -310,7 +310,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                   <Ionicons
                     name={isFav ? 'heart' : 'heart-outline'}
                     size={15}
-                    color={isFav ? '#FFFFFF' : colors.primaryText}
+                    color={isFav ? colors.buttons.dangerText : colors.primaryText}
                   />
                 </TouchableOpacity>
               </View>

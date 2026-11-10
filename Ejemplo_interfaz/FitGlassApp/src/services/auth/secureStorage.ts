@@ -91,11 +91,14 @@ export async function saveUserEmail(email: string): Promise<void> {
  */
 export async function getUserEmail(): Promise<string | null> {
   try {
+    let email: string | null = null;
     if (await isSecureStoreAvailable()) {
-      return await SecureStore.getItemAsync(AUTH_USER_EMAIL_KEY);
+      email = await SecureStore.getItemAsync(AUTH_USER_EMAIL_KEY);
+      if (!email) email = await SecureStore.getItemAsync('vitra_user_email');
     } else if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-      return localStorage.getItem(AUTH_USER_EMAIL_KEY);
+      email = localStorage.getItem(AUTH_USER_EMAIL_KEY) || localStorage.getItem('vitra_user_email');
     }
+    return email;
   } catch (err) {
     console.warn('[SecureStorage] Error leyendo email:', err);
   }

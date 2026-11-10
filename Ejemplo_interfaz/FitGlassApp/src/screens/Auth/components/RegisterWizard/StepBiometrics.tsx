@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '../../../../contexts/LanguageContext';
 import { styles, BUTTON_GRADIENT } from '../../AuthScreen.styles';
+import { Colors } from '../../../../theme';
 
 interface StepBiometricsProps {
   faceImageUri: string | null;
@@ -83,7 +84,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
               onPress={() => onPickImage('face', 'camera')}
               activeOpacity={0.75}
             >
-              <Ionicons name="camera-outline" size={16} color="#1A1C1B" />
+              <Ionicons name="camera-outline" size={16} color={Colors.buttons.neutralText} />
               <Text style={styles.mediaActionText}>{t('auth.openCamera')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -91,7 +92,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
               onPress={() => onPickImage('face', 'gallery')}
               activeOpacity={0.75}
             >
-              <Ionicons name="images-outline" size={16} color="#1A1C1B" />
+              <Ionicons name="images-outline" size={16} color={Colors.buttons.neutralText} />
               <Text style={styles.mediaActionText}>{t('auth.openGallery')}</Text>
             </TouchableOpacity>
           </View>
@@ -126,7 +127,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
               onPress={() => onPickImage('body', 'camera')}
               activeOpacity={0.75}
             >
-              <Ionicons name="camera-outline" size={16} color="#1A1C1B" />
+              <Ionicons name="camera-outline" size={16} color={Colors.buttons.neutralText} />
               <Text style={styles.mediaActionText}>{t('auth.openCamera')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -134,7 +135,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
               onPress={() => onPickImage('body', 'gallery')}
               activeOpacity={0.75}
             >
-              <Ionicons name="images-outline" size={16} color="#1A1C1B" />
+              <Ionicons name="images-outline" size={16} color={Colors.buttons.neutralText} />
               <Text style={styles.mediaActionText}>{t('auth.openGallery')}</Text>
             </TouchableOpacity>
           </View>
@@ -147,7 +148,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
         style={styles.sampleBiometricsBtn}
         activeOpacity={0.7}
       >
-        <Ionicons name="sparkles" size={14} color="#3C6473" />
+        <Ionicons name="sparkles" size={14} color={Colors.buttons.linkText} />
         <Text style={styles.sampleBiometricsText}>Cargar fotografías de muestra (Demo)</Text>
       </TouchableOpacity>
 
@@ -158,7 +159,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
         disabled={loading}
         activeOpacity={0.7}
       >
-        <Ionicons name="play-skip-forward-outline" size={15} color="#475569" style={{ marginRight: 6 }} />
+        <Ionicons name="play-skip-forward-outline" size={15} color={Colors.buttons.neutralMutedText} style={{ marginRight: 6 }} />
         <Text style={styles.skipBiometricsBtnText}>
           Omitir fotos y usar avatar 3D por defecto
         </Text>
@@ -172,7 +173,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
           activeOpacity={0.75}
           disabled={loading}
         >
-          <Ionicons name="arrow-back" size={16} color="#334155" />
+          <Ionicons name="arrow-back" size={16} color={Colors.buttons.neutralText} />
           <Text style={styles.btnSecondaryStepText}>{t('auth.back')}</Text>
         </TouchableOpacity>
 
@@ -189,11 +190,11 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
             style={styles.submitGradientPill}
           >
             {loading ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={Colors.buttons.authText} size="small" />
             ) : (
               <>
                 <Text style={styles.submitButtonText}>{t('auth.finishRegister')}</Text>
-                <Ionicons name="checkmark-done" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                <Ionicons name="checkmark-done" size={18} color={Colors.buttons.authText} style={{ marginLeft: 6 }} />
               </>
             )}
           </LinearGradient>

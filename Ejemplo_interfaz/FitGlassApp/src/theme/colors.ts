@@ -158,6 +158,69 @@ export const darkEditorialColors = {
 export const pearlTiffanyColors = luxuryEditorialColors;
 export const luxuryEditorialPalette = luxuryEditorialColors;
 
+/**
+ * Semantic colors for every non-glass interactive control.
+ *
+ * Keep button and control colors here instead of inside screens. Glass surfaces
+ * deliberately remain owned by GlassCard/LiquidGlassView and their related
+ * components because their translucent values are part of the visual effect.
+ */
+export interface ButtonColors {
+  primaryBackground: string;
+  primaryText: string;
+  primaryBorder: string;
+  secondaryBackground: string;
+  secondaryText: string;
+  secondaryBorder: string;
+  neutralBackground: string;
+  neutralText: string;
+  neutralMutedText: string;
+  neutralBorder: string;
+  subtleBackground: string;
+  linkText: string;
+  dangerBackground: string;
+  dangerText: string;
+  dangerSoftBackground: string;
+  dangerBorder: string;
+  successBackground: string;
+  successText: string;
+  successStrongText: string;
+  warningBackground: string;
+  warningText: string;
+  favorite: string;
+  favoriteBackground: string;
+  accentBackground: string;
+  accentText: string;
+  accentDisabledBackground: string;
+  overlayBackground: string;
+  overlayText: string;
+  floatingBackground: string;
+  floatingBorder: string;
+  cameraBackground: string;
+  cameraText: string;
+  cameraMutedText: string;
+  cameraBorder: string;
+  cameraSecondaryBackground: string;
+  cameraSecondaryBorder: string;
+  cameraOverlayBackground: string;
+  cameraOverlayBorder: string;
+  cameraActiveBackground: string;
+  cameraCancelText: string;
+  cameraShutterBackground: string;
+  cameraShutterCore: string;
+  authBackground: string;
+  authText: string;
+  authBorder: string;
+  authGradient: readonly [string, string];
+  authSecondaryBackground: string;
+  authSecondaryText: string;
+  authSecondaryBorder: string;
+  google: string;
+  apple: string;
+  facebook: string;
+  disabledOpacity: number;
+}
+
 export interface ThemeColors {
   bg: string;
   surface: string;
@@ -199,6 +262,7 @@ export interface ThemeColors {
   onErrorContainer: string;
   success: string;
   onSuccess: string;
+  buttons: ButtonColors;
 }
 
 /**
@@ -260,6 +324,62 @@ export const lightThemeColors: ThemeColors = {
   onErrorContainer: luxuryEditorialColors.onErrorContainer,
   success: luxuryEditorialColors.softSage,
   onSuccess: '#FFFFFF',
+
+  buttons: {
+    primaryBackground: luxuryEditorialColors.petrolTeal,
+    primaryText: luxuryEditorialColors.onPrimary,
+    primaryBorder: luxuryEditorialColors.petrolTeal,
+    secondaryBackground: luxuryEditorialColors.surfaceContainerLow,
+    secondaryText: luxuryEditorialColors.basaltCharcoal,
+    secondaryBorder: luxuryEditorialColors.outlineVariant,
+    neutralBackground: '#FFFFFF',
+    neutralText: '#334155',
+    neutralMutedText: '#64748B',
+    neutralBorder: '#C1C7CB',
+    subtleBackground: '#F1F5F9',
+    linkText: '#3C6473',
+    dangerBackground: '#EF4444',
+    dangerText: '#FFFFFF',
+    dangerSoftBackground: 'rgba(239, 68, 68, 0.10)',
+    dangerBorder: 'rgba(239, 68, 68, 0.40)',
+    successBackground: '#10B981',
+    successText: '#FFFFFF',
+    successStrongText: '#15803D',
+    warningBackground: '#F59E0B',
+    warningText: '#FBBF24',
+    favorite: '#EF4444',
+    favoriteBackground: '#FEE2E2',
+    accentBackground: '#8B5CF6',
+    accentText: '#FFFFFF',
+    accentDisabledBackground: 'rgba(139, 92, 246, 0.45)',
+    overlayBackground: 'rgba(0, 0, 0, 0.65)',
+    overlayText: '#FFFFFF',
+    floatingBackground: 'rgba(255, 255, 255, 0.95)',
+    floatingBorder: 'rgba(0, 0, 0, 0.10)',
+    cameraBackground: '#D4AF37',
+    cameraText: '#0D0D0D',
+    cameraMutedText: '#E5C778',
+    cameraBorder: '#D4AF37',
+    cameraSecondaryBackground: 'rgba(255, 255, 255, 0.06)',
+    cameraSecondaryBorder: 'rgba(255, 255, 255, 0.12)',
+    cameraOverlayBackground: 'rgba(0, 0, 0, 0.65)',
+    cameraOverlayBorder: 'rgba(255, 255, 255, 0.30)',
+    cameraActiveBackground: 'rgba(212, 175, 55, 0.20)',
+    cameraCancelText: 'rgba(255, 255, 255, 0.50)',
+    cameraShutterBackground: '#FFFFFF',
+    cameraShutterCore: '#F0E6D2',
+    authBackground: '#3C6473',
+    authText: '#FFFFFF',
+    authBorder: '#3C6473',
+    authGradient: ['#3C6473', '#2E505E'],
+    authSecondaryBackground: '#F9F9F7',
+    authSecondaryText: '#41484B',
+    authSecondaryBorder: '#C1C7CB',
+    google: '#EA4335',
+    apple: '#000000',
+    facebook: '#1877F2',
+    disabledOpacity: 0.45,
+  },
 };
 
 /**
@@ -321,6 +441,62 @@ export const darkThemeColors: ThemeColors = {
   onErrorContainer: darkEditorialColors.onErrorContainer,
   success: darkEditorialColors.softSage,
   onSuccess: '#14382B',
+
+  buttons: {
+    primaryBackground: darkEditorialColors.cta,
+    primaryText: darkEditorialColors.ctaText,
+    primaryBorder: darkEditorialColors.cta,
+    secondaryBackground: darkEditorialColors.surfaceSubtle,
+    secondaryText: darkEditorialColors.onSurface,
+    secondaryBorder: darkEditorialColors.outlineVariant,
+    neutralBackground: darkEditorialColors.surfaceElevated,
+    neutralText: darkEditorialColors.onSurface,
+    neutralMutedText: darkEditorialColors.onSurfaceVariant,
+    neutralBorder: darkEditorialColors.outline,
+    subtleBackground: darkEditorialColors.surfaceSubtle,
+    linkText: darkEditorialColors.cta,
+    dangerBackground: '#EF4444',
+    dangerText: '#FFFFFF',
+    dangerSoftBackground: 'rgba(239, 68, 68, 0.16)',
+    dangerBorder: 'rgba(239, 68, 68, 0.50)',
+    successBackground: '#10B981',
+    successText: '#FFFFFF',
+    successStrongText: '#86EFAC',
+    warningBackground: '#F59E0B',
+    warningText: '#FBBF24',
+    favorite: '#EF4444',
+    favoriteBackground: 'rgba(239, 68, 68, 0.18)',
+    accentBackground: '#8B5CF6',
+    accentText: '#FFFFFF',
+    accentDisabledBackground: 'rgba(139, 92, 246, 0.45)',
+    overlayBackground: 'rgba(0, 0, 0, 0.65)',
+    overlayText: '#FFFFFF',
+    floatingBackground: 'rgba(26, 28, 35, 0.92)',
+    floatingBorder: 'rgba(255, 255, 255, 0.18)',
+    cameraBackground: '#D4AF37',
+    cameraText: '#0D0D0D',
+    cameraMutedText: '#E5C778',
+    cameraBorder: '#D4AF37',
+    cameraSecondaryBackground: 'rgba(255, 255, 255, 0.06)',
+    cameraSecondaryBorder: 'rgba(255, 255, 255, 0.12)',
+    cameraOverlayBackground: 'rgba(0, 0, 0, 0.65)',
+    cameraOverlayBorder: 'rgba(255, 255, 255, 0.30)',
+    cameraActiveBackground: 'rgba(212, 175, 55, 0.20)',
+    cameraCancelText: 'rgba(255, 255, 255, 0.50)',
+    cameraShutterBackground: '#FFFFFF',
+    cameraShutterCore: '#F0E6D2',
+    authBackground: '#3C6473',
+    authText: '#FFFFFF',
+    authBorder: '#3C6473',
+    authGradient: ['#3C6473', '#2E505E'],
+    authSecondaryBackground: '#F9F9F7',
+    authSecondaryText: '#41484B',
+    authSecondaryBorder: '#C1C7CB',
+    google: '#EA4335',
+    apple: '#000000',
+    facebook: '#1877F2',
+    disabledOpacity: 0.45,
+  },
 };
 
 export const darkColors: ThemeColors = darkThemeColors;

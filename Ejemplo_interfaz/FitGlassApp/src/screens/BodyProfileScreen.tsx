@@ -366,7 +366,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                   : 'sparkles'
               }
               size={48}
-              color={isSuccess ? '#15803D' : error ? '#EF4444' : colors.primary}
+              color={isSuccess ? colors.buttons.successStrongText : error ? colors.buttons.dangerBackground : colors.primary}
             />
           </Animated.View>
 
@@ -598,7 +598,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                     setFaceImageBase64(null);
                   }}
                 >
-                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                  <Ionicons name="close-circle" size={24} color={colors.buttons.dangerBackground} />
                 </TouchableOpacity>
               </View>
             ) : (
@@ -664,7 +664,7 @@ export const BodyProfileScreen: React.FC<BodyProfileScreenProps> = ({
                     setBodyImageBase64(null);
                   }}
                 >
-                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                  <Ionicons name="close-circle" size={24} color={colors.buttons.dangerBackground} />
                 </TouchableOpacity>
               </View>
             ) : (

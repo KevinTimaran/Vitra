@@ -55,7 +55,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     return encoded_jwt
 
 
-def decode_access_token(token: str) -> Dict[str, Any]:
+def decode_access_token(token: str, verify_exp: bool = True) -> Dict[str, Any]:
     """
     Decodifica y valida un token JWT. Lanza HTTPException si es inválido o expiró.
     """
@@ -63,7 +63,8 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         payload = jwt.decode(
             token,
             settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM]
+            algorithms=[settings.JWT_ALGORITHM],
+            options={"verify_exp": verify_exp}
         )
         return payload
     except JWTError:

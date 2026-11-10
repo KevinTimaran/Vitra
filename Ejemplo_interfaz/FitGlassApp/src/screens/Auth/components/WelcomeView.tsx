@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '../../../contexts/LanguageContext';
 import { styles } from '../AuthScreen.styles';
+import { Colors } from '../../../theme';
 
 interface WelcomeViewProps {
   onCreateAccount: () => void;
@@ -104,7 +105,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = React.memo(({
           <Ionicons
             name="arrow-forward"
             size={18}
-            color="#FFFFFF"
+            color={Colors.buttons.authText}
             style={{ marginLeft: 6 }}
             importantForAccessibility="no"
           />

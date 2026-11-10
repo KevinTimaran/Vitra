@@ -1,11 +1,11 @@
 import { StyleSheet, Dimensions, Platform } from 'react-native';
-import { Typography, Spacing, Radius } from '../../theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 
 export const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Paleta Atelier: Perla difusa, Tiffany Blue y Teal
 export const BACKGROUND_GRADIENT = ['#F9F9F7', '#EEF4F6', '#E2ECF0'] as const;
-export const BUTTON_GRADIENT = ['#3C6473', '#2E505E'] as const;
+export const BUTTON_GRADIENT = Colors.buttons.authGradient;
 
 export const styles = StyleSheet.create({
   rootContainer: {
@@ -122,7 +122,7 @@ export const styles = StyleSheet.create({
   },
   btnCreateAccount: {
     height: 52,
-    backgroundColor: '#3C6473',
+    backgroundColor: Colors.buttons.authBackground,
     borderRadius: Radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
@@ -137,14 +137,14 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.semiBold,
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: Colors.buttons.authText,
   },
   btnSignInOutline: {
     height: 52,
     backgroundColor: 'transparent',
     borderRadius: Radius.pill,
     borderWidth: 1.5,
-    borderColor: '#3C6473',
+    borderColor: Colors.buttons.authBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -152,7 +152,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.semiBold,
     fontSize: 16,
     fontWeight: '600',
-    color: '#3C6473',
+    color: Colors.buttons.linkText,
   },
   demoLinkButton: {
     alignSelf: 'center',
@@ -162,7 +162,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.medium,
     fontSize: 12,
     fontWeight: '500',
-    color: '#41484B',
+    color: Colors.buttons.authSecondaryText,
     textDecorationLine: 'underline',
   },
 
@@ -185,7 +185,7 @@ export const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: Colors.buttons.neutralBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -346,14 +346,14 @@ export const styles = StyleSheet.create({
     height: 18,
     borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: '#71787C',
+    borderColor: Colors.buttons.neutralMutedText,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.buttons.neutralBackground,
   },
   checkboxBoxActive: {
-    backgroundColor: '#3C6473',
-    borderColor: '#3C6473',
+    backgroundColor: Colors.buttons.authBackground,
+    borderColor: Colors.buttons.authBorder,
   },
   checkboxLabel: {
     fontFamily: Typography.outfit.regular,
@@ -364,7 +364,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.semiBold,
     fontSize: 13,
     fontWeight: '600',
-    color: '#3C6473',
+    color: Colors.buttons.linkText,
   },
   submitButtonTouchable: {
     marginTop: Spacing.sm,
@@ -388,7 +388,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.semiBold,
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: Colors.buttons.authText,
     letterSpacing: 0.2,
   },
 
@@ -403,18 +403,18 @@ export const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: '#C1C7CB',
+    borderColor: Colors.buttons.authSecondaryBorder,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#F9F9F7',
+    backgroundColor: Colors.buttons.authSecondaryBackground,
   },
   btnSecondaryStepText: {
     fontFamily: Typography.outfit.semiBold,
     fontSize: 14,
     fontWeight: '600',
-    color: '#41484B',
+    color: Colors.buttons.authSecondaryText,
   },
   btnPrimaryStep: {
     borderRadius: Radius.pill,
@@ -512,16 +512,16 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     height: 36,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.buttons.neutralBackground,
     borderWidth: 1,
-    borderColor: '#C1C7CB',
+    borderColor: Colors.buttons.authSecondaryBorder,
     borderRadius: Radius.pill,
   },
   mediaActionText: {
     fontFamily: Typography.outfit.medium,
     fontSize: 12,
     fontWeight: '500',
-    color: '#1A1C1B',
+    color: Colors.buttons.neutralText,
   },
   sampleBiometricsBtn: {
     flexDirection: 'row',
@@ -534,7 +534,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.medium,
     fontSize: 12,
     fontWeight: '500',
-    color: '#3C6473',
+    color: Colors.buttons.linkText,
     textDecorationLine: 'underline',
   },
   skipBiometricsBtn: {
@@ -544,9 +544,9 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Colors.buttons.subtleBackground,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Colors.buttons.authSecondaryBorder,
     marginTop: 6,
     marginBottom: 4,
   },
@@ -554,7 +554,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.medium,
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: Colors.buttons.neutralMutedText,
   },
 
   dividerRow: {
@@ -584,9 +584,9 @@ export const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.buttons.neutralBackground,
     borderWidth: 1,
-    borderColor: '#C1C7CB',
+    borderColor: Colors.buttons.authSecondaryBorder,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#2E3238',
@@ -613,6 +613,6 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.semiBold,
     fontSize: 14,
     fontWeight: '600',
-    color: '#3C6473',
+    color: Colors.buttons.linkText,
   },
 });

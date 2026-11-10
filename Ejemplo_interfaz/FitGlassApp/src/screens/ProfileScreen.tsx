@@ -360,7 +360,7 @@ export const ProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) =>
               onPress={handleDeleteAvatar}
               activeOpacity={0.7}
             >
-              <Text style={styles.deleteAvatarText}>Eliminar gemelo digital</Text>
+              <Text style={[styles.deleteAvatarText, { color: colors.buttons.dangerBackground }]}>Eliminar gemelo digital</Text>
             </TouchableOpacity>
           )}
         </GlassCard>

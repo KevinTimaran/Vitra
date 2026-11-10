@@ -35,16 +35,16 @@ export const PrimaryButton: React.FC<ButtonProps> = ({
   const isTiffany = variant === 'tiffany';
 
   const bgColor = isDanger
-    ? colors.palette.error
+    ? colors.buttons.dangerBackground
     : isTiffany
     ? colors.palette.tiffany
-    : colors.cta;
+    : colors.buttons.primaryBackground;
 
   const textColor = isDanger
-    ? colors.palette.onError
+    ? colors.buttons.dangerText
     : isTiffany
     ? colors.palette.onPrimaryFixed
-    : colors.ctaText;
+    : colors.buttons.primaryText;
 
   return (
     <TouchableOpacity
@@ -96,7 +96,10 @@ export const SecondaryButton: React.FC<ButtonProps> = ({
     <TouchableOpacity
       style={[
         styles.secondary,
-        { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
+        {
+          backgroundColor: colors.buttons.secondaryBackground,
+          borderColor: colors.buttons.secondaryBorder,
+        },
         disabled && styles.disabledSecondary,
         style,
       ]}
@@ -105,18 +108,18 @@ export const SecondaryButton: React.FC<ButtonProps> = ({
       activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator color={colors.primaryText} size="small" />
+        <ActivityIndicator color={colors.buttons.secondaryText} size="small" />
       ) : (
         <>
           {icon && (
             <Ionicons
               name={icon}
               size={18}
-              color={colors.primaryText}
+              color={colors.buttons.secondaryText}
               style={{ marginRight: Spacing.sm }}
             />
           )}
-          <Text style={[styles.secondaryText, { color: colors.primaryText }, textStyle]}>{label}</Text>
+          <Text style={[styles.secondaryText, { color: colors.buttons.secondaryText }, textStyle]}>{label}</Text>
         </>
       )}
     </TouchableOpacity>
@@ -146,7 +149,7 @@ export const TextButton: React.FC<ButtonProps> = ({
       <Text
         style={[
           styles.textButtonText,
-          { color: colors.secondaryText },
+          { color: colors.buttons.linkText },
           disabled && { color: colors.disabled },
           textStyle,
         ]}
@@ -170,13 +173,16 @@ export const IconButton: React.FC<{
     if (themeCtx?.colors) colors = themeCtx.colors;
   } catch (e) {}
 
-  const iconColor = color || colors.primaryText;
+  const iconColor = color || colors.buttons.secondaryText;
 
   return (
     <TouchableOpacity
       style={[
         styles.iconButton,
-        { backgroundColor: colors.surface, borderColor: colors.borderLight },
+        {
+          backgroundColor: colors.buttons.neutralBackground,
+          borderColor: colors.buttons.neutralBorder,
+        },
         style,
       ]}
       onPress={onPress}
@@ -246,10 +252,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   disabled: {
-    opacity: 0.45,
+    opacity: DefaultColors.buttons.disabledOpacity,
   },
   disabledSecondary: {
     borderColor: DefaultColors.borderLight,
-    opacity: 0.45,
+    opacity: DefaultColors.buttons.disabledOpacity,
   },
 });

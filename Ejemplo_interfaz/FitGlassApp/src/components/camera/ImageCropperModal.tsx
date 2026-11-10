@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { Colors } from '../../theme';
 
 interface ImageCropperModalProps {
   visible: boolean;
@@ -121,7 +122,7 @@ export const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
         {/* Barra superior con branding Vitra */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onCancel} style={styles.headerBtn} disabled={isProcessing}>
-            <Ionicons name="close" size={24} color="#FFFFFF" />
+            <Ionicons name="close" size={24} color={Colors.buttons.overlayText} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>ENCUADRE DEL GEMELO DIGITAL</Text>
@@ -262,10 +263,10 @@ export const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
             disabled={isProcessing}
           >
             {isProcessing ? (
-              <ActivityIndicator color="#0D0D0D" />
+              <ActivityIndicator color={Colors.buttons.cameraText} />
             ) : (
               <>
-                <Ionicons name="checkmark-circle-outline" size={20} color="#0D0D0D" style={{ marginRight: 8 }} />
+                <Ionicons name="checkmark-circle-outline" size={20} color={Colors.buttons.cameraText} style={{ marginRight: 8 }} />
                 <Text style={styles.confirmBtnText}>OPTIMIZAR ENCUADRE Y GENERAR</Text>
               </>
             )}
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: Colors.buttons.cameraSecondaryBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -437,17 +438,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: Colors.buttons.cameraSecondaryBackground,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: Colors.buttons.cameraSecondaryBorder,
     alignItems: 'center',
   },
   presetBtnActive: {
-    backgroundColor: 'rgba(212, 175, 55, 0.2)',
-    borderColor: '#D4AF37',
+    backgroundColor: Colors.buttons.cameraActiveBackground,
+    borderColor: Colors.buttons.cameraBorder,
   },
   presetBtnText: {
-    color: '#FFFFFF',
+    color: Colors.buttons.overlayText,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -457,20 +458,20 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   confirmBtn: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: Colors.buttons.cameraBackground,
     paddingVertical: 16,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#D4AF37',
+    shadowColor: Colors.buttons.cameraBackground,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,
   },
   confirmBtnText: {
-    color: '#0D0D0D',
+    color: Colors.buttons.cameraText,
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1,

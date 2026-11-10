@@ -21,6 +21,7 @@ export interface UserMeResponse {
   base_garments?: any[];
   color_profile?: any;
   body_profile?: any;
+  renewed_token?: string;
 }
 
 /**
@@ -169,7 +170,18 @@ export async function fetchCurrentUser(token: string): Promise<UserMeResponse | 
       return null;
     }
 
-    return await response.json();
+    const data: UserMeResponse = await response.json();
+    if (data?.renewed_token) {
+      console.log('[authClient] Token renovado automáticamente recibido del servidor.');
+      try {
+        const { saveAuthToken } = await import('./secureStorage');
+        await saveAuthToken(data.renewed_token);
+      } catch (saveErr) {
+        console.warn('[authClient] No se pudo guardar el token renovado:', saveErr);
+      }
+    }
+
+    return data;
   } catch (err: any) {
     console.log(`[authClient] Consulta de sesión en ${url} omitida:`, err?.message || err);
     return null;

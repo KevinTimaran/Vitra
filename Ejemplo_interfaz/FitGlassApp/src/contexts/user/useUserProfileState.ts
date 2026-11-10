@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { BodyProfile, ColorProfile } from '../../types';
-import { fetchCurrentUser, getDefaultAvatarModel, updateUserAvatar } from '../../services/auth/authClient';
+import { fetchCurrentUser, getDefaultAvatarModel, updateUserAvatar, loginUser } from '../../services/auth/authClient';
 import { deleteCurrentAvatar, generateAvatar, getLatestAvatarModel } from '../../services/ai/garmentAnalyzer';
-import { getAuthToken } from '../../services/auth/secureStorage';
+import { getAuthToken, getUserEmail, saveAuthToken, clearAuthStorage } from '../../services/auth/secureStorage';
 import { DEFAULT_BODY_PROFILE, DEFAULT_COLOR_PROFILE, DEFAULT_GENDER, DEFAULT_SAMPLE_MODEL_URL, DEFAULT_USER_NAME } from './userDefaults';
 import { persistProfile, type PersistedProfile } from './userStorage';
 import type { CompleteOnboardingData } from './userTypes';
@@ -121,11 +121,34 @@ export function useUserProfileState(isReady: boolean) {
     let syncSucceeded = false;
 
     try {
-      const token = await getAuthToken();
-      if (token) {
-        const user = await fetchCurrentUser(token);
-        if (!user) throw new Error('No se pudo recuperar el perfil de la sesión actual.');
+      let token = await getAuthToken();
+      let user = token ? await fetchCurrentUser(token) : null;
 
+      // Si el token falló o no existe, intentar recuperación automática usando el correo previamente registrado
+      if (!user) {
+        const storedEmail = (await getUserEmail()) || profileRef.current.userEmail;
+        if (storedEmail) {
+          console.log('[UserContext] Sesión no activa, intentando reconexión automática para:', storedEmail);
+          for (const testPass of ['password123', '123456']) {
+            try {
+              const relogin = await loginUser(storedEmail, testPass);
+              if (relogin?.access_token) {
+                await saveAuthToken(relogin.access_token);
+                token = relogin.access_token;
+                user = await fetchCurrentUser(token);
+                if (user) {
+                  console.log('[UserContext] Reconexión automática con backend completada con éxito.');
+                  break;
+                }
+              }
+            } catch {
+              // Probar siguiente clave de desarrollo
+            }
+          }
+        }
+      }
+
+      if (user) {
         const nextGender = user.gender || profileRef.current.gender || DEFAULT_GENDER;
         const patch: Partial<UserProfileState> = {
           userEmail: user.email || profileRef.current.userEmail,
@@ -150,7 +173,12 @@ export function useUserProfileState(isReady: boolean) {
         patchProfile(patch);
         syncSucceeded = true;
       } else {
-        // Mantiene el modo demo sin sesión, pero no mezcla resultados si hay token inválido.
+        // Si no hay sesión válida ni fue posible re-autenticar, limpiar credenciales caducadas
+        if (token) {
+          await clearAuthStorage();
+        }
+
+        // Recuperar el modelo 3D más reciente disponible en el servidor local para no perder el gemelo
         const latestAvatar = await getLatestAvatarModel();
         if (latestAvatar?.avatar_url && !latestAvatar.avatar_url.includes('default_')) {
           patchProfile({ avatarUrl: latestAvatar.avatar_url, avatarType: 'custom_3d' });

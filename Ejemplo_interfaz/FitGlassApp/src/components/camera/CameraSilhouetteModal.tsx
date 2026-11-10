@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SilhouetteGuideSvg } from './SilhouetteGuideSvg';
 import { ImageCropperModal } from './ImageCropperModal';
+import { Colors } from '../../theme';
 
 interface CameraSilhouetteModalProps {
   visible: boolean;
@@ -96,7 +97,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
     return (
       <Modal visible={visible} animationType="fade" transparent={false}>
         <View style={styles.permissionContainer}>
-          <ActivityIndicator size="large" color="#D4AF37" />
+          <ActivityIndicator size="large" color={Colors.buttons.cameraBackground} />
           <Text style={styles.permissionText}>Comprobando permisos de cámara...</Text>
         </View>
       </Modal>
@@ -107,7 +108,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
     return (
       <Modal visible={visible} animationType="fade" transparent={false}>
         <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={64} color="#D4AF37" style={{ marginBottom: 16 }} />
+          <Ionicons name="camera-outline" size={64} color={Colors.buttons.cameraBackground} style={{ marginBottom: 16 }} />
           <Text style={styles.permissionTitle}>ACCESO A LA CÁMARA REQUERIDO</Text>
           <Text style={styles.permissionDescription}>
             Vitra requiere acceso a la cámara para capturar tu postura biométrica y modelar tu gemelo digital 3D.
@@ -116,10 +117,10 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
             <Text style={styles.grantBtnText}>CONCEDER ACCESO</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.grantBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#D4AF37', marginTop: 12 }]}
+            style={[styles.grantBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.buttons.cameraBorder, marginTop: 12 }]}
             onPress={handlePickFromGallery}
           >
-            <Text style={[styles.grantBtnText, { color: '#D4AF37' }]}>ELEGIR DE GALERÍA</Text>
+            <Text style={[styles.grantBtnText, { color: Colors.buttons.cameraBackground }]}>ELEGIR DE GALERÍA</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
             <Text style={styles.cancelBtnText}>Cancelar</Text>
@@ -193,11 +194,11 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
           {/* Barra Superior con Controles (Cerrar / Cambiar Cámara) */}
           <View style={[styles.topBar, { top: topInset + 10 }]}>
             <TouchableOpacity style={styles.iconCircleBtn} onPress={onClose} activeOpacity={0.7}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <Ionicons name="close" size={24} color={Colors.buttons.overlayText} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.iconCircleBtn} onPress={toggleCameraFacing} activeOpacity={0.7}>
-              <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
+              <Ionicons name="camera-reverse-outline" size={24} color={Colors.buttons.overlayText} />
             </TouchableOpacity>
           </View>
 
@@ -205,7 +206,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
           <View style={[styles.floatingBannerContainer, { top: topInset + 64 }]}>
             <View style={styles.floatingBanner}>
               <View style={styles.bannerIconBadge}>
-                <Ionicons name="body-outline" size={16} color="#0D0D0D" />
+                <Ionicons name="body-outline" size={16} color={Colors.buttons.cameraText} />
               </View>
               <View style={styles.bannerTextContent}>
                 <Text style={styles.bannerTitle}>POSTURA BIOMÉTRICA (A-POSE)</Text>
@@ -221,7 +222,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
             {/* Botón de Galería */}
             <TouchableOpacity style={styles.actionBtn} onPress={handlePickFromGallery} activeOpacity={0.7}>
               <View style={styles.actionIconCircle}>
-                <Ionicons name="images-outline" size={22} color="#FFFFFF" />
+                <Ionicons name="images-outline" size={22} color={Colors.buttons.overlayText} />
               </View>
               <Text style={styles.actionBtnLabel}>Galería</Text>
             </TouchableOpacity>
@@ -235,7 +236,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
             >
               <View style={styles.shutterInnerCircle}>
                 {isCapturing ? (
-                  <ActivityIndicator color="#D4AF37" size="small" />
+                  <ActivityIndicator color={Colors.buttons.cameraBackground} size="small" />
                 ) : (
                   <View style={styles.shutterCore} />
                 )}
@@ -245,7 +246,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
             {/* Botón Cámara de Sistema Alternativa */}
             <TouchableOpacity style={styles.actionBtn} onPress={handleSystemCamera} activeOpacity={0.7}>
               <View style={styles.actionIconCircle}>
-                <Ionicons name="camera-outline" size={22} color="#FFFFFF" />
+                <Ionicons name="camera-outline" size={22} color={Colors.buttons.overlayText} />
               </View>
               <Text style={styles.actionBtnLabel}>Cámara</Text>
             </TouchableOpacity>
@@ -300,14 +301,14 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   grantBtn: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: Colors.buttons.cameraBackground,
     paddingVertical: 14,
     paddingHorizontal: 28,
     borderRadius: 10,
     marginBottom: 14,
   },
   grantBtnText: {
-    color: '#0D0D0D',
+    color: Colors.buttons.cameraText,
     fontWeight: '700',
     fontSize: 13,
     letterSpacing: 1,
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   cancelBtnText: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: Colors.buttons.cameraCancelText,
     fontSize: 13,
   },
   silhouetteOverlay: {
@@ -386,11 +387,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: Colors.buttons.cameraOverlayBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: Colors.buttons.cameraOverlayBorder,
   },
   bottomBar: {
     position: 'absolute',
@@ -410,14 +411,14 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: Colors.buttons.cameraOverlayBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: Colors.buttons.cameraOverlayBorder,
   },
   actionBtnLabel: {
-    color: '#FFFFFF',
+    color: Colors.buttons.overlayText,
     fontSize: 11,
     marginTop: 6,
     fontWeight: '600',
@@ -427,11 +428,11 @@ const styles = StyleSheet.create({
     height: 86,
     borderRadius: 43,
     borderWidth: 4,
-    borderColor: '#D4AF37',
+    borderColor: Colors.buttons.cameraBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(212, 175, 55, 0.22)',
-    shadowColor: '#D4AF37',
+    backgroundColor: Colors.buttons.cameraActiveBackground,
+    shadowColor: Colors.buttons.cameraBackground,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.7,
     shadowRadius: 12,
@@ -441,7 +442,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.buttons.cameraShutterBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -449,8 +450,8 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#F0E6D2',
+    backgroundColor: Colors.buttons.cameraShutterCore,
     borderWidth: 2,
-    borderColor: '#D4AF37',
+    borderColor: Colors.buttons.cameraBorder,
   },
 });

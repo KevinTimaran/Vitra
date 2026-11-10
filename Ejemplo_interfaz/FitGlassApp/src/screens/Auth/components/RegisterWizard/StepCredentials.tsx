@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '../../../../contexts/LanguageContext';
 import { styles, BUTTON_GRADIENT } from '../../AuthScreen.styles';
+import { Colors } from '../../../../theme';
 
 interface StepCredentialsProps {
   initialEmail: string;
@@ -88,7 +89,7 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={18}
-              color="#64748B"
+              color={Colors.buttons.neutralMutedText}
             />
           </TouchableOpacity>
         </View>
@@ -107,7 +108,7 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
           style={styles.submitGradientPill}
         >
           <Text style={styles.submitButtonText}>{t('auth.next')}</Text>
-          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+          <Ionicons name="arrow-forward" size={16} color={Colors.buttons.authText} style={{ marginLeft: 6 }} />
         </LinearGradient>
       </TouchableOpacity>
 

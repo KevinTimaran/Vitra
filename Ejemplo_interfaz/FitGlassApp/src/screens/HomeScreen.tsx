@@ -50,7 +50,7 @@ const AnimatedFavoriteBtn = ({ isFavorite, onPress, colors }: { isFavorite: bool
         <Ionicons
           name={isFavorite ? 'heart' : 'heart-outline'}
           size={20}
-          color={isFavorite ? '#EF4444' : colors.primaryText}
+          color={isFavorite ? colors.buttons.favorite : colors.primaryText}
         />
       </Animated.View>
     </TouchableOpacity>
@@ -301,7 +301,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                       style={[styles.iconBtn, { borderColor: colors.borderLight }]}
                       onPress={() => setIsDeletingMainAvatar(true)}
                     >
-                      <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                      <Ionicons name="trash-outline" size={20} color={colors.buttons.dangerBackground} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -391,7 +391,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                         style={[styles.iconBtn, { borderColor: colors.borderLight }]}
                         onPress={() => setLookToDelete(look)}
                       >
-                        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                        <Ionicons name="trash-outline" size={20} color={colors.buttons.dangerBackground} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -547,8 +547,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 style={[
                   styles.categorySelectRow, 
                   { 
-                    borderColor: '#EF4444',
-                    backgroundColor: editingLookCategory && !editingLookCategory.category ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                    borderColor: colors.buttons.dangerBackground,
+                    backgroundColor: editingLookCategory && !editingLookCategory.category ? colors.buttons.dangerSoftBackground : 'transparent',
                     marginBottom: 12
                   }
                 ]}
@@ -559,10 +559,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   }
                 }}
               >
-                <Text style={[styles.categorySelectText, { color: '#EF4444' }, editingLookCategory && !editingLookCategory.category && { fontWeight: '700' }]}>
+                <Text style={[styles.categorySelectText, { color: colors.buttons.dangerBackground }, editingLookCategory && !editingLookCategory.category && { fontWeight: '700' }]}>
                   Quitar etiqueta
                 </Text>
-                <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                <Ionicons name="close-circle-outline" size={18} color={colors.buttons.dangerBackground} />
               </TouchableOpacity>
 
               {assignableCategories.map((cat) => {
@@ -613,8 +613,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 style={[
                   styles.categorySelectRow, 
                   { 
-                    borderColor: '#EF4444',
-                    backgroundColor: !mainAvatarCategory ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                    borderColor: colors.buttons.dangerBackground,
+                    backgroundColor: !mainAvatarCategory ? colors.buttons.dangerSoftBackground : 'transparent',
                     marginBottom: 12
                   }
                 ]}
@@ -623,10 +623,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   setIsMainAvatarTagModalOpen(false);
                 }}
               >
-                <Text style={[styles.categorySelectText, { color: '#EF4444' }, !mainAvatarCategory && { fontWeight: '700' }]}>
+                <Text style={[styles.categorySelectText, { color: colors.buttons.dangerBackground }, !mainAvatarCategory && { fontWeight: '700' }]}>
                   Quitar etiqueta
                 </Text>
-                <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                <Ionicons name="close-circle-outline" size={18} color={colors.buttons.dangerBackground} />
               </TouchableOpacity>
 
               {assignableCategories.map((cat) => {
@@ -663,7 +663,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { alignItems: 'center', backgroundColor: '#FFFFFF', paddingVertical: 40 }]}>
             <View style={styles.deleteIconCircle}>
-              <Ionicons name="trash" size={32} color="#EF4444" />
+              <Ionicons name="trash" size={32} color={colors.buttons.dangerBackground} />
             </View>
             
             <Text style={[styles.deleteSubtitle, { color: '#4B5563', fontSize: 16, marginVertical: 24, paddingHorizontal: 10 }]}>
@@ -672,17 +672,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             
             <View style={[styles.modalButtonsRow, { width: '100%', marginTop: 10, gap: 16 }]}>
               <TouchableOpacity
-                style={[styles.modalCancelBtn, { backgroundColor: '#F3F4F6', borderWidth: 0 }]}
+                style={[styles.modalCancelBtn, { backgroundColor: colors.buttons.subtleBackground, borderWidth: 0 }]}
                 onPress={() => { setLookToDelete(null); setIsDeletingMainAvatar(false); }}
               >
-                <Text style={[styles.modalCancelBtnText, { color: '#374151' }]}>Cancelar</Text>
+                <Text style={[styles.modalCancelBtnText, { color: colors.buttons.neutralText }]}>Cancelar</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.modalConfirmBtn, { backgroundColor: '#EF4444' }]}
+                style={[styles.modalConfirmBtn, { backgroundColor: colors.buttons.dangerBackground }]}
                 onPress={confirmDeleteLook}
               >
-                <Text style={[styles.modalConfirmBtnText, { color: '#FFFFFF' }]}>Eliminar</Text>
+                <Text style={[styles.modalConfirmBtnText, { color: colors.buttons.dangerText }]}>Eliminar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -722,7 +722,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         ]}
       >
         <TouchableOpacity
-          style={[styles.scrollToTopFloatingBtn, { backgroundColor: isDark ? 'rgba(26, 28, 35, 0.92)' : 'rgba(255, 255, 255, 0.95)', borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.10)' }]}
+          style={[styles.scrollToTopFloatingBtn, { backgroundColor: colors.buttons.floatingBackground, borderColor: colors.buttons.floatingBorder }]}
           onPress={() => scrollViewRef.current?.scrollTo({ y: 0, animated: true })}
           activeOpacity={0.8}
         >

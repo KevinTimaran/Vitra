@@ -20,6 +20,7 @@ import { useBiometricsCapture } from './hooks/useBiometricsCapture';
 import { WelcomeView } from './components/WelcomeView';
 import { LoginForm } from './components/LoginForm';
 import { RegisterWizard } from './components/RegisterWizard/RegisterWizard';
+import { Colors } from '../../theme';
 
 export const AuthScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -144,7 +145,7 @@ export const AuthScreen: React.FC = () => {
                 activeOpacity={0.7}
                 accessibilityLabel={t('auth.back')}
               >
-                <Ionicons name="arrow-back" size={22} color="#1A1C1B" />
+                <Ionicons name="arrow-back" size={22} color={Colors.buttons.neutralText} />
               </TouchableOpacity>
 
               <Text style={styles.topBrandName}>VITRA</Text>
@@ -181,7 +182,7 @@ export const AuthScreen: React.FC = () => {
                           onPress={() => handleSwitchView('login')}
                           activeOpacity={0.7}
                         >
-                          <Text style={{ color: '#3C6473', fontWeight: '700', fontSize: 13, textDecorationLine: 'underline' }}>
+                          <Text style={{ color: Colors.buttons.linkText, fontWeight: '700', fontSize: 13, textDecorationLine: 'underline' }}>
                             Iniciar Sesión con esta cuenta →
                           </Text>
                         </TouchableOpacity>

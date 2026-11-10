@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '../../../../contexts/LanguageContext';
 import { styles, BUTTON_GRADIENT } from '../../AuthScreen.styles';
 import { GenderType } from '../../types/auth.types';
+import { Colors } from '../../../../theme';
 
 interface StepPersonalInfoProps {
   initialFullName: string;
@@ -108,8 +109,8 @@ export const StepPersonalInfo: React.FC<StepPersonalInfoProps> = ({
                   paddingHorizontal: 4,
                   borderRadius: 9999,
                   borderWidth: 1.5,
-                  borderColor: isSel ? '#3C6473' : '#E2E8F0',
-                  backgroundColor: isSel ? '#3C6473' : '#FFFFFF',
+                  borderColor: isSel ? Colors.buttons.authBorder : Colors.buttons.authSecondaryBorder,
+                  backgroundColor: isSel ? Colors.buttons.authBackground : Colors.buttons.neutralBackground,
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'row',
@@ -121,13 +122,13 @@ export const StepPersonalInfo: React.FC<StepPersonalInfoProps> = ({
                 <Ionicons
                   name={opt.icon as any}
                   size={14}
-                  color={isSel ? '#FFFFFF' : '#64748B'}
+                  color={isSel ? Colors.buttons.authText : Colors.buttons.neutralMutedText}
                 />
                 <Text
                   style={{
                     fontSize: 10,
                     fontWeight: '600',
-                    color: isSel ? '#FFFFFF' : '#334155',
+                    color: isSel ? Colors.buttons.authText : Colors.buttons.neutralText,
                   }}
                   numberOfLines={1}
                 >
@@ -146,7 +147,7 @@ export const StepPersonalInfo: React.FC<StepPersonalInfoProps> = ({
           onPress={onBack}
           activeOpacity={0.75}
         >
-          <Ionicons name="arrow-back" size={16} color="#334155" />
+          <Ionicons name="arrow-back" size={16} color={Colors.buttons.neutralText} />
           <Text style={styles.btnSecondaryStepText}>{t('auth.back')}</Text>
         </TouchableOpacity>
 
@@ -162,7 +163,7 @@ export const StepPersonalInfo: React.FC<StepPersonalInfoProps> = ({
             style={styles.submitGradientPill}
           >
             <Text style={styles.submitButtonText}>{t('auth.next')}</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            <Ionicons name="arrow-forward" size={16} color={Colors.buttons.authText} style={{ marginLeft: 6 }} />
           </LinearGradient>
         </TouchableOpacity>
       </View>

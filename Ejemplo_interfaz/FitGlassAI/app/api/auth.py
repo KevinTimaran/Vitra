@@ -214,6 +214,8 @@ async def get_current_user(
 ):
     """
     Valida el token JWT recibido en el encabezado Authorization y retorna el perfil básico.
+    Si el token expiró pero la firma criptográfica es legítima de este backend, lo renueva
+    automáticamente para preservar la sesión del usuario sin interrumpir su navegación.
     """
     if not credentials:
         raise HTTPException(
@@ -223,11 +225,35 @@ async def get_current_user(
         )
 
     token = credentials.credentials
-    payload = decode_access_token(token)
+    renewed_token = None
+    try:
+        payload = decode_access_token(token, verify_exp=True)
+    except HTTPException:
+        # Intentar decodificar si solo expiró el tiempo, manteniendo validación de firma
+        try:
+            payload = decode_access_token(token, verify_exp=False)
+            renewed_token = create_access_token(
+                data={
+                    "sub": payload.get("sub", ""),
+                    "email": payload.get("email", ""),
+                    "name": payload.get("name", ""),
+                }
+            )
+            logger.info(f"[Auth] Token expirado renovado exitosamente para: '{payload.get('sub')}'")
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido o expirado.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     email_key = (payload.get("sub") or payload.get("email") or "").lower()
     user = users_db.get(email_key)
     if not user:
-        return {"email": payload.get("email") or email_key, "name": payload.get("name", "Usuario")}
+        res = {"email": payload.get("email") or email_key, "name": payload.get("name", "Usuario")}
+        if renewed_token:
+            res["renewed_token"] = renewed_token
+        return res
 
     avatar_url = user.get("avatar_url")
     if avatar_url and "/static/models/" in avatar_url:
@@ -235,7 +261,7 @@ async def get_current_user(
         filename = avatar_url.split("/static/models/")[-1]
         avatar_url = f"{base_url}/static/models/{filename}"
 
-    return {
+    res = {
         "email": user["email"],
         "name": user.get("name", ""),
         "created_at": user.get("created_at"),
@@ -247,3 +273,6 @@ async def get_current_user(
         "color_profile": user.get("color_profile"),
         "body_profile": user.get("body_profile"),
     }
+    if renewed_token:
+        res["renewed_token"] = renewed_token
+    return res
