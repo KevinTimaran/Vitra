@@ -1,0 +1,79 @@
+# Compila un APK de PRUEBA de Vitra (FitGlassApp) y lo publica en la pestaña "Releases" para descargarlo.
+# Ejecutar: GitHub -> Actions -> "Android APK" -> Run workflow (o subir un tag v*).
+# La IA no va dentro del APK: la app se conecta al backend desplegado en Render, que guarda las claves.
+# Para cambiar la URL del backend sin tocar este archivo: Settings -> Secrets and variables -> Actions ->
+# Variables -> API_BASE_URL.
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: Ejemplo_interfaz/FitGlassApp
+    env:
+      EXPO_PUBLIC_API_BASE_URL: ${{ vars.API_BASE_URL || 'https://vitra-fitglassai.onrender.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ejemplo_interfaz/FitGlassApp/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Usar la URL del backend en la nube
+        # El .env del repo apunta a un túnel local; para el APK se usa el backend de Render.
+        run: echo "EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}" > .env
+
+      - name: Generar proyecto Android
+        run: npx expo prebuild --platform android --no-install --clean
+
+      - name: Compilar APK (release firmado con clave de depuración, solo para pruebas)
+        working-directory: Ejemplo_interfaz/FitGlassApp/android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+
+      - name: Renombrar APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk vitra-prueba.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vitra-prueba-apk
+          path: Ejemplo_interfaz/FitGlassApp/vitra-prueba.apk
+
+      - name: Publicar en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('apk-{0}', github.run_number) }}
+          name: Vitra APK de prueba ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('#{0}', github.run_number) }}
+          prerelease: true
+          body: |
+            APK de **prueba** de Vitra para Android (arm64).
+            Backend: ${{ env.EXPO_PUBLIC_API_BASE_URL }}
+            Instalación: descarga `vitra-prueba.apk`, ábrelo en el teléfono y permite "instalar apps de origen desconocido".
+            La primera petición puede tardar ~1 minuto si el servidor gratuito estaba dormido.
+          files: Ejemplo_interfaz/FitGlassApp/vitra-prueba.apk
