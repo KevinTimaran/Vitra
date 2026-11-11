@@ -5,8 +5,17 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
+from app.services.base_garments import refresh_base_garment_images
+from app import db as vitra_db
 
-from app.schemas.auth import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse
+from app.schemas.auth import (
+    EmailAvailabilityRequest,
+    EmailAvailabilityResponse,
+    LoginRequest,
+    RegisterRequest,
+    RegisterResponse,
+    TokenResponse,
+)
 from app.services.auth_service import (
     get_password_hash,
     verify_password,
@@ -30,50 +39,32 @@ def _resolve_base_url(request: Request = None) -> str:
         return settings.EXPO_PUBLIC_API_BASE_URL.rstrip("/")
     return "http://127.0.0.1:8000"
 
-USERS_DB_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "users_db.json")
+# Base de datos SQLite (app/db.py). Los antiguos users_db.json se importan una sola vez y se renombran a *.migrated.
+# Si la base está dañada, DatabaseError detiene el arranque en lugar de continuar con una base vacía.
+_APP_DIR = os.path.dirname(os.path.dirname(__file__))
+LEGACY_USERS_JSON_FILES = [
+    os.environ.get("USERS_DB_PATH") or os.path.join(_APP_DIR, "data", "users_db.json"),
+    os.path.join(_APP_DIR, "static", "users_db.json"),  # ubicación antigua (era pública)
+]
 
-def _load_users_db() -> Dict[str, Dict[str, Any]]:
-    if os.path.exists(USERS_DB_FILE):
-        try:
-            with open(USERS_DB_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
+vitra_db.use_database()
+vitra_db.migrate_legacy_json(LEGACY_USERS_JSON_FILES)
+
+# Caché en memoria de los usuarios; save_users_db() la persiste en SQLite de forma transaccional.
+users_db: Dict[str, Dict[str, Any]] = vitra_db.load_users()
+
 
 def save_users_db():
-    try:
-        os.makedirs(os.path.dirname(USERS_DB_FILE), exist_ok=True)
-        with open(USERS_DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(users_db, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"[Auth] Error al guardar base de datos de usuarios: {e}")
+    """Persiste users_db en SQLite. Si falla, propaga el error (la API responde 500, no finge éxito)."""
+    vitra_db.save_users(users_db)
 
-# Base de datos persistente para usuarios registrados
-users_db: Dict[str, Dict[str, Any]] = _load_users_db()
-
-# Usuario demo preconfigurado para pruebas inmediatas
+# Usuario demo con credenciales conocidas: SOLO si se habilita explícitamente (desarrollo).
 _demo_email = "demo@vitra.ai"
-if _demo_email not in users_db:
+if os.getenv("ENABLE_DEMO_USER", "").strip().lower() in ("1", "true", "yes") and _demo_email not in users_db:
     users_db[_demo_email] = {
         "email": _demo_email,
         "hashed_password": get_password_hash("password123"),
         "name": "Usuario Vitra",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-# Asegurar persistencia de usuario Stiven con su modelo 3D generado
-_stiven_email = "stivenbuesquillo731@gmail.com"
-if _stiven_email not in users_db or not users_db[_stiven_email].get("avatar_url"):
-    users_db[_stiven_email] = {
-        "email": _stiven_email,
-        "hashed_password": get_password_hash("123456"),
-        "name": "Stiven",
-        "gender": "male",
-        "age": 21,
-        "avatar_url": "https://collected-tamer-knee.ngrok-free.dev/static/models/tripo_pbr_model_703f4065-d560-_7a1d4ddc_opt.glb",
-        "avatar_type": "custom_3d",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     save_users_db()
@@ -82,6 +73,21 @@ if _stiven_email not in users_db or not users_db[_stiven_email].get("avatar_url"
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+@router.post("/email-availability", response_model=EmailAvailabilityResponse)
+async def check_email_availability(payload: EmailAvailabilityRequest):
+    """Comprueba el correo antes de permitir avanzar en el registro."""
+    email_clean = payload.email.strip()
+    email_key = email_clean.lower()
+
+    if not email_clean or "@" not in email_clean or "." not in email_clean.split("@")[-1]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dirección de correo electrónico inválida.",
+        )
+
+    return EmailAvailabilityResponse(exists=email_key in users_db)
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -122,7 +128,12 @@ async def register(payload: RegisterRequest):
         "name": payload.name or email_clean.split("@")[0],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    save_users_db()
+    try:
+        save_users_db()
+    except Exception as e:
+        users_db.pop(email_key, None)  # no dejar en memoria una cuenta que no se guardó
+        logger.error(f"[Auth Register] No se pudo guardar la cuenta '{email_key}': {e}")
+        raise HTTPException(status_code=500, detail="No se pudo guardar la cuenta. Inténtalo de nuevo.")
     logger.info(f"[Auth Register] Cuenta creada exitosamente: '{email_key}'")
 
     return RegisterResponse(
@@ -149,11 +160,7 @@ async def login(payload: LoginRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Verificamos hash de la contraseña (o contraseña maestra '123456' para desarrollo/pruebas)
-    is_valid = verify_password(payload.password, user["hashed_password"])
-    if not is_valid and (payload.password == "123456" or payload.password == "password123"):
-        is_valid = True
-        logger.info(f"[Auth Login] Acceso concedido mediante clave maestra de desarrollo para '{email_key}'")
+    is_valid = verify_password(payload.password, user.get("hashed_password", ""))
 
     if not is_valid:
         logger.warning(f"[Auth Login] Contraseña incorrecta para usuario: '{email_key}'")
@@ -181,13 +188,34 @@ async def login(payload: LoginRequest):
 
 
 @router.post("/reset-password")
-async def reset_password(payload: LoginRequest):
+async def reset_password(
+    payload: LoginRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
     """
-    Permite restablecer la contraseña de una cuenta registrada.
+    Cambia la contraseña de una cuenta. Requiere un token válido de ESA misma cuenta.
+    Solo para desarrollo se puede habilitar el reset sin token con ALLOW_INSECURE_DEV_RESET=1
+    (no existe aún un flujo de verificación por correo).
     """
     email_clean = payload.email.strip()
     email_key = email_clean.lower()
     logger.info(f"[Auth Reset] Solicitud de restablecimiento de contraseña para: '{email_key}'")
+
+    insecure_dev = os.getenv("ALLOW_INSECURE_DEV_RESET", "").strip().lower() in ("1", "true", "yes")
+    if not insecure_dev:
+        if not credentials:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Debes iniciar sesión para cambiar tu contraseña.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        token_data = decode_access_token(credentials.credentials)
+        token_email = (token_data.get("sub") or token_data.get("email") or "").lower()
+        if token_email != email_key:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No puedes cambiar la contraseña de otra cuenta.",
+            )
 
     if email_key not in users_db:
         raise HTTPException(
@@ -214,8 +242,7 @@ async def get_current_user(
 ):
     """
     Valida el token JWT recibido en el encabezado Authorization y retorna el perfil básico.
-    Si el token expiró pero la firma criptográfica es legítima de este backend, lo renueva
-    automáticamente para preservar la sesión del usuario sin interrumpir su navegación.
+    Un token expirado se rechaza (401): el usuario debe iniciar sesión de nuevo.
     """
     if not credentials:
         raise HTTPException(
@@ -224,36 +251,12 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = credentials.credentials
-    renewed_token = None
-    try:
-        payload = decode_access_token(token, verify_exp=True)
-    except HTTPException:
-        # Intentar decodificar si solo expiró el tiempo, manteniendo validación de firma
-        try:
-            payload = decode_access_token(token, verify_exp=False)
-            renewed_token = create_access_token(
-                data={
-                    "sub": payload.get("sub", ""),
-                    "email": payload.get("email", ""),
-                    "name": payload.get("name", ""),
-                }
-            )
-            logger.info(f"[Auth] Token expirado renovado exitosamente para: '{payload.get('sub')}'")
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token inválido o expirado.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    payload = decode_access_token(credentials.credentials, verify_exp=True)
 
     email_key = (payload.get("sub") or payload.get("email") or "").lower()
     user = users_db.get(email_key)
     if not user:
-        res = {"email": payload.get("email") or email_key, "name": payload.get("name", "Usuario")}
-        if renewed_token:
-            res["renewed_token"] = renewed_token
-        return res
+        return {"email": payload.get("email") or email_key, "name": payload.get("name", "Usuario")}
 
     avatar_url = user.get("avatar_url")
     if avatar_url and "/static/models/" in avatar_url:
@@ -269,10 +272,8 @@ async def get_current_user(
         "age": user.get("age"),
         "avatar_url": avatar_url,
         "avatar_type": user.get("avatar_type", "preset"),
-        "base_garments": user.get("base_garments", []),
+        "base_garments": refresh_base_garment_images(user.get("base_garments", []), _resolve_base_url(request)),
         "color_profile": user.get("color_profile"),
         "body_profile": user.get("body_profile"),
     }
-    if renewed_token:
-        res["renewed_token"] = renewed_token
     return res

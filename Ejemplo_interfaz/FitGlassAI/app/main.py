@@ -15,12 +15,16 @@ logger = logging.getLogger("FitGlassAI")
 
 from contextlib import asynccontextmanager
 from pyngrok import ngrok, conf
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from .api import garments, tryon, colorimetry, avatar, auth, users
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exceptions import RequestValidationError
+from .errors import http_exception_handler, validation_exception_handler
+from .i18n import parse_accept_language, reset_request_language, set_request_language
+from .api import garments, tryon, colorimetry, avatar, auth, users, wardrobe
 
-NGROK_AUTHTOKEN = os.getenv("NGROK_AUTHTOKEN", "3LFj7re9ubOoWjAPjczCp0oKgbZ_P1VRGH3FbJHySo4xSqET")
+NGROK_AUTHTOKEN = os.getenv("NGROK_AUTHTOKEN", "").strip()
 
 
 @asynccontextmanager
@@ -31,6 +35,10 @@ async def lifespan(app: FastAPI):
     """
     public_url = None
     try:
+        if not NGROK_AUTHTOKEN:
+            logger.warning("[NGROK] NGROK_AUTHTOKEN no definido en .env: se omite el túnel público.")
+            yield
+            return
         # Autenticación programática con el AuthToken provisto
         try:
             ngrok.set_auth_token(NGROK_AUTHTOKEN)
@@ -97,6 +105,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Los errores HTTP incluyen un `code` estable (app/errors.py) para que la app los traduzca
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+# Idioma de la petición (cabecera Accept-Language que envía la app): la IA y los errores responden en ese idioma
+@app.middleware("http")
+async def request_language_middleware(request: Request, call_next):
+    token = set_request_language(parse_accept_language(request.headers.get("accept-language")))
+    try:
+        return await call_next(request)
+    finally:
+        reset_request_language(token)
+
+
 # Configurar directorio de archivos estáticos (modelos 3D optimizados)
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 MODELS_DIR = os.path.join(STATIC_DIR, "models")
@@ -121,6 +143,7 @@ def health_check():
 # Rutas de la API bajo el prefijo /api
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(wardrobe.router, prefix="/api/wardrobe", tags=["wardrobe"])
 app.include_router(garments.router, prefix="/api/garments", tags=["garments"])
 app.include_router(tryon.router, prefix="/api/tryon", tags=["tryon"])
 app.include_router(colorimetry.router, prefix="/api/colorimetry", tags=["colorimetry"])

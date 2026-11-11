@@ -14,6 +14,9 @@ from app.services.auth_service import decode_access_token
 from app.api.auth import users_db, save_users_db
 from app.services.optimizer_service import get_or_create_optimized_default_avatar
 from app.api.avatar import _resolve_base_url, _execute_avatar_generation
+from app.services.base_garments import refresh_base_garment_images
+from app.services.photo_store import save_photo
+from app.i18n import invalid_person_message
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +24,10 @@ router = APIRouter()
 security = HTTPBearer(auto_error=False)
 
 
-def get_default_base_garments(gender: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_default_base_garments(gender: Optional[str] = None, base_url: Optional[str] = None) -> List[Dict[str, Any]]:
     """Genera las prendas base de alta costura atelier asignadas automáticamente al avatar."""
     is_male = bool(gender and gender.strip().lower() == "male")
-    return [
+    garments = [
         {
             "id": "base-top-1",
             "name": "Classic Heavyweight Tee" if is_male else "Atelier Silk Crewneck",
@@ -50,6 +53,8 @@ def get_default_base_garments(gender: Optional[str] = None) -> List[Dict[str, An
             "imageUrl": "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=800&q=80",
         },
     ]
+    # Sustituye las fotos de Unsplash (retrato / traje) por ilustraciones planas propias de cada prenda.
+    return refresh_base_garment_images(garments, base_url) if base_url else garments
 
 
 @router.post("/profile/setup", response_model=UserProfileSetupResponse, status_code=status.HTTP_200_OK)
@@ -95,7 +100,7 @@ async def setup_user_profile(
         if isinstance(color_res, dict):
             is_valid = color_res.get("is_valid_image", True)
             if is_valid is False or str(is_valid).lower() in ("false", "0"):
-                err_msg = color_res.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                err_msg = color_res.get("validation_error_message") or invalid_person_message()
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
             if "season" in color_res:
                 color_profile = color_res
@@ -115,7 +120,7 @@ async def setup_user_profile(
         if isinstance(body_res, dict):
             is_valid = body_res.get("is_valid_image", True)
             if is_valid is False or str(is_valid).lower() in ("false", "0"):
-                err_msg = body_res.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                err_msg = body_res.get("validation_error_message") or invalid_person_message()
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
             if "season" in body_res:
                 color_profile = body_res
@@ -144,7 +149,7 @@ async def setup_user_profile(
 
     avatar_res = await _generate_avatar_task()
     avatar_url, avatar_type = avatar_res
-    base_garments = get_default_base_garments(gender_val)
+    base_garments = get_default_base_garments(gender_val, base_url)
 
     # Persistencia en base de datos de usuario
     if user_email:
@@ -159,8 +164,9 @@ async def setup_user_profile(
             "avatar_type": avatar_type,
             "base_garments": base_garments,
             "color_profile": color_profile,
-            "face_image": payload.face_image[:50] + "..." if payload.face_image and len(payload.face_image) > 50 else payload.face_image,
-            "body_image": payload.body_image[:50] + "..." if payload.body_image and len(payload.body_image) > 50 else payload.body_image,
+            # La foto se guarda completa en un almacén privado; en el JSON solo queda la referencia.
+            "face_image": save_photo(payload.face_image),
+            "body_image": save_photo(payload.body_image),
         })
         save_users_db()
         logger.info(f"[Users] Registro de base de datos actualizado para {user_email} con avatar_url: {avatar_url}")
@@ -338,7 +344,7 @@ async def update_user_colorimetry(
         if isinstance(final_color_profile, dict):
             is_valid = final_color_profile.get("is_valid_image", True)
             if is_valid is False or str(is_valid).lower() in ("false", "0"):
-                err_msg = final_color_profile.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                err_msg = final_color_profile.get("validation_error_message") or invalid_person_message()
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=err_msg,

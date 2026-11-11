@@ -86,3 +86,20 @@ def test_demo_user_login():
     })
     assert res.status_code == 200
     assert "access_token" in res.json()
+
+
+def test_email_availability_detects_existing_and_new_accounts():
+    existing = client.post("/api/auth/email-availability", json={
+        "email": "  DEMO@VITRA.AI  ",
+    })
+    assert existing.status_code == 200
+    assert existing.json() == {"exists": True}
+
+    available = client.post("/api/auth/email-availability", json={
+        "email": "available-user@vitra.ai",
+    })
+    assert available.status_code == 200
+    assert available.json() == {"exists": False}
+
+    invalid = client.post("/api/auth/email-availability", json={"email": "invalid"})
+    assert invalid.status_code == 400

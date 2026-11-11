@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 .pytest_cache/
 *.pyc
+app/data/
+app/static/garments/
+app/static/models/tripo_pbr_model_*

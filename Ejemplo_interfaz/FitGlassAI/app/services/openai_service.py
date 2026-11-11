@@ -9,6 +9,7 @@ from app.config import settings
 from app.schemas.garment import GarmentMetadata, GarmentAnalysis
 from app.schemas.colorimetry import ColorimetryData
 from app.services.gemini_service import _resolve_image_bytes, DEFAULT_GARMENT_METADATA_MOCK
+from app.i18n import garment_language_instruction, person_language_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ def analyze_garment_image_openai(image_bytes: bytes, mime_type: str) -> GarmentA
     Debes devolver UNICAMENTE un objeto JSON válido que cumpla exactamente con la siguiente estructura y reglas.
     
     Reglas estrictas de validación:
-    - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o por defecto.
+    - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o por defecto.
     - Si la imagen contiene una prenda de vestir reconocible, establece "is_valid_image" en true y "validation_error_message" en null.
     - Analiza ÚNICAMENTE lo que puedas observar en la fotografía.
     - NO inventes la talla.
@@ -78,7 +79,7 @@ def analyze_garment_image_openai(image_bytes: bytes, mime_type: str) -> GarmentA
       "hasZipper": false,
       "confidence": 0.95
     }
-    """
+    """ + garment_language_instruction()
 
     payload = {
         "model": model_name,
@@ -145,8 +146,8 @@ async def analyze_garment_openai(image_base64_or_url: str) -> dict:
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"[analyze_garment_openai] Error al decodificar imagen: {e}. Retornando mock.")
-        return DEFAULT_GARMENT_METADATA_MOCK
+        logger.warning(f"[analyze_garment_openai] Error al decodificar imagen: {e}.")
+        raise HTTPException(status_code=400, detail=f"No se pudo leer la imagen: {e}")
 
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
     data_url = f"data:{mime_type};base64,{b64_image}"
@@ -156,7 +157,7 @@ async def analyze_garment_openai(image_base64_or_url: str) -> dict:
     Analiza la fotografía de la prenda adjunta y extrae sus metadatos principales.
     
     Instrucciones estrictas de validación:
-    - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o nulos.
+    - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o nulos.
     - Si la imagen contiene una prenda de vestir reconocible, establece "is_valid_image" en true y "validation_error_message" en null.
     
     Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura exacta:
@@ -164,14 +165,14 @@ async def analyze_garment_openai(image_base64_or_url: str) -> dict:
       "is_valid_image": true,
       "validation_error_message": null,
       "tipo_prenda": "Tipo de prenda (ej. Camiseta, Camisa, Pantalón, Vestido, Chaqueta, Abrigo, Zapatos, Accesorio)",
-      "color_dominante": "Código HEX (#RRGGBB) y nombre común en español",
+      "color_dominante": "Código HEX (#RRGGBB) y nombre común del color",
       "colores_secundarios": ["#HEX1", "#HEX2"],
       "estilo_recomendado": "Estilo de moda (ej. Casual, Formal, Streetwear, Minimalista, Deportivo, Elegante, Urbano)",
       "corte": "Ajuste o corte (ej. Slim, Regular, Oversized, Recto)",
       "ocasion_recomendada": "Ocasión de uso (ej. Diario, Noche, Trabajo, Deporte, Fiesta)",
       "detalles": "Breve descripción visual de textura, patrón o acabados"
     }
-    """
+    """ + garment_language_instruction()
 
     payload = {
         "model": model_name,
@@ -206,10 +207,8 @@ async def analyze_garment_openai(image_base64_or_url: str) -> dict:
             )
 
         if resp.status_code != 200:
-            logger.warning(
-                f"[analyze_garment_openai] HTTP {resp.status_code}: {resp.text}. Retornando mock."
-            )
-            return DEFAULT_GARMENT_METADATA_MOCK
+            logger.warning(f"[analyze_garment_openai] HTTP {resp.status_code}: {resp.text}")
+            raise HTTPException(status_code=502, detail=f"El servicio de IA respondió HTTP {resp.status_code}.")
 
         result_json = resp.json()
         content = result_json["choices"][0]["message"]["content"] or "{}"
@@ -223,11 +222,11 @@ async def analyze_garment_openai(image_base64_or_url: str) -> dict:
         except Exception:
             pass
         return data
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.warning(
-            f"[analyze_garment_openai] Fallo en OpenAI ({type(e).__name__}: {e}). Retornando mock de respaldo."
-        )
-        return DEFAULT_GARMENT_METADATA_MOCK
+        logger.warning(f"[analyze_garment_openai] Fallo en OpenAI ({type(e).__name__}: {e}).")
+        raise HTTPException(status_code=502, detail=f"El análisis de la prenda no está disponible ahora: {type(e).__name__}")
 
 
 async def analyze_colorimetry_openai(image_base64_or_url: str) -> dict:
@@ -297,7 +296,7 @@ async def analyze_colorimetry_openai(image_base64_or_url: str) -> dict:
     - Proporciona al menos 6 colores recomendados para prendas de vestir acordes a su estación.
     - Proporciona entre 3 y 5 colores a evitar.
     - Responde únicamente el objeto JSON sin texto introductorio ni formato extra.
-    """
+    """ + person_language_instruction()
 
     payload = {
         "model": model_name,

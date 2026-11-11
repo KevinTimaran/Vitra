@@ -15,6 +15,8 @@ from app.schemas.tryon import (
     CascadeStepInfo,
 )
 from app.api.auth import users_db
+from app.services.photo_store import load_photo
+from app.services.auth_service import decode_access_token
 from app.services.replicate_service import generate_vton, restore_image_quality
 from app.services.tripo_service import generate_3d_model
 from app.services.optimizer_service import optimize_3d_model, STATIC_MODELS_DIR
@@ -427,9 +429,8 @@ def _resolve_base_human_image(user_id: Optional[str] = None, human_image: Option
         user_key = user_id.strip().lower()
         if user_key in users_db:
             u_data = users_db[user_key]
-            body_img = u_data.get("body_image")
-            # Si hay foto real no truncada en la base de datos
-            if body_img and len(body_img) > 60 and not body_img.endswith("..."):
+            body_img = load_photo(u_data.get("body_image"))
+            if body_img:
                 return body_img
 
             gender = str(u_data.get("gender", "female")).lower()
@@ -462,6 +463,31 @@ def _sort_garments_for_waterfall(garments: List[Dict[str, Any]]) -> List[Dict[st
         return 5
 
     return sorted(garments, key=_rank)
+
+
+_NON_WEARABLE_WORDS = ("shoe", "zapat", "calzado", "sneaker", "bota", "boot", "accessor", "accesor", "bag", "bolso", "hat", "gorra", "sombrero", "jewel", "joya", "watch", "reloj")
+
+
+def _is_non_wearable_for_vton(garment: Dict[str, Any]) -> bool:
+    """IDM-VTON solo soporta upper_body / lower_body / dresses: calzado y accesorios se omiten."""
+    cat = str(garment.get("category", "")).lower()
+    return any(w in cat for w in _NON_WEARABLE_WORDS)
+
+
+def _bind_payload_to_token_user(payload: CascadeTryOnRequest, request: Optional[Request]) -> None:
+    """
+    El user_id del cliente no es de fiar (permitiría leer la foto de otra persona). Si llega un token válido
+    se usa el correo del token; si no, se descarta el user_id y solo se usará el human_image enviado.
+    """
+    email = None
+    auth = request.headers.get("authorization", "") if request else ""
+    if auth.lower().startswith("bearer "):
+        try:
+            data = decode_access_token(auth[7:].strip())
+            email = (data.get("sub") or data.get("email") or "").lower() or None
+        except Exception:
+            email = None
+    payload.user_id = email
 
 
 def _validate_cascade_payload(payload: CascadeTryOnRequest) -> None:
@@ -567,6 +593,16 @@ async def _execute_waterfall_cascade(
             detail="Se requiere al menos una prenda con imagen válida para la cascada."
         )
 
+    skipped = [g for g in valid_garments if _is_non_wearable_for_vton(g)]
+    for g in skipped:
+        logger.info(f"[WATERFALL] Omitiendo '{g.get('name')}' ({g.get('category')}): IDM-VTON no soporta esta categoría.")
+    valid_garments = [g for g in valid_garments if not _is_non_wearable_for_vton(g)]
+    if not valid_garments:
+        raise HTTPException(
+            status_code=400,
+            detail="Las prendas seleccionadas (calzado/accesorios) no se pueden probar en 2D. Agrega una prenda superior, inferior o vestido."
+        )
+
     ordered_garments = _sort_garments_for_waterfall(valid_garments)
     total_steps = len(ordered_garments)
 
@@ -642,16 +678,19 @@ async def _execute_waterfall_cascade(
             status_code = vton_err.status_code if isinstance(vton_err, HTTPException) else 502
             err_detail = vton_err.detail if isinstance(vton_err, HTTPException) else str(vton_err)
 
-            if task_id and task_id in _async_tasks:
-                _async_tasks[task_id].update({
-                    "status": "failed",
-                    "step": f"failed_vton_step_{step_num}",
-                    "error": f"Fallo en IDM-VTON al procesar '{g_name}' (Paso {step_num}/{total_steps}): {err_detail}",
-                    "detail": f"Error al procesar {g_name}: {err_detail}",
-                })
-
             if not payload.allow_fallback:
+                if task_id and task_id in _async_tasks:
+                    _async_tasks[task_id].update({
+                        "status": "failed",
+                        "step": f"failed_vton_step_{step_num}",
+                        "error": f"Fallo en IDM-VTON al procesar '{g_name}' (Paso {step_num}/{total_steps}): {err_detail}",
+                        "detail": f"Error al procesar {g_name}: {err_detail}",
+                    })
                 raise HTTPException(status_code=status_code, detail=f"[Waterfall VTON Step {step_num}] {err_detail}")
+
+            # Con fallback la tarea sigue "processing": solo se informa del paso omitido.
+            if task_id and task_id in _async_tasks:
+                _async_tasks[task_id].update({"detail": f"Se omitió '{g_name}' por un error de VTON; continuando..."})
             logger.warning(f"[WATERFALL PASO {step_num} FALLBACK] Continuando con el lienzo previo.")
 
     if len(steps_history) == 0:
@@ -772,6 +811,7 @@ async def generate_cascade_tryon_endpoint(payload: CascadeTryOnRequest, request:
     4. Generación 3D única con Tripo3D a partir de la imagen vestida final.
     5. Retorna el modelo 3D unificado (.glb) y el historial de pasos.
     """
+    _bind_payload_to_token_user(payload, request)
     _validate_cascade_payload(payload)
     base_url = _resolve_base_url(request)
     return await _execute_waterfall_cascade(payload=payload, base_url=base_url)
@@ -785,6 +825,7 @@ async def start_cascade_tryon_job(payload: CascadeTryOnRequest, request: Request
     El cliente móvil consulta el progreso periódicamente en /api/tryon/cascade/status/{task_id}.
     """
     # Validación síncrona inmediata antes de generar el task
+    _bind_payload_to_token_user(payload, request)
     _validate_cascade_payload(payload)
 
     now = time.time()

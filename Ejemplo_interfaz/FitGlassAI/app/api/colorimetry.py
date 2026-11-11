@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from app.schemas.colorimetry import ColorimetryRequest, ColorimetryResponse, ColorimetryData
 from app.services.gemini_service import analyze_colorimetry
+from app.i18n import invalid_person_message
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ async def analyze_user_colorimetry(request: Request):
         if isinstance(result, dict):
             is_valid = result.get("is_valid_image", True)
             if is_valid is False or str(is_valid).lower() in ("false", "0"):
-                err_msg = result.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                err_msg = result.get("validation_error_message") or invalid_person_message()
                 raise HTTPException(status_code=400, detail=err_msg)
         return ColorimetryResponse(success=True, data=ColorimetryData(**result))
 
@@ -71,7 +72,7 @@ async def analyze_user_colorimetry(request: Request):
         if isinstance(result, dict):
             is_valid = result.get("is_valid_image", True)
             if is_valid is False or str(is_valid).lower() in ("false", "0"):
-                err_msg = result.get("validation_error_message") or "Esta imagen no parece ser de una persona. Por favor sube una foto tuya."
+                err_msg = result.get("validation_error_message") or invalid_person_message()
                 raise HTTPException(status_code=400, detail=err_msg)
         return ColorimetryResponse(success=True, data=ColorimetryData(**result))
 

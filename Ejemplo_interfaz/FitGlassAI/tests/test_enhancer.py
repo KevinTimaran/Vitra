@@ -82,6 +82,29 @@ async def test_restore_image_quality_success_file_output_object():
 
 
 @pytest.mark.anyio
+async def test_restore_image_quality_iterable_file_output_keeps_url():
+    """Regresión: el FileOutput real es iterable y entrega bytes; se debe usar .url, no iterarlo."""
+    expected_hd_url = "https://replicate.delivery/pbxt/real_fileoutput.png"
+
+    class IterableFileOutput:
+        url = expected_hd_url
+
+        def __iter__(self):
+            yield b"\x89PNG\r\n\x1a\n" + b"0" * 50
+
+        def __str__(self):
+            return self.url
+
+    mock_client = MagicMock()
+    mock_client.async_run = AsyncMock(return_value=IterableFileOutput())
+
+    with patch.object(settings, "REPLICATE_API_TOKEN", "dummy_token"):
+        with patch("app.services.replicate_service.replicate.Client", return_value=mock_client):
+            result = await restore_image_quality("https://example.com/face.jpg")
+            assert result == expected_hd_url
+
+
+@pytest.mark.anyio
 async def test_restore_image_quality_success_generator_output():
     """Verifica que maneje respuestas que retornan un generador/iterador."""
     sample_input_url = "https://example.com/face.jpg"

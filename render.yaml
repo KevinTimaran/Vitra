@@ -1,0 +1,30 @@
+# Blueprint de Render para el backend FitGlassAI (Render -> New -> Blueprint -> este repositorio).
+# Las claves de IA NO están en el repo: Render las pide al crear el servicio (sync: false).
+services:
+  - type: web
+    name: vitra-fitglassai
+    runtime: python
+    plan: free
+    rootDir: Ejemplo_interfaz/FitGlassAI
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: AI_PROVIDER
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      - key: REPLICATE_API_TOKEN
+        sync: false
+      - key: TRIPO_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true

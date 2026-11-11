@@ -12,6 +12,7 @@ from app.config import settings
 from app.schemas.avatar import AvatarGenerateRequest, AvatarGenerateResponse
 from app.services.auth_service import decode_access_token
 from app.api.auth import users_db, save_users_db
+from app.services.photo_store import save_photo
 from app.services.tripo_service import generate_3d_model
 from app.services.optimizer_service import (
     optimize_3d_model,
@@ -131,8 +132,25 @@ async def _execute_avatar_generation(image_str: str, base_url: str, task_id: Opt
     return glb_url
 
 
+def _bind_avatar_to_user(email: str, avatar_url: str, image_str: str) -> None:
+    """Guarda el avatar terminado (y la foto de cuerpo) en el usuario dueño de la tarea."""
+    user = users_db.get(email.lower())
+    if not user:
+        return
+    user["avatar_url"] = avatar_url
+    user["avatar_type"] = "custom_3d"
+    body_ref = save_photo(image_str)
+    if body_ref:
+        user["body_image"] = body_ref
+    save_users_db()
+    logger.info(f"[Avatar Job] Avatar guardado en el perfil de {email}")
+
+
 @router.post("/start")
-async def start_avatar_job(request: Request):
+async def start_avatar_job(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+):
     """
     Inicia la generación del Avatar 3D en segundo plano y retorna de inmediato un task_id.
     El cliente móvil hace polling a /api/avatar/status/{task_id} cada 2.5s sin riesgo
@@ -141,6 +159,17 @@ async def start_avatar_job(request: Request):
     base_url = _resolve_base_url(request)
     content_type = request.headers.get("content-type", "")
     image_str = None
+
+    # Token opcional: si es válido y de un usuario existente, el avatar terminado se guarda en SU perfil.
+    owner_email: Optional[str] = None
+    if credentials:
+        try:
+            token_data = decode_access_token(credentials.credentials)
+            candidate = (token_data.get("sub") or token_data.get("email") or "").lower()
+            if candidate in users_db:
+                owner_email = candidate
+        except Exception:
+            owner_email = None
 
     if "application/json" in content_type:
         try:
@@ -186,11 +215,16 @@ async def start_avatar_job(request: Request):
         "avatar_url": None,
         "error": None,
         "created_at": now,
-    }
+    }  # el dueño NO se guarda aquí: /status es público y filtraría su correo
 
     async def _avatar_worker():
         try:
             final_url = await _execute_avatar_generation(image_str, base_url, task_id=task_id)
+            if owner_email:
+                try:
+                    _bind_avatar_to_user(owner_email, final_url, image_str)
+                except Exception as bind_err:  # el avatar existe aunque no se pudiera guardar en el perfil
+                    logger.error(f"[Avatar Job {task_id}] No se pudo guardar el avatar en el perfil: {bind_err}")
             _async_avatar_tasks[task_id].update({
                 "status": "completed",
                 "step": "completed",

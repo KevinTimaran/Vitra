@@ -10,6 +10,7 @@ from google.genai import types
 from app.config import settings
 from app.schemas.garment import GarmentAnalysis, GarmentMetadata
 from app.schemas.colorimetry import ColorimetryData
+from app.i18n import garment_language_instruction, person_language_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis
     Debes devolver UNICAMENTE un objeto JSON válido que cumpla exactamente con la siguiente estructura y reglas.
     
     Reglas estrictas de validación:
-    - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o por defecto.
+    - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o por defecto.
     - Si la imagen contiene una prenda de vestir reconocible, establece "is_valid_image" en true y "validation_error_message" en null.
     - Analiza ÚNICAMENTE lo que puedas observar en la fotografía.
     - NO inventes la talla.
@@ -75,7 +76,7 @@ def analyze_garment_image(image_bytes: bytes, mime_type: str) -> GarmentAnalysis
       "hasZipper": false,
       "confidence": 0.95
     }
-    """
+    """ + garment_language_instruction()
 
     try:
         response = client.models.generate_content(
@@ -155,7 +156,7 @@ async def _resolve_image_bytes(image_input: str) -> tuple[bytes, str]:
     try:
         missing_padding = len(image_input) % 4
         padded_input = image_input + ("=" * (4 - missing_padding)) if missing_padding else image_input
-        data = base64.b64decode(padded_input)
+        data = base64.b64decode(padded_input, validate=True)
         return data, "image/jpeg"
     except Exception as e:
         raise HTTPException(
@@ -218,8 +219,8 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"[analyze_garment] Error al decodificar la imagen: {e}. Retornando mock de respaldo.")
-        return DEFAULT_GARMENT_METADATA_MOCK
+        logger.warning(f"[analyze_garment] Error al decodificar la imagen: {e}.")
+        raise HTTPException(status_code=400, detail=f"No se pudo leer la imagen: {e}")
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -229,7 +230,7 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
         Analiza la fotografía de la prenda adjunta y extrae sus metadatos principales.
         
         Instrucciones estrictas de validación:
-        - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en español en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o nulos.
+        - Primero, determina si la imagen realmente contiene una prenda de ropa reconocible. Si muestra un objeto aleatorio (perro, coche, comida) o está completamente borrosa, establece "is_valid_image" en false, proporciona un mensaje amigable en "validation_error_message" (ej. "No detectamos ropa en esta imagen. Por favor sube una foto clara de la prenda."), y deja el resto de los campos vacíos o nulos.
         - Si la imagen contiene una prenda de vestir reconocible, establece "is_valid_image" en true y "validation_error_message" en null.
         
         Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura exacta:
@@ -237,14 +238,14 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
           "is_valid_image": true,
           "validation_error_message": null,
           "tipo_prenda": "Tipo de prenda (ej. Camiseta, Camisa, Pantalón, Vestido, Chaqueta, Abrigo, Zapatos, Accesorio)",
-          "color_dominante": "Código HEX (#RRGGBB) y nombre común en español",
+          "color_dominante": "Código HEX (#RRGGBB) y nombre común del color",
           "colores_secundarios": ["#HEX1", "#HEX2"],
           "estilo_recomendado": "Estilo de moda (ej. Casual, Formal, Streetwear, Minimalista, Deportivo, Elegante, Urbano)",
           "corte": "Ajuste o corte (ej. Slim, Regular, Oversized, Recto)",
           "ocasion_recomendada": "Ocasión de uso (ej. Diario, Noche, Trabajo, Deporte, Fiesta)",
           "detalles": "Breve descripción visual de textura, patrón o acabados"
         }
-        """
+        """ + garment_language_instruction()
 
         raw_text = await _generate_content_with_fallback(
             client=client,
@@ -275,10 +276,8 @@ async def analyze_garment(image_base64_or_url: str) -> dict:
             pass
         return data
     except Exception as e:
-        logger.warning(
-            f"[analyze_garment] Fallo en servicio Gemini ({type(e).__name__}: {e}). Retornando metadatos simulados de respaldo."
-        )
-        return DEFAULT_GARMENT_METADATA_MOCK
+        logger.warning(f"[analyze_garment] Fallo en servicio Gemini ({type(e).__name__}: {e}).")
+        raise HTTPException(status_code=502, detail=f"El análisis de la prenda no está disponible ahora: {type(e).__name__}")
 
 
 async def analyze_colorimetry(image_base64_or_url: str) -> dict:
@@ -363,7 +362,7 @@ async def analyze_colorimetry(image_base64_or_url: str) -> dict:
     - Proporciona al menos 6 colores recomendados para prendas de vestir acordes a su estación.
     - Proporciona entre 3 y 5 colores a evitar.
     - Responde únicamente el objeto JSON sin texto introductorio ni formato extra.
-    """
+    """ + person_language_instruction()
 
     try:
         raw_text = await _generate_content_with_fallback(

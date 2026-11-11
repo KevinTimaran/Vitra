@@ -7,6 +7,20 @@ from pydantic import BaseModel, Field
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
+def _resolve_jwt_secret() -> str:
+    """Lee JWT_SECRET_KEY del entorno; si falta, genera uno aleatorio (las sesiones se pierden al reiniciar)."""
+    secret = os.getenv("JWT_SECRET_KEY", "").strip()
+    if secret and secret != "replace-with-a-random-secret":
+        return secret
+    import logging
+    import secrets
+    logging.getLogger(__name__).warning(
+        "JWT_SECRET_KEY no está definido: usando un secreto aleatorio temporal. "
+        "Defínelo en .env para conservar las sesiones entre reinicios."
+    )
+    return secrets.token_urlsafe(48)
+
+
 class Settings(BaseModel):
     AI_PROVIDER: str = Field(default_factory=lambda: os.getenv("AI_PROVIDER", "gemini").lower().strip())
     GEMINI_API_KEY: str = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY", "").strip())
@@ -16,9 +30,9 @@ class Settings(BaseModel):
     REPLICATE_API_TOKEN: str = Field(default_factory=lambda: os.getenv("REPLICATE_API_TOKEN", "").strip())
     TRIPO_API_KEY: str = Field(default_factory=lambda: os.getenv("TRIPO_API_KEY", "").strip())
     EXPO_PUBLIC_API_BASE_URL: str = Field(default_factory=lambda: os.getenv("EXPO_PUBLIC_API_BASE_URL", "http://127.0.0.1:8000").strip())
-    JWT_SECRET_KEY: str = Field(default_factory=lambda: os.getenv("JWT_SECRET_KEY", "fitglass_ai_secret_super_key_2026_jwt_token").strip())
+    JWT_SECRET_KEY: str = Field(default_factory=lambda: _resolve_jwt_secret())
     JWT_ALGORITHM: str = Field(default_factory=lambda: os.getenv("JWT_ALGORITHM", "HS256").strip())
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default_factory=lambda: int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "525600")))
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default_factory=lambda: int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "43200")))
 
     @property
     def has_gemini(self) -> bool:

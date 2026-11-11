@@ -60,7 +60,7 @@ async def test_analyze_garment_success():
 
 
 @pytest.mark.anyio
-async def test_analyze_garment_gemini_error_returns_fallback_mock():
+async def test_analyze_garment_gemini_error_raises_502():
     mock_generate_content = AsyncMock(side_effect=Exception("503 UNAVAILABLE: Server high load"))
     mock_client = MagicMock()
     mock_client.aio.models.generate_content = mock_generate_content
@@ -68,10 +68,9 @@ async def test_analyze_garment_gemini_error_returns_fallback_mock():
     with patch.object(settings, "AI_PROVIDER", "gemini"):
         with patch.object(settings, "GEMINI_API_KEY", "dummy_key"):
             with patch("app.services.gemini_service.genai.Client", return_value=mock_client):
-                result = await analyze_garment("data:image/jpeg;base64,dGVzdA==")
-                assert result["tipo_prenda"] == "Prenda de prueba"
-                assert result["color_dominante"] == "#000000"
-                assert "mock de respaldo" in result["detalles"]
+                with pytest.raises(HTTPException) as exc:
+                    await analyze_garment("data:image/jpeg;base64,dGVzdA==")
+                assert exc.value.status_code == 502
 
 
 def test_analyze_garment_image_gemini_missing_key():

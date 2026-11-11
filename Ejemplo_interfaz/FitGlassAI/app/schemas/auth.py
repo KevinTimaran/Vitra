@@ -13,6 +13,14 @@ class RegisterResponse(BaseModel):
     email: str = Field(..., description="Correo electrónico del usuario registrado")
 
 
+class EmailAvailabilityRequest(BaseModel):
+    email: str = Field(..., description="Correo electrónico que se desea validar")
+
+
+class EmailAvailabilityResponse(BaseModel):
+    exists: bool = Field(..., description="Indica si ya existe una cuenta con este correo")
+
+
 class LoginRequest(BaseModel):
     email: str = Field(..., description="Correo electrónico del usuario")
     password: str = Field(..., description="Contraseña del usuario")

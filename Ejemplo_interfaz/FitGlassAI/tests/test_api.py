@@ -113,11 +113,8 @@ def test_analyze_garment_json_service_http_error():
             json={"image": "https://example.com/tshirt.png"}
         )
 
-        assert response.status_code == 200
-        json_data = response.json()
-        assert json_data["success"] is True
-        assert json_data["data"]["tipo_prenda"] == "Prenda de prueba"
-        assert json_data["data"]["color_dominante"] == "#000000"
+        # Ya no se inventan metadatos: el error del proveedor llega al cliente
+        assert response.status_code == 502
 
 
 # -------------------------------------------------------------

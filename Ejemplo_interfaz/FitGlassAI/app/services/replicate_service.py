@@ -394,9 +394,13 @@ async def restore_image_quality(image_url: str, fidelity: float = 0.7) -> str:
             logger.warning("[CodeFormer Restoration] CodeFormer retornó un output nulo o vacío. Retornando imagen original.")
             return clean_image_url
 
-        # Manejar generadores / iteradores asíncronos o síncronos
+        # Manejar generadores / iteradores asíncronos o síncronos.
+        # OJO: FileOutput (SDK reciente de Replicate) es iterable y entrega los BYTES de la imagen;
+        # si se itera se pierde la URL, así que se usa su atributo .url directamente.
         output = raw_output
-        if hasattr(output, "__aiter__"):
+        if getattr(output, "url", None) and not isinstance(output, (str, bytes, list, tuple, dict)):
+            pass
+        elif hasattr(output, "__aiter__"):
             chunks = []
             async for item in output:
                 chunks.append(item)
