@@ -45,12 +45,39 @@ const getCollectionFile = (fileName: string): File | null => {
   }
 };
 
+// SecureStore no admite valores grandes de forma fiable (~2 KB). Antes se omitían en silencio (y se perdían);
+// ahora esos valores se guardan en un archivo de documentos y SecureStore queda sin la clave.
+const SECURE_STORE_MAX_CHARS = 1800;
+const overflowFile = (key: string): File | null => getCollectionFile('vitra_kv_' + key + '.json');
+
+const readOverflow = async (key: string): Promise<string | null> => {
+  try {
+    const file = overflowFile(key);
+    return file && file.exists ? await file.text() : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeOverflow = async (key: string, value: string | null): Promise<void> => {
+  const file = overflowFile(key);
+  if (!file) return;
+  if (value === null) {
+    if (file.exists) file.delete();
+    return;
+  }
+  if (!file.exists) file.create();
+  await file.write(value);
+};
+
 const readValue = async (key: string): Promise<string | null> => {
   try {
     if (Platform.OS === 'web') {
       return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
     }
-    if (await SecureStore.isAvailableAsync()) return await SecureStore.getItemAsync(key);
+    if (await SecureStore.isAvailableAsync()) {
+      return (await SecureStore.getItemAsync(key)) ?? (await readOverflow(key));
+    }
   } catch (error) {
     console.warn('[UserStorage] No se pudo leer la preferencia ' + key + ':', error);
   }
@@ -63,7 +90,7 @@ const readValues = async (keys: string[]): Promise<(string | null)[]> => {
     if (!(await SecureStore.isAvailableAsync())) return keys.map(() => null);
     return await Promise.all(keys.map(async (key) => {
       try {
-        return await SecureStore.getItemAsync(key);
+        return (await SecureStore.getItemAsync(key)) ?? (await readOverflow(key));
       } catch (error) {
         console.warn('[UserStorage] No se pudo leer la preferencia ' + key + ':', error);
         return null;
@@ -75,29 +102,28 @@ const readValues = async (keys: string[]): Promise<(string | null)[]> => {
   }
 };
 
-const writeValue = async (key: string, value: string | null): Promise<void> => {
-  if (Platform.OS === 'web') {
-    if (typeof localStorage === 'undefined') return;
-    if (value === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, value);
-    return;
+const writeNativeValue = async (key: string, value: string | null): Promise<void> => {
+  if (value === null) {
+    await SecureStore.deleteItemAsync(key);
+    await writeOverflow(key, null);
+  } else if (value.length > SECURE_STORE_MAX_CHARS) {
+    await writeOverflow(key, value);
+    await SecureStore.deleteItemAsync(key);
+  } else {
+    await SecureStore.setItemAsync(key, value);
+    await writeOverflow(key, null);
   }
-
-  if (value && value.length > 1800) {
-    console.warn('[UserStorage] Se omitió ' + key + ': el valor es demasiado grande para guardarlo de forma confiable en SecureStore.');
-    return;
-  }
-  if (!(await SecureStore.isAvailableAsync())) return;
-  if (value === null) await SecureStore.deleteItemAsync(key);
-  else await SecureStore.setItemAsync(key, value);
 };
 
 const writeValues = async (entries: [string, string | null][]): Promise<void> => {
   if (Platform.OS === 'web') {
-    const results = await Promise.allSettled(entries.map(([key, value]) => writeValue(key, value)));
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        console.warn('[UserStorage] No se pudo persistir la preferencia ' + entries[index][0] + ':', result.reason);
+    if (typeof localStorage === 'undefined') return;
+    entries.forEach(([key, value]) => {
+      try {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      } catch (error) {
+        console.warn('[UserStorage] No se pudo persistir la preferencia ' + key + ':', error);
       }
     });
     return;
@@ -105,14 +131,7 @@ const writeValues = async (entries: [string, string | null][]): Promise<void> =>
 
   try {
     if (!(await SecureStore.isAvailableAsync())) return;
-    const results = await Promise.allSettled(entries.map(async ([key, value]) => {
-      if (value && value.length > 1800) {
-        console.warn('[UserStorage] Se omitió ' + key + ': el valor es demasiado grande para guardarlo de forma confiable en SecureStore.');
-        return;
-      }
-      if (value === null) await SecureStore.deleteItemAsync(key);
-      else await SecureStore.setItemAsync(key, value);
-    }));
+    const results = await Promise.allSettled(entries.map(([key, value]) => writeNativeValue(key, value)));
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         console.warn('[UserStorage] No se pudo persistir la preferencia ' + entries[index][0] + ':', result.reason);
@@ -168,6 +187,7 @@ const normalizeSavedLook = (value: unknown, index: number): SavedLookItem | null
     image2dUrl: isString(value.image2dUrl) ? value.image2dUrl : undefined,
     category: isString(value.category) ? value.category : (index % 2 === 0 ? 'Elegante' : 'Fiesta'),
     isFavorite: Boolean(value.isFavorite),
+    updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : undefined,
   };
 };
 
@@ -250,43 +270,107 @@ export function persistProfile(profile: PersistedProfile): Promise<void> {
   });
 }
 
-export async function loadCollection<T>(
-  fileName: string,
-  webKey: string,
-  normalize: (value: unknown[]) => T[]
-): Promise<T[] | null> {
+// ---------------------------------------------------------------------------
+// Colecciones (armario, looks, categorías, estado de sincronización) POR USUARIO
+// ---------------------------------------------------------------------------
+export type CollectionLoad<T> =
+  | { status: 'ok'; items: T[] }
+  | { status: 'missing' }
+  | { status: 'error'; error: unknown };
+
+/** Identificador estable y seguro para nombres de archivo/claves a partir del correo (o 'guest'). */
+export const scopeKeyFor = (email?: string | null): string => {
+  const normalized = (email || '').trim().toLowerCase();
+  if (!normalized) return 'guest';
+  let hash = 5381;
+  for (let i = 0; i < normalized.length; i += 1) hash = ((hash << 5) + hash + normalized.charCodeAt(i)) >>> 0;
+  return 'u' + hash.toString(16);
+};
+
+const scopedFileName = (fileName: string, scope: string) => fileName.replace(/\.json$/, '') + '.' + scope + '.json';
+const scopedWebKey = (webKey: string, scope: string) => webKey + ':' + scope;
+
+// Archivos que NO se pudieron leer: no se sobrescriben jamás (evita perder datos por una lectura fallida).
+const blockedWrites = new Set<string>();
+
+const readCollectionRaw = async (fileName: string, webKey: string): Promise<string | null> => {
+  if (Platform.OS === 'web') {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(webKey) : null;
+  }
+  const file = getCollectionFile(fileName);
+  if (!file || !file.exists) return null;
+  return await file.text();
+};
+
+const removeLegacyCollection = async (fileName: string, webKey: string): Promise<void> => {
   try {
     if (Platform.OS === 'web') {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(webKey) : null;
-      if (raw === null) return null;
-      const parsed: unknown = JSON.parse(raw);
-      return Array.isArray(parsed) ? normalize(parsed) : null;
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(webKey);
+      return;
     }
-
     const file = getCollectionFile(fileName);
-    if (!file || !file.exists) return null;
-    const raw = await file.text();
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? normalize(parsed) : null;
+    if (file && file.exists) file.delete();
   } catch (error) {
-    console.warn('[UserStorage] No se pudo cargar ' + fileName + ':', error);
-    return null;
+    console.warn('[UserStorage] No se pudo retirar el archivo anterior ' + fileName + ':', error);
   }
-}
+};
 
-export function persistCollection(fileName: string, webKey: string, values: unknown[]): Promise<void> {
+export function persistCollection(fileName: string, webKey: string, values: unknown[], scope: string = 'guest'): Promise<void> {
+  const scopedFile = scopedFileName(fileName, scope);
+  const scopedKey = scopedWebKey(webKey, scope);
   return enqueueWrite(async () => {
+    if (blockedWrites.has(scopedFile)) {
+      console.warn('[UserStorage] Escritura omitida: ' + scopedFile + ' no se pudo leer y se conserva intacto.');
+      return;
+    }
     const serialized = JSON.stringify(values);
     if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(webKey, serialized);
+      if (typeof localStorage !== 'undefined') localStorage.setItem(scopedKey, serialized);
       return;
     }
 
-    const file = getCollectionFile(fileName);
+    const file = getCollectionFile(scopedFile);
     if (!file) return;
     if (!file.exists) file.create();
     await file.write(serialized);
   });
+}
+
+export async function loadCollection<T>(
+  fileName: string,
+  webKey: string,
+  normalize: (value: unknown[]) => T[],
+  scope: string = 'guest'
+): Promise<CollectionLoad<T>> {
+  const scopedFile = scopedFileName(fileName, scope);
+  const scopedKey = scopedWebKey(webKey, scope);
+  try {
+    let raw = await readCollectionRaw(scopedFile, scopedKey);
+
+    // Migración: el archivo anterior (sin usuario) lo adopta la primera cuenta que inicia sesión.
+    if (raw === null && scope !== 'guest') {
+      const legacy = await readCollectionRaw(fileName, webKey);
+      if (legacy !== null) {
+        const parsedLegacy: unknown = JSON.parse(legacy);
+        if (Array.isArray(parsedLegacy)) {
+          raw = legacy;
+          blockedWrites.delete(scopedFile);
+          await persistCollection(fileName, webKey, parsedLegacy, scope);
+          await removeLegacyCollection(fileName, webKey);
+        }
+      }
+    }
+
+    blockedWrites.delete(scopedFile);
+    if (raw === null) return { status: 'missing' };
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error('el contenido no es una lista');
+    return { status: 'ok', items: normalize(parsed) };
+  } catch (error) {
+    console.warn('[UserStorage] No se pudo cargar ' + scopedFile + ' (se protege de sobrescritura):', error);
+    blockedWrites.add(scopedFile);
+    return { status: 'error', error };
+  }
 }
 
 export const COLLECTION_STORAGE = USER_COLLECTIONS;

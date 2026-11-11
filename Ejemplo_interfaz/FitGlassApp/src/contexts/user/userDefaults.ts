@@ -58,4 +58,6 @@ export const USER_COLLECTIONS = {
   wardrobe: { fileName: 'vitra_wardrobe_v1.json', webKey: 'vitra_wardrobe_v1' },
   savedLooks: { fileName: 'vitra_saved_looks_v1.json', webKey: 'vitra_saved_looks_v1' },
   lookCategories: { fileName: 'vitra_look_categories_v1.json', webKey: 'vitra_look_categories_v1' },
+  syncState: { fileName: 'vitra_sync_state_v1.json', webKey: 'vitra_sync_state_v1' },
+  gameRecord: { fileName: 'vitra_game_record_v1.json', webKey: 'vitra_game_record_v1' },
 } as const;

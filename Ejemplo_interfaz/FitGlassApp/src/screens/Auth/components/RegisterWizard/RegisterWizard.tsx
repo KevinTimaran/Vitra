@@ -7,6 +7,7 @@ import { RegisterFormData, RegisterStep, GenderType } from '../../types/auth.typ
 import { StepCredentials } from './StepCredentials';
 import { StepPersonalInfo } from './StepPersonalInfo';
 import { StepBiometrics } from './StepBiometrics';
+import { Colors } from '../../../../theme';
 
 interface RegisterWizardProps {
   currentStep: RegisterStep;
@@ -17,6 +18,8 @@ interface RegisterWizardProps {
   onPickImage: (target: 'face' | 'body', source: 'camera' | 'gallery') => void;
   onUseSampleBiometrics: () => void;
   onFinishRegister: (data: RegisterFormData, skipPhotos: boolean) => Promise<void>;
+  onCheckEmail: (email: string) => Promise<boolean>;
+  onAccountExists: (email: string) => void;
   onSwitchToLogin: () => void;
   onError: (msg: string | null) => void;
 }
@@ -30,6 +33,8 @@ export const RegisterWizard: React.FC<RegisterWizardProps> = ({
   onPickImage,
   onUseSampleBiometrics,
   onFinishRegister,
+  onCheckEmail,
+  onAccountExists,
   onSwitchToLogin,
   onError,
 }) => {
@@ -73,20 +78,20 @@ export const RegisterWizard: React.FC<RegisterWizardProps> = ({
                   styles.wizardPill,
                   {
                     backgroundColor: isActive
-                      ? '#3C6473'
+                      ? Colors.buttons.authBackground
                       : isPassed
-                      ? '#8EB6C7'
-                      : '#EEEEEC',
+                      ? Colors.primary
+                      : Colors.surfaceSubtle,
                   },
                 ]}
               >
                 {isPassed ? (
-                  <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                  <Ionicons name="checkmark" size={12} color={Colors.buttons.authText} />
                 ) : (
                   <Text
                     style={[
                       styles.wizardPillText,
-                      { color: isActive ? '#FFFFFF' : '#71787C' },
+                      { color: isActive ? Colors.buttons.authText : Colors.secondaryText },
                     ]}
                   >
                     {step}
@@ -101,8 +106,8 @@ export const RegisterWizard: React.FC<RegisterWizardProps> = ({
           {currentStep === 1
             ? t('auth.createAccountTitle')
             : currentStep === 2
-            ? 'Datos Personales'
-            : 'Identidad Biométrica'}
+            ? t('auth.step2Title')
+            : t('auth.step3Title')}
         </Text>
         <Text style={styles.sheetSubtitle}>
           {currentStep === 1
@@ -119,6 +124,8 @@ export const RegisterWizard: React.FC<RegisterWizardProps> = ({
           initialEmail={formData.email}
           initialPassword={formData.password}
           onNext={handleCredentialsNext}
+          onCheckEmail={onCheckEmail}
+          onAccountExists={onAccountExists}
           onSwitchToLogin={onSwitchToLogin}
           onError={onError}
         />

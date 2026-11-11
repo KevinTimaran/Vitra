@@ -4,14 +4,13 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../contexts/ThemeContext';
-import { pearlTiffanyColors } from '../theme/colors';
 
 interface VibrantBackgroundProps {
   children?: React.ReactNode;
 }
 
 /**
- * Atelier Luminous Background — Pearl & Tiffany Atelier
+ * Atelier atmospheric background — Ivoire & Pine / Nocturne Pine.
  *
  * Genera una atmósfera sutil, luminosa y sofisticada inspirada en un atelier
  * de alta costura parisino. Reemplaza gradientes saturados o púrpuras genéricos
@@ -24,21 +23,21 @@ export const VibrantBackground: React.FC<VibrantBackgroundProps> = ({ children }
 
   // Gradiente arquitectónico base (superficie perla mineral o pizarra profunda)
   const gradientColors = isDark
-    ? (['#101213', '#151719', '#1A1D1F', '#121415'] as const)
-    : (['#FBFBFA', '#F4F4F1', '#ECECE9', '#F9F9F7'] as const);
+    ? (['#0F1512', '#131916', '#171D1A', '#0F1512'] as const)
+    : (['#FAF9F7', '#F4F3F1', '#EFECE6', '#FAF9F7'] as const);
 
   // Orbes ambientales tenues (difusión mineral de lujo)
   const tiffanyGlow = isDark
-    ? 'rgba(60, 100, 115, 0.18)'
-    : 'rgba(142, 182, 199, 0.16)';
+    ? 'rgba(78, 120, 100, 0.18)'
+    : 'rgba(45, 66, 56, 0.10)';
 
   const sandGlow = isDark
-    ? 'rgba(108, 91, 82, 0.14)'
-    : 'rgba(196, 185, 169, 0.18)';
+    ? 'rgba(40, 51, 45, 0.18)'
+    : 'rgba(229, 226, 220, 0.30)';
 
   const mintGlow = isDark
-    ? 'rgba(72, 100, 92, 0.15)'
-    : 'rgba(158, 188, 179, 0.14)';
+    ? 'rgba(78, 120, 100, 0.12)'
+    : 'rgba(78, 120, 100, 0.08)';
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

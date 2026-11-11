@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SilhouetteGuideSvg } from './SilhouetteGuideSvg';
 import { ImageCropperModal } from './ImageCropperModal';
 import { Colors } from '../../theme';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface CameraSilhouetteModalProps {
   visible: boolean;
@@ -33,6 +34,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
   gender = 'female',
 }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [isCapturing, setIsCapturing] = useState(false);
@@ -47,7 +49,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso Requerido', 'Se requiere acceso a la galería.');
+        Alert.alert(t('perm.title'), t('cam.perm.gallery'));
         return;
       }
 
@@ -71,7 +73,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso Requerido', 'Se requiere acceso a la cámara.');
+        Alert.alert(t('perm.title'), t('cam.perm.camera'));
         return;
       }
 
@@ -98,7 +100,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
       <Modal visible={visible} animationType="fade" transparent={false}>
         <View style={styles.permissionContainer}>
           <ActivityIndicator size="large" color={Colors.buttons.cameraBackground} />
-          <Text style={styles.permissionText}>Comprobando permisos de cámara...</Text>
+          <Text style={styles.permissionText}>{t('cam.checking')}</Text>
         </View>
       </Modal>
     );
@@ -109,21 +111,21 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
       <Modal visible={visible} animationType="fade" transparent={false}>
         <View style={styles.permissionContainer}>
           <Ionicons name="camera-outline" size={64} color={Colors.buttons.cameraBackground} style={{ marginBottom: 16 }} />
-          <Text style={styles.permissionTitle}>ACCESO A LA CÁMARA REQUERIDO</Text>
+          <Text style={styles.permissionTitle}>{t('cam.requiredTitle')}</Text>
           <Text style={styles.permissionDescription}>
-            Vitra requiere acceso a la cámara para capturar tu postura biométrica y modelar tu gemelo digital 3D.
+            {t('cam.requiredBody')}
           </Text>
           <TouchableOpacity style={styles.grantBtn} onPress={requestPermission}>
-            <Text style={styles.grantBtnText}>CONCEDER ACCESO</Text>
+            <Text style={styles.grantBtnText}>{t('cam.grant')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.grantBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.buttons.cameraBorder, marginTop: 12 }]}
             onPress={handlePickFromGallery}
           >
-            <Text style={[styles.grantBtnText, { color: Colors.buttons.cameraBackground }]}>ELEGIR DE GALERÍA</Text>
+            <Text style={[styles.grantBtnText, { color: Colors.buttons.cameraBackground }]}>{t('cam.pickGallery')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-            <Text style={styles.cancelBtnText}>Cancelar</Text>
+            <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -147,7 +149,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
       }
     } catch (err: any) {
       console.error('[CameraSilhouetteModal] Error capturando foto:', err);
-      Alert.alert('Error', 'No se pudo capturar con el visor rápido. Abriendo cámara del sistema...');
+      Alert.alert(t('common.error'), t('cam.captureFallback'));
       handleSystemCamera();
     } finally {
       setIsCapturing(false);
@@ -209,9 +211,9 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
                 <Ionicons name="body-outline" size={16} color={Colors.buttons.cameraText} />
               </View>
               <View style={styles.bannerTextContent}>
-                <Text style={styles.bannerTitle}>POSTURA BIOMÉTRICA (A-POSE)</Text>
+                <Text style={styles.bannerTitle}>{t('cam.poseTitle')}</Text>
                 <Text style={styles.bannerMessage}>
-                  Alinea tu cuerpo con la silueta dorada con los brazos separados y buena luz.
+                  {t('cam.poseHint')}
                 </Text>
               </View>
             </View>
@@ -224,7 +226,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
               <View style={styles.actionIconCircle}>
                 <Ionicons name="images-outline" size={22} color={Colors.buttons.overlayText} />
               </View>
-              <Text style={styles.actionBtnLabel}>Galería</Text>
+              <Text style={styles.actionBtnLabel}>{t('bp.gallery')}</Text>
             </TouchableOpacity>
 
             {/* Disparador de Alta Gama Vitra (Centro) */}
@@ -248,7 +250,7 @@ export const CameraSilhouetteModal: React.FC<CameraSilhouetteModalProps> = ({
               <View style={styles.actionIconCircle}>
                 <Ionicons name="camera-outline" size={22} color={Colors.buttons.overlayText} />
               </View>
-              <Text style={styles.actionBtnLabel}>Cámara</Text>
+              <Text style={styles.actionBtnLabel}>{t('bp.camera')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -275,7 +277,7 @@ const styles = StyleSheet.create({
   },
   permissionContainer: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: '#0F1512',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
@@ -286,7 +288,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   permissionTitle: {
-    color: '#D4AF37',
+    color: Colors.buttons.cameraBackground,
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -339,11 +341,11 @@ const styles = StyleSheet.create({
   floatingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(13, 13, 13, 0.90)',
+    backgroundColor: 'rgba(15, 21, 18, 0.82)',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: 'rgba(142, 182, 199, 0.45)',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
@@ -354,7 +356,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#D4AF37',
+    backgroundColor: Colors.buttons.cameraBackground,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -363,7 +365,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bannerTitle: {
-    color: '#D4AF37',
+    color: Colors.buttons.cameraBackground,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,

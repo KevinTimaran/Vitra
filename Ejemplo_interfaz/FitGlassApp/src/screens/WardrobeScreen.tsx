@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { translateOr } from '../i18n/lookCategories';
 import { useUser } from '../contexts/UserContext';
 import { GlassCard } from '../components/GlassCard';
 import { VibrantBackground } from '../components/VibrantBackground';
@@ -22,18 +23,18 @@ import { GarmentViewScreen } from './GarmentViewScreen';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const CATEGORY_FILTERS = [
-  { id: 'Todas', label: 'Todas', icon: 'grid-outline' },
-  { id: 'Favoritas', label: 'Favoritas', icon: 'heart-outline' },
-  { id: 'Outerwear', label: 'Chaquetas', icon: 'layers-outline' },
-  { id: 'Tops', label: 'Tops', icon: 'shirt-outline' },
-  { id: 'Dresses', label: 'Vestidos', icon: 'woman-outline' },
-  { id: 'Pants', label: 'Pantalones', icon: 'reorder-two-outline' },
-  { id: 'Shoes', label: 'Calzado', icon: 'footsteps-outline' },
-  { id: 'Accessories', label: 'Accesorios', icon: 'sparkles-outline' },
+  { id: 'Todas', labelKey: 'wardrobe2.filter.all', icon: 'grid-outline' },
+  { id: 'Favoritas', labelKey: 'wardrobe2.filter.favorites', icon: 'heart-outline' },
+  { id: 'Outerwear', labelKey: 'wardrobe2.filter.outerwear', icon: 'layers-outline' },
+  { id: 'Tops', labelKey: 'wardrobe2.filter.tops', icon: 'shirt-outline' },
+  { id: 'Dresses', labelKey: 'common.dresses', icon: 'woman-outline' },
+  { id: 'Pants', labelKey: 'common.pants', icon: 'reorder-two-outline' },
+  { id: 'Shoes', labelKey: 'common.shoes', icon: 'footsteps-outline' },
+  { id: 'Accessories', labelKey: 'common.accessories', icon: 'sparkles-outline' },
 ];
 
 export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const { wardrobeItems, toggleFavoriteGarment } = useUser();
 
@@ -114,7 +115,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
             {t('wardrobe.title')}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.secondaryText }]}>
-            Aún no tienes prendas en tu colección. Fotografía tu primera prenda de ropa para escanearla y generar su modelo 3D interactivo.
+            {t('wardrobe2.empty.body')}
           </Text>
           <View
             style={[
@@ -122,9 +123,9 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
               { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
             ]}
           >
-            <Ionicons name="sparkles" size={12} color="#8EB6C7" />
+            <Ionicons name="sparkles" size={12} color={colors.primary} />
             <Text style={[styles.emptyBadgeText, { color: colors.tertiaryText }]}>
-              BIBLIOTECA 3D · LISTA PARA TU PRIMERA PRENDA
+              {t('wardrobe2.empty.badge')}
             </Text>
           </View>
 
@@ -152,10 +153,10 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
       <View style={[styles.headerBar, { borderBottomColor: colors.borderLight }]}>
         <View style={styles.headerTitleBox}>
           <Text style={[styles.headerMainTitle, { color: colors.primaryText }]}>
-            Mi Armario
+            {t('wardrobe2.title')}
           </Text>
           <Text style={[styles.headerCountText, { color: colors.secondaryText }]}>
-            {wardrobeItems.length} {wardrobeItems.length === 1 ? 'prenda registrada' : 'prendas registradas'}
+            {t('wardrobe2.count', { count: wardrobeItems.length })}
           </Text>
         </View>
 
@@ -165,7 +166,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={17} color={colors.ctaText} />
-          <Text style={[styles.addTopBtnText, { color: colors.ctaText }]}>Añadir</Text>
+          <Text style={[styles.addTopBtnText, { color: colors.ctaText }]}>{t('wardrobe2.add')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -186,14 +187,10 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                   {
                     backgroundColor: isActive
                       ? colors.cta
-                      : isDark
-                      ? 'rgba(25, 27, 32, 0.65)'
-                      : 'rgba(255, 255, 255, 0.85)',
+                      : colors.glass,
                     borderColor: isActive
                       ? colors.cta
-                      : isDark
-                      ? 'rgba(255, 255, 255, 0.12)'
-                      : 'rgba(0, 0, 0, 0.08)',
+                      : colors.glassBorder,
                   },
                 ]}
                 onPress={() => setSelectedFilter(item.id)}
@@ -213,7 +210,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                     },
                   ]}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Text>
               </TouchableOpacity>
             );
@@ -233,10 +230,10 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
           <View style={styles.filterEmptyBox}>
             <Ionicons name="search-outline" size={38} color={colors.tertiaryText} />
             <Text style={[styles.filterEmptyTitle, { color: colors.primaryText }]}>
-              Sin prendas en "{selectedFilter}"
+              {t('wardrobe2.emptyFilter.title', { filter: t(CATEGORY_FILTERS.find((f) => f.id === selectedFilter)?.labelKey || 'wardrobe2.filter.all') })}
             </Text>
             <Text style={[styles.filterEmptyDesc, { color: colors.secondaryText }]}>
-              No se encontraron prendas bajo este filtro.
+              {t('wardrobe2.emptyFilter.body')}
             </Text>
             <TouchableOpacity
               style={[styles.resetFilterBtn, { borderColor: colors.borderLight }]}
@@ -244,7 +241,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
               activeOpacity={0.7}
             >
               <Text style={[styles.resetFilterText, { color: colors.primaryText }]}>
-                Ver todas las prendas
+                {t('wardrobe2.emptyFilter.viewAll')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -258,12 +255,8 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
               style={[
                 styles.garmentCard,
                 {
-                  backgroundColor: isDark
-                    ? 'rgba(25, 27, 32, 0.70)'
-                    : 'rgba(255, 255, 255, 0.90)',
-                  borderColor: isDark
-                    ? 'rgba(255, 255, 255, 0.14)'
-                    : 'rgba(0, 0, 0, 0.08)',
+                  backgroundColor: colors.glass,
+                  borderColor: colors.glassBorder,
                 },
               ]}
               onPress={() => handleOpenGarmentDetail(item)}
@@ -286,7 +279,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                 {/* Badge 3D flotante si ya tiene modelo generado */}
                 {has3D && (
                   <View style={styles.badge3D}>
-                    <Ionicons name="cube" size={11} color="#8EB6C7" />
+                    <Ionicons name="cube" size={11} color={colors.primary} />
                     <Text style={styles.badge3DText}>3D</Text>
                   </View>
                 )}
@@ -298,9 +291,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
                     {
                       backgroundColor: isFav
                         ? colors.buttons.dangerBackground
-                        : isDark
-                        ? 'rgba(20, 22, 28, 0.65)'
-                        : 'rgba(255, 255, 255, 0.85)',
+                        : colors.glass,
                     },
                   ]}
                   onPress={() => toggleFavoriteGarment(item.id)}
@@ -319,7 +310,7 @@ export const WardrobeScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
               <View style={styles.cardInfo}>
                 <View style={styles.cardCategoryRow}>
                   <Text style={[styles.cardCategoryText, { color: colors.tertiaryText }]}>
-                    {item.category.toUpperCase()}
+                    {translateOr(t, `common.${item.category.toLowerCase()}`, item.category).toUpperCase()}
                   </Text>
                   <View style={[styles.colorDot, { backgroundColor: item.colorHex }]} />
                 </View>
@@ -539,10 +530,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 199, 0.4)',
+    borderColor: 'rgba(78, 120, 100, 0.45)',
   },
   badge3DText: {
-    color: '#8EB6C7',
+    color: '#9EABA3',
     fontFamily: Typography.outfit.bold,
     fontSize: 9,
     letterSpacing: 0.5,

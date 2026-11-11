@@ -39,7 +39,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   const handleSkipOrGuest = () => {
     completeOnboarding({
-      fullName: 'Invitado Atelier',
+      fullName: t('welcome2.guestName'),
       gender: 'female',
       avatarType: 'preset',
     });
@@ -66,7 +66,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           >
             <Ionicons name="sparkles" size={12} color={colors.primary} />
             <Text style={[styles.brandBadge, { color: colors.secondaryText }]}>
-              VITRA ATELIER · IDENTIDAD BIOMÉTRICA
+              {t('welcome2.badge')}
             </Text>
           </View>
         </View>
@@ -75,7 +75,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         <View style={styles.brandSection}>
           <Text style={[styles.wordmark, { color: colors.primaryText }]}>VITRA</Text>
           <Text style={[styles.tagline, { color: colors.secondaryText }]}>
-            Crea tu identidad biométrica con Inteligencia Artificial: Avatar 3D y Colorimetría de Precisión.
+            {t('welcome2.tagline')}
           </Text>
         </View>
 
@@ -134,7 +134,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           >
             <Ionicons name="scan-outline" size={13} color={colors.primary} />
             <Text style={[styles.calibrationText, { color: colors.primaryText }]}>
-              ESCÁNER 1:1 · FITGLASS AI & TRIPO 3D
+              {t('welcome2.scanner')}
             </Text>
           </View>
         </GlassCard>
@@ -147,10 +147,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </View>
             <View style={styles.pillarTextContent}>
               <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
-                1. Colorimetría Estacional
+                {t('welcome2.f1.title')}
               </Text>
               <Text style={[styles.pillarDesc, { color: colors.secondaryText }]}>
-                FitGlass AI analiza tu subtono de piel y cabello para definir tu paleta HEX de máxima armonía.
+                {t('welcome2.f1.desc')}
               </Text>
             </View>
           </GlassCard>
@@ -161,10 +161,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </View>
             <View style={styles.pillarTextContent}>
               <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
-                2. Avatar Base en 3D
+                {t('welcome2.f2.title')}
               </Text>
               <Text style={[styles.pillarDesc, { color: colors.secondaryText }]}>
-                Reconstrucción tridimensional de tu cuerpo con Tripo3D en un archivo interactivo .glb.
+                {t('welcome2.f2.desc')}
               </Text>
             </View>
           </GlassCard>
@@ -175,10 +175,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </View>
             <View style={styles.pillarTextContent}>
               <Text style={[styles.pillarTitle, { color: colors.primaryText }]}>
-                3. Probador Virtual Personalizado
+                {t('welcome2.f3.title')}
               </Text>
               <Text style={[styles.pillarDesc, { color: colors.secondaryText }]}>
-                Pruébate cualquier prenda de tu armario sobre tu gemelo digital con drapeado realista.
+                {t('welcome2.f3.desc')}
               </Text>
             </View>
           </GlassCard>
@@ -193,12 +193,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         ]}
       >
         <PrimaryButton
-          label="Iniciar Escaneo Biométrico"
+          label={t('welcome.startScan')}
           onPress={handleStartOnboarding}
           icon="camera-outline"
         />
         <SecondaryButton
-          label="Explorar App como Invitado"
+          label={t('welcome.guest')}
           onPress={handleSkipOrGuest}
           style={{ marginTop: Spacing.sm }}
         />

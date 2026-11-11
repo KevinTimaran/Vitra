@@ -87,11 +87,11 @@ export const OutfitBuilderScreen: React.FC<OutfitBuilderScreenProps> = (props) =
 
     const newLook: SavedLookItem = {
       id: `look-${Date.now()}`,
-      title: 'Monochrome Tailored Uniform',
+      title: t('outfitBuilder.lookTitle'),
       date: t('common.today'),
       garments: activePieces,
-      fitScore: 'Balanced · High Precision',
-      paletteTheme: 'Cool Mineral & Basalt Harmony',
+      fitScore: t('outfitBuilder.lookFit'),
+      paletteTheme: t('outfitBuilder.lookPalette'),
     };
 
     if (props.onSaveLook) {

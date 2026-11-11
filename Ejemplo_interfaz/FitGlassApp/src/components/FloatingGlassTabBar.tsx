@@ -100,16 +100,8 @@ const TabItem: React.FC<TabItemProps> = ({
 
   const iconName = getTabIconName(routeName, isFocused);
 
-  // Colores activos e inactivos basados en el diseño Uiverse
-  const activeIconColor = isFittingRoom
-    ? '#D946EF'
-    : isDark
-    ? '#FFFFFF'
-    : colors.primaryText;
-
-  const inactiveIconColor = isDark
-    ? 'rgba(255, 255, 255, 0.45)'
-    : 'rgba(0, 0, 0, 0.40)';
+  const activeIconColor = isDark ? colors.cta : colors.primaryText;
+  const inactiveIconColor = colors.tertiaryText;
 
   return (
     <TouchableOpacity
@@ -129,16 +121,12 @@ const TabItem: React.FC<TabItemProps> = ({
           isFocused && styles.tabContentFocused,
           isFocused && isFittingRoom && styles.fittingRoomFocused,
           isFocused && {
-            backgroundColor: isFittingRoom
-              ? 'rgba(149, 0, 255, 0.25)'
-              : isDark
-              ? 'rgba(255, 255, 255, 0.15)'
-              : 'rgba(0, 0, 0, 0.06)',
-            borderColor: isFittingRoom
-              ? 'rgba(217, 70, 239, 0.45)'
-              : isDark
-              ? 'rgba(255, 255, 255, 0.18)'
-              : 'rgba(0, 0, 0, 0.08)',
+            backgroundColor: isDark
+              ? 'rgba(78, 120, 100, 0.20)'
+              : 'rgba(45, 66, 56, 0.08)',
+            borderColor: isDark
+              ? 'rgba(78, 120, 100, 0.55)'
+              : 'rgba(45, 66, 56, 0.18)',
           },
           {
             transform: [
@@ -172,7 +160,7 @@ const TabItem: React.FC<TabItemProps> = ({
             style={[
               styles.activeDot,
               {
-                backgroundColor: isFittingRoom ? '#D946EF' : activeIconColor,
+                backgroundColor: isFittingRoom ? colors.primary : activeIconColor,
               },
             ]}
           />
@@ -225,8 +213,11 @@ export const FloatingGlassTabBar: React.FC<BottomTabBarProps> = ({
       <View
         style={[
           styles.glassCardShadow,
+          { shadowColor: colors.buttons.shadow },
           Platform.OS === 'web' && ({
-            boxShadow: '0 8px 32px 0 #0d2626',
+            boxShadow: isDark
+              ? '0 8px 32px rgba(0, 0, 0, 0.46)'
+              : '0 8px 32px rgba(26, 34, 31, 0.18)',
           } as any),
         ]}
       >
@@ -236,12 +227,8 @@ export const FloatingGlassTabBar: React.FC<BottomTabBarProps> = ({
           style={[
             styles.blurSurface,
             {
-              backgroundColor: isDark
-                ? 'rgba(18, 20, 26, 0.72)'
-                : 'rgba(255, 255, 255, 0.85)',
-              borderColor: isDark
-                ? 'rgba(255, 255, 255, 0.18)'
-                : 'rgba(255, 255, 255, 0.70)',
+              backgroundColor: colors.glass,
+              borderColor: colors.glassBorder,
             },
           ]}
         >
@@ -251,8 +238,8 @@ export const FloatingGlassTabBar: React.FC<BottomTabBarProps> = ({
               styles.specularSheen,
               {
                 borderTopColor: isDark
-                  ? 'rgba(255, 255, 255, 0.25)'
-                  : 'rgba(255, 255, 255, 0.90)',
+                  ? 'rgba(232, 235, 231, 0.12)'
+                  : 'rgba(255, 255, 255, 0.72)',
               },
             ]}
           />

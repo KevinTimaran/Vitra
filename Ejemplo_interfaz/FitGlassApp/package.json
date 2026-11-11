@@ -45,7 +45,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --test src/screens/Auth/__tests__/authRefactor.test.mjs src/components/__tests__/liquidGlass.test.mjs",
+    "test": "node --test src/screens/Auth/__tests__/authRefactor.test.mjs src/components/__tests__/liquidGlass.test.mjs src/services/wardrobe/__tests__/wardrobeMerge.test.mjs src/services/jobs/__tests__/taskPoller.test.mjs src/services/jobs/__tests__/jobStore.test.mjs src/utils/__tests__/logging.test.mjs src/navigation/__tests__/jobRoutes.test.mjs src/services/game/__tests__/gameRecord.test.mjs src/components/camera/__tests__/cropMath.test.mjs src/utils/__tests__/colorNames.test.mjs",
     "type-check": "tsc --noEmit",
     "tunnel:backend": "npx localtunnel --port 8000 --subdomain fitglass-ai-kevin"
   },

@@ -32,7 +32,11 @@ export interface BiometricsCaptureHook {
   showBodyCamera: boolean;
   showBodyCropper: boolean;
   galleryTempUri: string | null;
+  showFaceCropper: boolean;
+  faceTempUri: string | null;
   errorMessage: string | null;
+  setShowFaceCropper: (show: boolean) => void;
+  setFaceTempUri: (uri: string | null) => void;
   setShowBodyCamera: (show: boolean) => void;
   setShowBodyCropper: (show: boolean) => void;
   setGalleryTempUri: (uri: string | null) => void;

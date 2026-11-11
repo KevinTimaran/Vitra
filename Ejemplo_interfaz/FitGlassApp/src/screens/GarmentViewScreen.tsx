@@ -20,10 +20,12 @@ import { GlassCard } from '../components/GlassCard';
 import { VibrantBackground } from '../components/VibrantBackground';
 import { Model3DViewer } from '../components/Model3DViewer';
 import { Garment } from '../types';
+import { tryOnGarment } from '../navigation/jobNavigation';
+import { routeForTryOnGarment } from '../navigation/jobRoutes.ts';
 import { useTranslation } from '../contexts/LanguageContext';
+import { translateOr } from '../i18n/lookCategories';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
-import { getLatestModel } from '../services/ai/garmentAnalyzer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_NOTES_CHARS = 160;
@@ -44,6 +46,7 @@ interface GarmentViewScreenProps {
 
 export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
   const { t } = useTranslation();
+  const categoryText = (cat: string) => translateOr(t, `common.${cat.toLowerCase()}`, cat);
   const { colors, isDark } = useTheme();
   const {
     removeGarmentFromWardrobe,
@@ -58,15 +61,15 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
 
   const garment: Garment = liveGarment || {
     id: 'unknown',
-    name: 'Prenda no encontrada',
+    name: t('gview.notFound'),
     category: 'Tops',
-    colorName: 'Carbón',
+    colorName: t('color.Charcoal Black'),
     colorHex: '#2C2C2C',
     size: 'M',
     fit: 'Regular',
     brand: 'Atelier',
-    material: 'Algodón orgánico',
-    addedDate: 'Hoy',
+    material: t('gview.defaultMaterial'),
+    addedDate: t('common.today'),
     notes: '',
     silhouetteType: 'tshirt',
     paletteHarmony: true,
@@ -84,27 +87,10 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
   const hintTranslateY = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
+    // Antes, si la prenda no tenía modelo 3D se le asignaba "el último modelo del servidor" y se GUARDABA en el
+    // armario: podía ser el de otra prenda u otro usuario (datos corruptos). Ya no se hace.
     if (garment.model3dUrl) {
       setResolvedModelUrl(garment.model3dUrl);
-    } else {
-      // Si la prenda no tiene la URL 3D guardada o no terminó de sincronizarse,
-      // recuperar el último modelo 3D real generado en el servidor
-      getLatestModel()
-        .then((latest) => {
-          if (latest?.model_3d_url) {
-            console.log('[GarmentView] Modelo 3D recuperado del backend:', latest.model_3d_url);
-            setResolvedModelUrl(latest.model_3d_url);
-            if (garment.id && garment.id !== 'unknown') {
-              addGarmentToWardrobe({
-                ...garment,
-                model3dUrl: latest.model_3d_url,
-              });
-            }
-          }
-        })
-        .catch((err) => {
-          console.warn('[GarmentView] No se pudo recuperar último modelo:', err);
-        });
     }
   }, [garment.model3dUrl]);
 
@@ -190,12 +176,12 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
 
   const handleDelete = () => {
     Alert.alert(
-      '¿Eliminar prenda?',
-      `¿Estás seguro de que deseas eliminar "${garment.name}" de tu armario digital? Esta acción no se puede deshacer.`,
+      t('gview.delete.title'),
+      t('gview.delete.message', { name: garment.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             removeGarmentFromWardrobe(garment.id);
@@ -211,15 +197,14 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
       props.onTryOn(garment);
       return;
     }
-    if (props.navigation) {
-      props.navigation.navigate('MainTabs', {
-        screen: 'FittingRoom',
-        params: {
-          selectedGarment: garment,
-          model_3d_url: active3DUrl || garment.model3dUrl,
-          image_2d_url: garment.image2dUrl || garment.imageUrl,
-        },
-      });
+    // Esta pantalla se abre dentro de un <Modal> (Inicio, Armario, Probador): primero se cierra el modal y luego se
+    // navega con la referencia global (los modales no reciben `navigation`; en Inicio no llegaba nunca).
+    // Solo viaja la prenda: así el probador conserva el AVATAR del usuario (antes se reemplazaba por el 3D suelto).
+    props.onBack?.();
+    const navigated = tryOnGarment(garment);
+    if (!navigated && props.navigation) {
+      const route = routeForTryOnGarment(garment);
+      props.navigation.navigate(route.name, route.params);
     }
   };
 
@@ -250,7 +235,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
 
           <View style={styles.headerTitleBox}>
             <Text style={[styles.headerSubtitle, { color: colors.tertiaryText }]}>
-              {garment.category.toUpperCase()} · DETALLE
+              {categoryText(garment.category).toUpperCase()} · {t('gview.detail')}
             </Text>
             <Text style={[styles.headerTitle, { color: colors.primaryText }]} numberOfLines={1}>
               {garment.name}
@@ -285,12 +270,8 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
             style={[
               styles.heroCard,
               {
-                backgroundColor: isDark
-                  ? 'rgba(25, 27, 32, 0.75)'
-                  : 'rgba(255, 255, 255, 0.90)',
-                borderColor: isDark
-                  ? 'rgba(255, 255, 255, 0.14)'
-                  : 'rgba(0, 0, 0, 0.08)',
+                backgroundColor: colors.viewer3DBackground,
+                borderColor: colors.border,
               },
             ]}
           >
@@ -309,9 +290,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                   style={[
                     styles.fullscreenHeroBtn,
                     {
-                      backgroundColor: isDark
-                        ? 'rgba(20, 22, 28, 0.75)'
-                        : 'rgba(255, 255, 255, 0.88)',
+                      backgroundColor: colors.glass,
                       borderColor: colors.borderLight,
                     },
                   ]}
@@ -320,7 +299,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                 >
                   <Ionicons name="scan-outline" size={15} color={colors.primaryText} />
                   <Text style={[styles.fullscreenHeroBtnText, { color: colors.primaryText }]}>
-                    Pantalla completa
+                    {t('gview.fullscreen')}
                   </Text>
                 </TouchableOpacity>
 
@@ -336,7 +315,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                   pointerEvents="none"
                 >
                   <Ionicons name="finger-print-outline" size={13} color="#FFFFFF" />
-                  <Text style={styles.touchHintText}>Arrastra para rotar 360°</Text>
+                  <Text style={styles.touchHintText}>{t('gview.dragRotate')}</Text>
                 </Animated.View>
               </View>
             ) : garment.imageUrl ? (
@@ -380,7 +359,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                       { color: viewMode === '3D' ? colors.ctaText : colors.primaryText },
                     ]}
                   >
-                    Modelo 3D
+                    {t('gview.model3d')}
                   </Text>
                 </TouchableOpacity>
 
@@ -406,7 +385,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                         { color: viewMode === '2D' ? colors.ctaText : colors.primaryText },
                       ]}
                     >
-                      Foto 2D
+                      {t('gview.photo2d')}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -421,7 +400,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
           <View style={styles.titleRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.garmentCategoryBadge, { color: colors.tertiaryText }]}>
-                {garment.category.toUpperCase()} · REGISTRADA EL {garment.addedDate}
+                {categoryText(garment.category).toUpperCase()} · {t('gview.registeredOn', { date: garment.addedDate })}
               </Text>
               <Text style={[styles.garmentName, { color: colors.primaryText }]}>
                 {garment.name}
@@ -454,7 +433,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
               >
                 <Ionicons name="resize-outline" size={13} color={colors.secondaryText} />
                 <Text style={[styles.specPillText, { color: colors.primaryText }]}>
-                  {garment.fit}
+                  {translateOr(t, `fit.${garment.fit}`, garment.fit)}
                 </Text>
               </View>
             )}
@@ -467,7 +446,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                   { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
                 ]}
               >
-                <Ionicons name="sparkles-outline" size={13} color="#8EB6C7" />
+                <Ionicons name="sparkles-outline" size={13} color={colors.primary} />
                 <Text style={[styles.specPillText, { color: colors.primaryText }]}>
                   {garment.style}
                 </Text>
@@ -481,7 +460,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
               <View style={styles.notesTitleBox}>
                 <Ionicons name="document-text-outline" size={16} color={colors.primaryText} />
                 <Text style={[styles.notesCardTitle, { color: colors.primaryText }]}>
-                  Notas & Observaciones
+                  {t('gview.notes')}
                 </Text>
               </View>
               <Text
@@ -506,7 +485,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
                   borderColor: isEditingNotes ? colors.cta : colors.borderLight,
                 },
               ]}
-              placeholder="Añade notas sobre combinaciones, cuidados o procedencia..."
+              placeholder={t('gview.notesPlaceholder')}
               placeholderTextColor={colors.tertiaryText}
               value={notesText}
               onChangeText={(text) => {
@@ -529,7 +508,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
               >
                 <Ionicons name="checkmark-circle-outline" size={15} color={colors.ctaText} />
                 <Text style={[styles.saveNotesBtnText, { color: colors.ctaText }]}>
-                  Guardar nota
+                  {t('gview.saveNote')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -540,25 +519,25 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
             <View style={styles.cardDetailsHeader}>
               <Ionicons name="information-circle-outline" size={18} color={colors.primaryText} />
               <Text style={[styles.cardDetailsTitle, { color: colors.primaryText }]}>
-                Ficha Técnica & Análisis
+                {t('gview.techSheet')}
               </Text>
             </View>
 
             <View style={styles.metaField}>
               <Text style={[styles.metaFieldLabel, { color: colors.tertiaryText }]}>
-                DETALLES & CAÍDA
+                {t('gview.detailsDrape')}
               </Text>
               <Text style={[styles.metaFieldValue, { color: colors.secondaryText }]}>
                 {garment.details ||
                   garment.material ||
-                  'Análisis de textura e iluminación generado por FitGlass AI.'}
+                  t('gview.defaultAnalysis')}
               </Text>
             </View>
 
             {garment.occasion && (
               <View style={[styles.metaField, { marginTop: Spacing.sm }]}>
                 <Text style={[styles.metaFieldLabel, { color: colors.tertiaryText }]}>
-                  OCASIÓN RECOMENDADA
+                  {t('gview.occasion')}
                 </Text>
                 <Text style={[styles.metaFieldValue, { color: colors.secondaryText }]}>
                   {garment.occasion}
@@ -569,12 +548,12 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
             {garment.model3dUrl && (
               <View style={[styles.metaField, { marginTop: Spacing.sm }]}>
                 <Text style={[styles.metaFieldLabel, { color: colors.tertiaryText }]}>
-                  ESTADO 3D
+                  {t('gview.state3d')}
                 </Text>
                 <View style={styles.modelStatusBadge}>
                   <Ionicons name="checkmark-circle" size={14} color="#10B981" />
                   <Text style={[styles.modelStatusText, { color: '#10B981' }]}>
-                    Malla GLB optimizada con rotación táctil activa
+                    {t('gview.meshReady')}
                   </Text>
                 </View>
               </View>
@@ -594,7 +573,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
             activeOpacity={0.7}
           >
             <Ionicons name="trash-outline" size={16} color={colors.buttons.dangerBackground} />
-            <Text style={[styles.deleteButtonText, { color: colors.buttons.dangerBackground }]}>Eliminar prenda del armario</Text>
+            <Text style={[styles.deleteButtonText, { color: colors.buttons.dangerBackground }]}>{t('gview.deleteFromWardrobe')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -619,7 +598,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
           >
             <Ionicons name="person-outline" size={18} color={colors.ctaText} />
             <Text style={[styles.tryOnButtonText, { color: colors.ctaText }]}>
-              Probar en mi Avatar 3D
+              {t('gview.tryOnAvatar')}
             </Text>
             <Ionicons name="sparkles" size={15} color={colors.ctaText} />
           </TouchableOpacity>
@@ -637,7 +616,7 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
           <StatusBar barStyle="light-content" />
 
           {/* Visor 3D cubriendo el 100% de la pantalla */}
-          <View style={styles.fullscreenCanvasWrapper}>
+          <View style={[styles.fullscreenCanvasWrapper, { backgroundColor: colors.viewer3DBackground }]}>
             <Model3DViewer
               activeModelUrl={active3DUrl}
               modelUrl={active3DUrl}
@@ -673,9 +652,9 @@ export const GarmentViewScreen: React.FC<GarmentViewScreenProps> = (props) => {
 
           {/* Insignia inferior táctil */}
           <View style={styles.fullscreenBottomHint} pointerEvents="none">
-            <Ionicons name="sync-outline" size={14} color="#8EB6C7" />
+            <Ionicons name="sync-outline" size={14} color={colors.primary} />
             <Text style={styles.fullscreenBottomHintText}>
-              Giro táctil 360° con inercia e inspección milimétrica
+              {t('gview.fullscreenHint')}
             </Text>
           </View>
         </View>
@@ -1059,7 +1038,7 @@ const styles = StyleSheet.create({
   fullscreenSubtitle: {
     fontFamily: Typography.outfit.bold,
     fontSize: 9,
-    color: '#8EB6C7',
+    color: '#9EABA3',
     letterSpacing: 1.4,
   },
   fullscreenTitle: {

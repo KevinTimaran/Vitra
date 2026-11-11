@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, OrbitControls, Center } from '@react-three/drei';
+import { useTheme } from '../contexts/ThemeContext';
 
 export interface Model3DViewerProps {
   activeModelUrl?: string | null;
@@ -398,6 +399,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   avatarGender,
   onLoadError,
 }) => {
+  const { colors } = useTheme();
   const isAvatar = isAvatarMode || selectedLayer === 'Avatar 3D' || selectedLayer === 'Cuerpo Base';
 
   const resolvedDynamicUrl = useMemo(() => {
@@ -415,11 +417,12 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   }, [resolvedDynamicUrl]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.viewer3DBackground }]}>
       <Canvas
         style={styles.canvas}
         camera={{ position: [0, 0, 3.2], fov: 45 }}
       >
+        <color attach="background" args={[colors.viewer3DBackground]} />
         {/* Iluminación de estudio suave y difusa para texturas de tela mate sin reflejos especulares plásticos */}
         <ambientLight intensity={1.2} />
         <directionalLight position={[3, 5, 4]} intensity={0.8} />

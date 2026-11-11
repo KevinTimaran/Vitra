@@ -1,4 +1,8 @@
-import { getBaseUrl, getActiveWorkingUrl, checkHealth, ensureBase64DataUri } from '../ai/garmentAnalyzer';
+import { apiError } from './authErrors';
+import { getBaseUrl, getActiveWorkingUrl, checkHealth, ensureBase64DataUri, getLatestAvatarModel } from '../ai/garmentAnalyzer';
+import { logHandledError } from '../../utils/logging';
+import { translateNow } from '../../contexts/LanguageContext';
+import { fetchWithLanguage } from '../http/fetchWithLanguage';
 
 export interface AuthResponse {
   access_token: string;
@@ -9,6 +13,10 @@ export interface AuthResponse {
 export interface RegisterResponse {
   message: string;
   email: string;
+}
+
+export interface EmailAvailabilityResponse {
+  exists: boolean;
 }
 
 export interface UserMeResponse {
@@ -23,6 +31,19 @@ export interface UserMeResponse {
   body_profile?: any;
   renewed_token?: string;
 }
+
+const isExpectedRegistrationConflict = (error: unknown): boolean => {
+  const message = error && typeof error === 'object' && 'message' in error
+    ? String((error as { message?: unknown }).message || '').toLowerCase()
+    : '';
+  return (
+    message.includes('ya existe una cuenta') ||
+    message.includes('cuenta ya está creada') ||
+    message.includes('correo electrónico ya está registrado') ||
+    message.includes('email already registered') ||
+    message.includes('account already exists')
+  );
+};
 
 /**
  * Resuelve la URL activa del servidor backend, ejecutando una verificación si aún no se ha detectado.
@@ -56,12 +77,14 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithLanguage(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
       },
       body: JSON.stringify({
         email: email.trim(),
@@ -71,21 +94,29 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
     });
 
     if (!response.ok) {
-      let errorDetail = 'Credenciales inválidas o error de conexión.';
+      let errCode: string | undefined;
+      let errorDetail = translateNow('svc.auth.invalid');
       try {
         const errorJson = await response.json();
-        if (errorJson.detail) errorDetail = errorJson.detail;
+        if (errorJson.detail) errorDetail = typeof errorJson.detail === 'string' ? errorJson.detail : errorDetail;
+        errCode = errorJson.code;
       } catch {
         // Usar mensaje genérico
       }
-      throw new Error(errorDetail);
+      throw apiError(errorDetail, errCode, response.status);
     }
 
     return await response.json();
   } catch (err: any) {
-    console.error(`[authClient] Error al iniciar sesión en ${url}:`, err);
+    // Credenciales incorrectas son esperadas (la pantalla muestra una tarjeta de error): no usar console.error,
+    // que abre el overlay rojo de LogBox. Los fallos de red sí se registran como error.
+    if (err?.name === 'AbortError' || /network request failed|failed to fetch/i.test(String(err?.message))) {
+      console.error(`[authClient] Error de red al iniciar sesión en ${url}:`, err);
+    } else {
+      console.log(`[authClient] Inicio de sesión rechazado (${url}):`, err?.message);
+    }
     if (err?.name === 'AbortError') {
-      throw new Error(`Tiempo de espera agotado al conectar con ${url}. Verifica tu conexión a internet o el backend.`);
+      throw new Error(translateNow('svc.auth.timeout', { url }));
     }
     throw err;
   } finally {
@@ -106,12 +137,14 @@ export async function registerUser(email: string, password: string, name?: strin
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithLanguage(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
       },
       body: JSON.stringify({
         email: email.trim(),
@@ -122,21 +155,76 @@ export async function registerUser(email: string, password: string, name?: strin
     });
 
     if (!response.ok) {
+      let errCode: string | undefined;
       let errorDetail = 'No fue posible registrar el usuario.';
       try {
         const errorJson = await response.json();
-        if (errorJson.detail) errorDetail = errorJson.detail;
+        if (errorJson.detail) errorDetail = typeof errorJson.detail === 'string' ? errorJson.detail : errorDetail;
+        errCode = errorJson.code;
       } catch {
         // Usar mensaje genérico
       }
-      throw new Error(errorDetail);
+      throw apiError(errorDetail, errCode, response.status);
     }
 
     return await response.json();
   } catch (err: any) {
-    console.error(`[authClient] Error al registrar usuario en ${url}:`, err);
+    // Una cuenta duplicada es una validación esperada que se presenta en la
+    // tarjeta de registro; no debe ensuciar la consola como error técnico.
+    if (!isExpectedRegistrationConflict(err)) {
+      logHandledError(`[authClient] Error al registrar usuario en ${url}:`, err);
+    }
     if (err?.name === 'AbortError') {
-      throw new Error(`Tiempo de espera agotado al conectar con ${url}. Verifica tu conexión a internet o el backend.`);
+      throw new Error(translateNow('svc.auth.timeout', { url }));
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Comprueba si el correo ya está registrado sin crear una cuenta. Se usa en
+ * el primer paso para impedir que el usuario complete el asistente en vano.
+ */
+export async function checkEmailExists(email: string): Promise<boolean> {
+  const baseUrl = await resolveServerUrl();
+  const url = `${baseUrl}/api/auth/email-availability`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetchWithLanguage(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
+      },
+      body: JSON.stringify({ email: email.trim() }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      let errCode: string | undefined;
+      let errorDetail = translateNow('svc.auth.verifyFailed');
+      try {
+        const errorJson = await response.json();
+        if (errorJson.detail) errorDetail = typeof errorJson.detail === 'string' ? errorJson.detail : errorDetail;
+        errCode = errorJson.code;
+      } catch {
+        // Mantener el mensaje seguro y comprensible para el usuario.
+      }
+      throw apiError(errorDetail, errCode, response.status);
+    }
+
+    const result = (await response.json()) as EmailAvailabilityResponse;
+    return result.exists === true;
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error(translateNow('svc.auth.verifyTimeout'));
     }
     throw err;
   } finally {
@@ -155,12 +243,14 @@ export async function fetchCurrentUser(token: string): Promise<UserMeResponse | 
   const timeoutId = setTimeout(() => controller.abort(), 12000);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithLanguage(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',
         'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
       },
       signal: controller.signal,
     });
@@ -229,7 +319,7 @@ export async function setupUserProfile(
 
   const controller = new AbortController();
   // Mayor tiempo límite si se envía imagen de cuerpo para generación 3D (hasta 180s para evitar FetchRequestCanceledException en iOS)
-  const timeoutMs = payload.body_image ? 180000 : 35000;
+  const timeoutMs = (payload.body_image || payload.face_image) ? 180000 : 45000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
@@ -237,6 +327,8 @@ export async function setupUserProfile(
       'Content-Type': 'application/json',
       Accept: 'application/json',
       'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -248,7 +340,7 @@ export async function setupUserProfile(
       body_image: payload.body_image ? await ensureBase64DataUri(payload.body_image) : undefined,
     };
 
-    const response = await fetch(url, {
+    const response = await fetchWithLanguage(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(processedPayload),
@@ -256,6 +348,7 @@ export async function setupUserProfile(
     });
 
     if (!response.ok) {
+      let errCode: string | undefined;
       let errorDetail = 'Error al configurar el perfil de usuario.';
       try {
         const errJson = await response.json();
@@ -280,7 +373,7 @@ export async function setupUserProfile(
     });
     return data;
   } catch (err: any) {
-    console.error(`[authClient] Error al configurar perfil en ${url}:`, err);
+    logHandledError(`[authClient] Error al configurar perfil en ${url}:`, err);
     throw err;
   } finally {
     clearTimeout(timeoutId);
@@ -297,11 +390,13 @@ export async function getDefaultAvatarModel(
   const url = `${baseUrl}/api/avatar/default?gender=${encodeURIComponent(gender)}`;
   console.log('[authClient] Consultando avatar por defecto en:', url);
 
-  const res = await fetch(url, {
+  const res = await fetchWithLanguage(url, {
     method: 'GET',
     headers: {
       Accept: 'application/json',
       'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
     },
   });
 
@@ -329,6 +424,8 @@ export async function updateUserAvatar(
     'Content-Type': 'application/json',
     Accept: 'application/json',
     'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -336,19 +433,21 @@ export async function updateUserAvatar(
 
   const processedImage = await ensureBase64DataUri(imagePayload);
 
-  const res = await fetch(url, {
+  const res = await fetchWithLanguage(url, {
     method: 'PUT',
     headers,
     body: JSON.stringify({ body_image: processedImage }),
   });
 
   if (!res.ok) {
+    let errCode: string | undefined;
     let errorDetail = `Error actualizando avatar 3D (HTTP ${res.status})`;
     try {
       const errJson = await res.json();
       if (errJson.detail) errorDetail = errJson.detail;
+      errCode = errJson.code;
     } catch {}
-    throw new Error(errorDetail);
+    throw apiError(errorDetail, errCode, res.status);
   }
 
   const data = await res.json();
@@ -368,12 +467,14 @@ export async function resetPassword(email: string, newPassword: string): Promise
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithLanguage(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'Bypass-Tunnel-Reminder': 'true',
+      'bypass-tunnel-reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
       },
       body: JSON.stringify({
         email: email.trim(),
@@ -383,12 +484,14 @@ export async function resetPassword(email: string, newPassword: string): Promise
     });
 
     if (!res.ok) {
-      let errorDetail = 'No fue posible restablecer la contraseña.';
+      let errCode: string | undefined;
+      let errorDetail = translateNow('auth.err.resetFailed');
       try {
         const errJson = await res.json();
         if (errJson.detail) errorDetail = errJson.detail;
+        errCode = errJson.code;
       } catch {}
-      throw new Error(errorDetail);
+      throw apiError(errorDetail, errCode, res.status);
     }
 
     return await res.json();

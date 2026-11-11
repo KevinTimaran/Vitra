@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: '#8EB6C7',
+    backgroundColor: '#2D4238',
   },
   statusText: {
     ...Typography.micro,

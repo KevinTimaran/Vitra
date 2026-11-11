@@ -33,16 +33,16 @@ export const StepPersonalInfo: React.FC<StepPersonalInfoProps> = ({
     onError(null);
     const cleanName = fullName.trim();
     if (!cleanName) {
-      onError('Por favor ingresa tu nombre completo.');
+      onError(t('auth.err.nameRequired'));
       return;
     }
     const parsedAge = parseInt(age.trim(), 10);
     if (isNaN(parsedAge) || parsedAge < 10 || parsedAge > 99) {
-      onError('Por favor ingresa una edad válida (entre 10 y 99 años).');
+      onError(t('auth.err.ageInvalid'));
       return;
     }
     if (!gender) {
-      onError('Por favor selecciona tu género para configurar tu silueta base.');
+      onError(t('auth.err.genderRequired'));
       return;
     }
     onNext(cleanName, age.trim(), gender);
@@ -90,13 +90,13 @@ export const StepPersonalInfo: React.FC<StepPersonalInfoProps> = ({
 
       {/* Selector de Género / Silueta Base */}
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Género / Silueta Base (Requerido)</Text>
+        <Text style={styles.inputLabel}>{t('auth.genderLabel')}</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
           {(
             [
-              { id: 'female', label: 'Femenino', icon: 'female-outline' },
-              { id: 'male', label: 'Masculino', icon: 'male-outline' },
-              { id: 'non-binary', label: 'Fluido / Neutro', icon: 'male-female-outline' },
+              { id: 'female', labelKey: 'auth.gender.female', icon: 'female-outline' },
+              { id: 'male', labelKey: 'auth.gender.male', icon: 'male-outline' },
+              { id: 'non-binary', labelKey: 'auth.gender.nonbinary', icon: 'male-female-outline' },
             ] as const
           ).map((opt) => {
             const isSel = gender === opt.id;
@@ -132,7 +132,7 @@ export const StepPersonalInfo: React.FC<StepPersonalInfoProps> = ({
                   }}
                   numberOfLines={1}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </Text>
               </TouchableOpacity>
             );

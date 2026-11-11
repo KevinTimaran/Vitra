@@ -55,11 +55,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     setLocalError(null);
     const cleanEmail = email.trim();
     if (!cleanEmail) {
-      setLocalError('Por favor ingresa tu correo electrónico.');
+      setLocalError(t('auth.err.emailRequired'));
       return;
     }
     if (!password) {
-      setLocalError('Por favor ingresa tu contraseña.');
+      setLocalError(t('auth.err.passwordRequired'));
       return;
     }
     onSubmit(cleanEmail, password);
@@ -194,7 +194,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           style={styles.socialCircleBtn}
           onPress={() => {
             onFillDemoCredentials();
-            Alert.alert('Acceso Rápido', 'Credenciales demo cargadas.');
+            Alert.alert(t('auth.quick.title'), t('auth.quick.demoLoaded'));
           }}
           activeOpacity={0.75}
         >
@@ -202,14 +202,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.socialCircleBtn}
-          onPress={() => Alert.alert('Apple ID', 'Disponible en compilación nativa.')}
+          onPress={() => Alert.alert('Apple ID', t('auth.social.unavailable'))}
           activeOpacity={0.75}
         >
           <Ionicons name="logo-apple" size={21} color={Colors.buttons.apple} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.socialCircleBtn}
-          onPress={() => Alert.alert('Facebook', 'Disponible en compilación nativa.')}
+          onPress={() => Alert.alert('Facebook', t('auth.social.unavailable'))}
           activeOpacity={0.75}
         >
           <Ionicons name="logo-facebook" size={21} color={Colors.buttons.facebook} />

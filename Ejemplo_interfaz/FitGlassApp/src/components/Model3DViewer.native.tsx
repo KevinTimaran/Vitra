@@ -5,6 +5,7 @@ import { useGLTF, Center } from '@react-three/drei';
 import { Asset } from 'expo-asset';
 import { File, Paths } from 'expo-file-system';
 import { getBaseUrl } from '../services/ai/garmentAnalyzer';
+import { useTheme } from '../contexts/ThemeContext';
 
 export interface Model3DViewerProps {
   activeModelUrl?: string | null;
@@ -735,6 +736,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   avatarGender,
   onLoadError,
 }) => {
+  const { colors } = useTheme();
   const isAvatar = isAvatarMode || selectedLayer === 'Avatar 3D' || selectedLayer === 'Cuerpo Base';
 
   // Estado compartido para gestos táctiles directos con PanResponder y física de velocidad
@@ -821,11 +823,15 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   }, [activeModelUrl, modelUrl]);
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View
+      style={[styles.container, { backgroundColor: colors.viewer3DBackground }]}
+      {...panResponder.panHandlers}
+    >
       <Canvas
         style={styles.canvas}
         camera={{ position: [0, 0, 2.9], fov: 45 }}
       >
+        <color attach="background" args={[colors.viewer3DBackground]} />
         {/* Iluminación de estudio suave y difusa para texturas de tela mate sin reflejos especulares plásticos */}
         <ambientLight intensity={1.2} />
         <directionalLight position={[3, 5, 4]} intensity={0.8} />

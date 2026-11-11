@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { Typography, Spacing, Radius, Shadows } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface Viewport3DPlaceholderProps {
   currentGarmentName?: string;
@@ -25,7 +26,8 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
   customOverlay,
   onPressModel,
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
   const [activeAngle, setActiveAngle] = useState<'front' | 'side' | 'angle'>('front');
   const [rotationDeg, setRotationDeg] = useState(0);
 
@@ -49,15 +51,15 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
   const viewportHeight = screenHeight * heightRatio;
 
   return (
-    <View style={[styles.container, { height: viewportHeight, backgroundColor: colors.surfaceSubtle, borderBottomColor: colors.borderLight }]}>
+    <View style={[styles.container, { height: viewportHeight, backgroundColor: colors.viewer3DBackground, borderBottomColor: colors.borderLight }]}>
       {/* 3D Studio Studio Boundary & Lighting */}
       <View style={styles.studioLighting}>
         <View style={styles.overheadKeyLight} />
-        <View style={styles.groundPedestal} />
+        <View style={[styles.groundPedestal, { backgroundColor: colors.viewer3DGround }]} />
         <View style={styles.gridPlane}>
-          <View style={styles.gridLineHorizontal} />
-          <View style={[styles.gridLineHorizontal, { top: '35%' }]} />
-          <View style={[styles.gridLineHorizontal, { top: '65%' }]} />
+          <View style={[styles.gridLineHorizontal, { backgroundColor: colors.border }]} />
+          <View style={[styles.gridLineHorizontal, { top: '35%', backgroundColor: colors.border }]} />
+          <View style={[styles.gridLineHorizontal, { top: '65%', backgroundColor: colors.border }]} />
         </View>
       </View>
 
@@ -101,7 +103,7 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
         style={[
           styles.metaStamp,
           {
-            backgroundColor: isDark ? 'rgba(39, 39, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+            backgroundColor: colors.glass,
             borderColor: colors.border,
           },
         ]}
@@ -118,12 +120,12 @@ export const Viewport3DPlaceholder: React.FC<Viewport3DPlaceholderProps> = ({
           style={[
             styles.garmentBadge,
             {
-              backgroundColor: isDark ? 'rgba(39, 39, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+              backgroundColor: colors.glass,
               borderColor: colors.border,
             },
           ]}
         >
-          <Text style={[styles.garmentBadgeCategory, { color: colors.tertiaryText }]}>ACTIVE GARMENT</Text>
+          <Text style={[styles.garmentBadgeCategory, { color: colors.tertiaryText }]}>{t('viewer.activeGarment')}</Text>
           <Text style={[styles.garmentBadgeName, { color: colors.primaryText }]} numberOfLines={1}>
             {currentGarmentName}
           </Text>

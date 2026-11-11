@@ -40,6 +40,8 @@ export interface Garment {
   rawAnalysis?: any;
   silhouetteType: 'tshirt' | 'jacket' | 'trousers' | 'shoes' | 'coat' | 'accessory' | 'dress';
   paletteHarmony: boolean;
+  /** Marca de tiempo (ms) de la última modificación; se usa para sincronizar con el servidor. */
+  updatedAt?: number;
 }
 
 export interface BodyProfile {
@@ -124,4 +126,5 @@ export interface SavedLookItem {
   image2dUrl?: string;
   category?: string;
   isFavorite?: boolean;
+  updatedAt?: number;
 }

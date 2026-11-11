@@ -1,61 +1,58 @@
 // src/theme/colors.ts
 /**
- * Luxury Fashion Editorial Design System Tokens — FitGlass Atelier
+ * Vitra Atelier Design System — Ivoire & Pine / Nocturne Pine
  *
  * Core Editorial Palette:
- * - Warm Alabaster: #FAF8F5 (Primary light canvas & pure off-white paper base)
- * - Fine Sand:      #EDE7DF (Tactile limestone, secondary containers & borders)
- * - Basalt Charcoal:#1A1C1D (Deep architectural contrast, high-fashion typography)
- * - Petrol Teal:    #2C4C59 (Distinguished atelier statement hue & primary CTA)
- * - Soft Sage:      #7D998F (Organic botanical accent & subtle status confirmation)
+ * The semantic mapping follows a 60/30/10 balance:
+ * 60% ambient canvas, 30% structural surfaces, 10% actions and status.
  */
 
 export const luxuryEditorialColors = {
   // Canonical Luxury Fashion Editorial Core Palette
-  warmAlabaster: '#FAF8F5',
-  fineSand: '#EDE7DF',
-  fineSandLight: '#F5F1EB',
-  fineSandDark: '#DDD6CA',
-  basaltCharcoal: '#1A1C1D',
-  basaltMuted: '#44494D',
-  petrolTeal: '#2C4C59',
-  petrolTealLight: '#456E7F',
-  petrolTealContainer: '#B8D3DE',
-  softSage: '#7D998F',
-  softSageLight: '#A3BBB3',
-  softSageContainer: '#D4E3DE',
+  warmAlabaster: '#FAF9F7',
+  fineSand: '#EFECE6',
+  fineSandLight: '#F4F3F1',
+  fineSandDark: '#E5E2DC',
+  basaltCharcoal: '#1A221F',
+  basaltMuted: '#707973',
+  petrolTeal: '#1A221F',
+  petrolTealLight: '#2D4238',
+  petrolTealContainer: '#EFECE6',
+  softSage: '#2D4238',
+  softSageLight: '#4E7864',
+  softSageContainer: '#E2E9E4',
 
   // Material & Surface Hierarchy (Light Mode)
-  surface: '#FAF8F5',
-  surfaceDim: '#DDD6CA',
-  surfaceBright: '#FAF8F5',
+  surface: '#FAF9F7',
+  surfaceDim: '#EFECE6',
+  surfaceBright: '#FFFFFF',
   surfaceContainerLowest: '#FFFFFF',
-  surfaceContainerLow: '#F5F1EB',
-  surfaceContainer: '#EDE7DF',
-  surfaceContainerHigh: '#E6DFD4',
-  surfaceContainerHighest: '#DDD6CA',
+  surfaceContainerLow: '#F4F3F1',
+  surfaceContainer: '#EFECE6',
+  surfaceContainerHigh: '#EFECE6',
+  surfaceContainerHighest: '#E5E2DC',
 
-  onSurface: '#1A1C1D',
-  onSurfaceVariant: '#44494D',
+  onSurface: '#1A221F',
+  onSurfaceVariant: '#707973',
 
-  inverseSurface: '#2B2E30',
-  inverseOnSurface: '#FAF8F5',
+  inverseSurface: '#1A221F',
+  inverseOnSurface: '#FFFFFF',
 
-  outline: '#72797C',
-  outlineVariant: '#C8C1B7',
+  outline: '#707973',
+  outlineVariant: '#E5E2DC',
 
   // Semantic Role Mappings
-  surfaceTint: '#2C4C59',
-  primary: '#2C4C59',
+  surfaceTint: '#2D4238',
+  primary: '#1A221F',
   onPrimary: '#FFFFFF',
-  primaryContainer: '#B8D3DE',
-  onPrimaryContainer: '#122730',
-  inversePrimary: '#96BED0',
+  primaryContainer: '#EFECE6',
+  onPrimaryContainer: '#1A221F',
+  inversePrimary: '#E8EBE7',
 
-  secondary: '#7D998F',
+  secondary: '#2D4238',
   onSecondary: '#FFFFFF',
-  secondaryContainer: '#D4E3DE',
-  onSecondaryContainer: '#223831',
+  secondaryContainer: '#E2E9E4',
+  onSecondaryContainer: '#1A221F',
 
   tertiary: '#6C5B52',
   onTertiary: '#FFFFFF',
@@ -83,20 +80,25 @@ export const luxuryEditorialColors = {
   onTertiaryFixed: '#251912',
   onTertiaryFixedVariant: '#53443B',
 
-  background: '#FAF8F5',
-  onBackground: '#1A1C1D',
-  surfaceVariant: '#EDE7DF',
+  background: '#FAF9F7',
+  onBackground: '#1A221F',
+  surfaceVariant: '#EFECE6',
 
   // Backward compatibility & decorative palette
-  tiffany: '#8EB6C7',
-  powderedMint: '#7D998F',
+  tiffany: '#4E7864',
+  powderedMint: '#2D4238',
   taupe: '#B8A398',
   pastelTurquoise: '#7AA6AD',
   brightPlatinum: '#A9B2BA',
 
-  deepSlateCharcoal: '#1A1C1D',
-  slateGray: '#4A5157',
-  mutedSlate: '#656C73', // Calibrated to 5.06:1 contrast against Warm Alabaster
+  deepSlateCharcoal: '#1A221F',
+  slateGray: '#707973',
+  mutedSlate: '#707973',
+
+  // Dedicated neutral studio canvas: lighter than structural cards so the
+  // garment/avatar silhouette remains the visual focus.
+  viewer3DBackground: '#F7F6F3',
+  viewer3DGround: '#EFECE6',
 
   white: '#FFFFFF',
   black: '#000000',
@@ -107,49 +109,81 @@ export const luxuryEditorialColors = {
  */
 export const darkEditorialColors = {
   // Core Dark Atelier Palette
-  warmAlabaster: '#FAF8F5',
-  fineSand: '#EDE7DF',
-  basaltCharcoal: '#1A1C1D',
-  petrolTeal: '#64A3B8', // Luminous Petrol Teal for accessible dark buttons
-  softSage: '#9BB4AA',
+  warmAlabaster: '#F4F6F4',
+  fineSand: '#1F2622',
+  basaltCharcoal: '#0F1512',
+  petrolTeal: '#E8EBE7',
+  softSage: '#4E7864',
 
   // Surfaces & Canvas
-  canvas: '#121415',
-  surface: '#1A1C1D',
-  surfaceSubtle: '#242729',
-  surfaceElevated: '#2A2E30',
-  surfaceContainerLowest: '#101213',
-  surfaceContainerLow: '#1A1C1D',
-  surfaceContainer: '#242729',
-  surfaceContainerHigh: '#2B2F31',
-  surfaceContainerHighest: '#33373A',
+  canvas: '#0F1512',
+  surface: '#171D1A',
+  surfaceSubtle: '#1F2622',
+  surfaceElevated: '#1F2622',
+  surfaceContainerLowest: '#0F1512',
+  surfaceContainerLow: '#131916',
+  surfaceContainer: '#171D1A',
+  surfaceContainerHigh: '#1F2622',
+  surfaceContainerHighest: '#28332D',
 
   // Typography
-  onSurface: '#FAF8F5',
-  onSurfaceVariant: '#C8C1B7',
-  mutedSlate: '#868D92',
+  onSurface: '#F4F6F4',
+  onSurfaceVariant: '#9EABA3',
+  mutedSlate: '#9EABA3',
 
   // Interactive CTAs
-  cta: '#64A3B8',
-  ctaText: '#0A1B22', // High-contrast deep basalt petrol (6.56:1 contrast)
-  ctaContainer: '#1B313B',
-  onCtaContainer: '#B8D3DE',
+  cta: '#E8EBE7',
+  ctaText: '#0F1512',
+  ctaContainer: '#28332D',
+  onCtaContainer: '#F4F6F4',
 
   // Borders & Dividers
-  outline: '#72797C',
-  outlineVariant: '#363B3E',
-  borderLight: 'rgba(114, 121, 124, 0.25)',
+  outline: '#4E5C54',
+  outlineVariant: '#28332D',
+  borderLight: 'rgba(40, 51, 45, 0.78)',
 
   // Glassmorphism overlays
-  glass: 'rgba(26, 28, 29, 0.88)',
-  glassDark: 'rgba(18, 20, 21, 0.75)',
-  glassBorder: 'rgba(114, 121, 124, 0.28)',
+  glass: 'rgba(15, 21, 18, 0.85)',
+  glassDark: 'rgba(15, 21, 18, 0.72)',
+  glassBorder: '#28332D',
+
+  // Lifted nocturne studio: deliberately lighter than the app canvas while
+  // remaining neutral enough to preserve material and texture perception.
+  viewer3DBackground: '#202923',
+  viewer3DGround: '#28332D',
 
   // Status
   error: '#FFB4AB',
   onError: '#690005',
   errorContainer: '#93000A',
   onErrorContainer: '#FFDAD6',
+} as const;
+
+/** Explicit role palettes for design handoff and future token maintenance. */
+export const atelierIvoirePine = {
+  canvas: luxuryEditorialColors.background,
+  canvasTint: luxuryEditorialColors.surfaceContainerLow,
+  surface: luxuryEditorialColors.surfaceContainerLowest,
+  surfaceMuted: luxuryEditorialColors.surfaceContainer,
+  border: luxuryEditorialColors.outlineVariant,
+  text: luxuryEditorialColors.onSurface,
+  textMuted: luxuryEditorialColors.onSurfaceVariant,
+  action: luxuryEditorialColors.primary,
+  accent: luxuryEditorialColors.secondary,
+  viewer3D: luxuryEditorialColors.viewer3DBackground,
+} as const;
+
+export const nocturnePineAtelier = {
+  canvas: darkEditorialColors.canvas,
+  canvasTint: darkEditorialColors.surfaceContainerLow,
+  surface: darkEditorialColors.surface,
+  surfaceMuted: darkEditorialColors.surfaceElevated,
+  border: darkEditorialColors.outlineVariant,
+  text: darkEditorialColors.onSurface,
+  textMuted: darkEditorialColors.onSurfaceVariant,
+  action: darkEditorialColors.cta,
+  accent: darkEditorialColors.softSage,
+  viewer3D: darkEditorialColors.viewer3DBackground,
 } as const;
 
 /**
@@ -247,6 +281,10 @@ export interface ThemeColors {
   accentSubtle: string;
   badge: string;
   successSubtle: string;
+  /** Calm, slightly lifted canvas used behind 3D assets. */
+  viewer3DBackground: string;
+  /** Subtle ground/grid tone for 3D scenes and placeholders. */
+  viewer3DGround: string;
   palette: typeof luxuryEditorialColors;
 
   // Canonical Luxury Editorial tokens
@@ -274,11 +312,11 @@ export const lightThemeColors: ThemeColors = {
   bg: luxuryEditorialColors.warmAlabaster,
   surface: luxuryEditorialColors.surfaceContainerLowest,
   surfaceSubtle: luxuryEditorialColors.surfaceContainerLow,
-  surfaceElevated: luxuryEditorialColors.surfaceContainerLowest,
+  surfaceElevated: luxuryEditorialColors.surfaceContainer,
 
   // Borders & Dividers
   border: luxuryEditorialColors.outlineVariant,
-  borderLight: 'rgba(200, 193, 183, 0.45)',
+  borderLight: 'rgba(229, 226, 220, 0.72)',
 
   // Typography
   primaryText: luxuryEditorialColors.basaltCharcoal,
@@ -293,20 +331,22 @@ export const lightThemeColors: ThemeColors = {
   onCtaContainer: luxuryEditorialColors.onPrimaryContainer,
 
   // Direct brand references
-  primary: luxuryEditorialColors.petrolTeal,
-  tiffany: luxuryEditorialColors.tiffany,
+  primary: luxuryEditorialColors.softSage,
+  tiffany: luxuryEditorialColors.softSage,
   powderedMint: luxuryEditorialColors.softSage,
 
   // Glassmorphism overlays
-  glass: 'rgba(250, 248, 245, 0.92)',
-  glassDark: 'rgba(26, 28, 29, 0.05)',
-  glassBorder: 'rgba(221, 214, 202, 0.70)',
+  glass: 'rgba(250, 249, 247, 0.85)',
+  glassDark: 'rgba(26, 34, 31, 0.05)',
+  glassBorder: '#E5E2DC',
 
   // Accents
   tintSoft: luxuryEditorialColors.surfaceContainer,
   accentSubtle: luxuryEditorialColors.softSage,
   badge: luxuryEditorialColors.surfaceContainerHigh,
   successSubtle: luxuryEditorialColors.secondaryContainer,
+  viewer3DBackground: luxuryEditorialColors.viewer3DBackground,
+  viewer3DGround: luxuryEditorialColors.viewer3DGround,
 
   // Raw palette access
   palette: luxuryEditorialColors,
@@ -334,53 +374,53 @@ export const lightThemeColors: ThemeColors = {
     secondaryText: luxuryEditorialColors.basaltCharcoal,
     secondaryBorder: luxuryEditorialColors.outlineVariant,
     neutralBackground: '#FFFFFF',
-    neutralText: '#334155',
-    neutralMutedText: '#64748B',
-    neutralBorder: '#C1C7CB',
-    subtleBackground: '#F1F5F9',
-    linkText: '#3C6473',
+    neutralText: '#1A221F',
+    neutralMutedText: '#707973',
+    neutralBorder: '#E5E2DC',
+    subtleBackground: '#F4F3F1',
+    linkText: '#2D4238',
     dangerBackground: '#EF4444',
     dangerText: '#FFFFFF',
     dangerSoftBackground: 'rgba(239, 68, 68, 0.10)',
     dangerBorder: 'rgba(239, 68, 68, 0.40)',
-    successBackground: '#10B981',
+    successBackground: '#2D4238',
     successText: '#FFFFFF',
-    successStrongText: '#15803D',
+    successStrongText: '#2D4238',
     warningBackground: '#F59E0B',
     warningText: '#FBBF24',
     favorite: '#EF4444',
     favoriteBackground: '#FEE2E2',
-    accentBackground: '#8B5CF6',
+    accentBackground: '#2D4238',
     accentText: '#FFFFFF',
-    accentDisabledBackground: 'rgba(139, 92, 246, 0.45)',
+    accentDisabledBackground: 'rgba(45, 66, 56, 0.45)',
     overlayBackground: 'rgba(0, 0, 0, 0.65)',
     overlayText: '#FFFFFF',
-    floatingBackground: 'rgba(255, 255, 255, 0.95)',
-    floatingBorder: 'rgba(0, 0, 0, 0.10)',
-    cameraBackground: '#D4AF37',
-    cameraText: '#0D0D0D',
-    cameraMutedText: '#E5C778',
-    cameraBorder: '#D4AF37',
+    floatingBackground: 'rgba(250, 249, 247, 0.94)',
+    floatingBorder: '#E5E2DC',
+    cameraBackground: '#8EB6C7',
+    cameraText: '#0F1512',
+    cameraMutedText: '#B9D3DE',
+    cameraBorder: '#8EB6C7',
     cameraSecondaryBackground: 'rgba(255, 255, 255, 0.06)',
     cameraSecondaryBorder: 'rgba(255, 255, 255, 0.12)',
     cameraOverlayBackground: 'rgba(0, 0, 0, 0.65)',
     cameraOverlayBorder: 'rgba(255, 255, 255, 0.30)',
-    cameraActiveBackground: 'rgba(212, 175, 55, 0.20)',
+    cameraActiveBackground: 'rgba(142, 182, 199, 0.22)',
     cameraCancelText: 'rgba(255, 255, 255, 0.50)',
     cameraShutterBackground: '#FFFFFF',
-    cameraShutterCore: '#F0E6D2',
-    authBackground: '#3C6473',
+    cameraShutterCore: '#E8EBE7',
+    authBackground: '#1A221F',
     authText: '#FFFFFF',
-    authBorder: '#3C6473',
-    authGradient: ['#3C6473', '#2E505E'],
-    authSecondaryBackground: '#F9F9F7',
-    authSecondaryText: '#41484B',
-    authSecondaryBorder: '#C1C7CB',
+    authBorder: '#1A221F',
+    authGradient: ['#1A221F', '#2D4238'],
+    authSecondaryBackground: '#F4F3F1',
+    authSecondaryText: '#1A221F',
+    authSecondaryBorder: '#E5E2DC',
     google: '#EA4335',
     apple: '#000000',
     facebook: '#1877F2',
     disabledOpacity: 0.45,
-    shadow: '#2E3238',
+    shadow: '#1A221F',
   },
 };
 
@@ -402,7 +442,7 @@ export const darkThemeColors: ThemeColors = {
   primaryText: darkEditorialColors.onSurface,
   secondaryText: darkEditorialColors.onSurfaceVariant,
   tertiaryText: darkEditorialColors.mutedSlate,
-  disabled: '#444A4D',
+  disabled: '#3A463F',
 
   // CTAs & Interactive Controls (Luminous Petrol Teal + Deep Basalt text for 6.56:1 contrast)
   cta: darkEditorialColors.cta,
@@ -411,8 +451,8 @@ export const darkThemeColors: ThemeColors = {
   onCtaContainer: darkEditorialColors.onCtaContainer,
 
   // Direct brand references
-  primary: darkEditorialColors.cta,
-  tiffany: darkEditorialColors.cta,
+  primary: darkEditorialColors.softSage,
+  tiffany: darkEditorialColors.softSage,
   powderedMint: darkEditorialColors.softSage,
 
   // Glassmorphism overlays
@@ -421,18 +461,20 @@ export const darkThemeColors: ThemeColors = {
   glassBorder: darkEditorialColors.glassBorder,
 
   // Accents
-  tintSoft: darkEditorialColors.surfaceSubtle,
+  tintSoft: darkEditorialColors.surfaceContainerLow,
   accentSubtle: darkEditorialColors.softSage,
-  badge: '#2B3033',
-  successSubtle: '#1E342B',
+  badge: '#1F2622',
+  successSubtle: '#1F3028',
+  viewer3DBackground: darkEditorialColors.viewer3DBackground,
+  viewer3DGround: darkEditorialColors.viewer3DGround,
 
   // Raw palette access (backward compatibility)
   palette: luxuryEditorialColors,
 
   // Canonical Luxury Editorial tokens
-  warmAlabaster: luxuryEditorialColors.warmAlabaster,
-  fineSand: luxuryEditorialColors.fineSand,
-  basaltCharcoal: luxuryEditorialColors.basaltCharcoal,
+  warmAlabaster: darkEditorialColors.warmAlabaster,
+  fineSand: darkEditorialColors.fineSand,
+  basaltCharcoal: darkEditorialColors.basaltCharcoal,
   petrolTeal: darkEditorialColors.petrolTeal,
   softSage: darkEditorialColors.softSage,
 
@@ -454,46 +496,46 @@ export const darkThemeColors: ThemeColors = {
     neutralBackground: darkEditorialColors.surfaceElevated,
     neutralText: darkEditorialColors.onSurface,
     neutralMutedText: darkEditorialColors.onSurfaceVariant,
-    neutralBorder: darkEditorialColors.outline,
+    neutralBorder: darkEditorialColors.outlineVariant,
     subtleBackground: darkEditorialColors.surfaceSubtle,
-    linkText: darkEditorialColors.cta,
+    linkText: darkEditorialColors.onSurfaceVariant,
     dangerBackground: '#EF4444',
     dangerText: '#FFFFFF',
     dangerSoftBackground: 'rgba(239, 68, 68, 0.16)',
     dangerBorder: 'rgba(239, 68, 68, 0.50)',
-    successBackground: '#10B981',
-    successText: '#FFFFFF',
-    successStrongText: '#86EFAC',
+    successBackground: '#4E7864',
+    successText: '#F4F6F4',
+    successStrongText: '#9EABA3',
     warningBackground: '#F59E0B',
     warningText: '#FBBF24',
     favorite: '#EF4444',
     favoriteBackground: 'rgba(239, 68, 68, 0.18)',
-    accentBackground: '#8B5CF6',
+    accentBackground: '#4E7864',
     accentText: '#FFFFFF',
-    accentDisabledBackground: 'rgba(139, 92, 246, 0.45)',
+    accentDisabledBackground: 'rgba(78, 120, 100, 0.45)',
     overlayBackground: 'rgba(0, 0, 0, 0.65)',
     overlayText: '#FFFFFF',
-    floatingBackground: 'rgba(26, 28, 35, 0.92)',
-    floatingBorder: 'rgba(255, 255, 255, 0.18)',
-    cameraBackground: '#D4AF37',
-    cameraText: '#0D0D0D',
-    cameraMutedText: '#E5C778',
-    cameraBorder: '#D4AF37',
+    floatingBackground: 'rgba(15, 21, 18, 0.92)',
+    floatingBorder: '#28332D',
+    cameraBackground: '#8EB6C7',
+    cameraText: '#0F1512',
+    cameraMutedText: '#B9D3DE',
+    cameraBorder: '#8EB6C7',
     cameraSecondaryBackground: 'rgba(255, 255, 255, 0.06)',
     cameraSecondaryBorder: 'rgba(255, 255, 255, 0.12)',
     cameraOverlayBackground: 'rgba(0, 0, 0, 0.65)',
     cameraOverlayBorder: 'rgba(255, 255, 255, 0.30)',
-    cameraActiveBackground: 'rgba(212, 175, 55, 0.20)',
+    cameraActiveBackground: 'rgba(142, 182, 199, 0.22)',
     cameraCancelText: 'rgba(255, 255, 255, 0.50)',
     cameraShutterBackground: '#FFFFFF',
-    cameraShutterCore: '#F0E6D2',
-    authBackground: '#3C6473',
-    authText: '#FFFFFF',
-    authBorder: '#3C6473',
-    authGradient: ['#3C6473', '#2E505E'],
-    authSecondaryBackground: '#F9F9F7',
-    authSecondaryText: '#41484B',
-    authSecondaryBorder: '#C1C7CB',
+    cameraShutterCore: '#E8EBE7',
+    authBackground: '#E8EBE7',
+    authText: '#0F1512',
+    authBorder: '#E8EBE7',
+    authGradient: ['#E8EBE7', '#D8DDD9'],
+    authSecondaryBackground: '#1F2622',
+    authSecondaryText: '#F4F6F4',
+    authSecondaryBorder: '#28332D',
     google: '#EA4335',
     apple: '#000000',
     facebook: '#1877F2',

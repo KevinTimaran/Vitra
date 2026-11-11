@@ -25,6 +25,11 @@ import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider, useTranslation } from './src/contexts/LanguageContext';
 import { UserProvider, useUser } from './src/contexts/UserContext';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { JobsProvider } from './src/contexts/JobsContext';
+import { JobsOverlay } from './src/components/JobsOverlay';
+import { navigationRef } from './src/navigation/navigationRef';
+import { openGame, openJob, retryJob, viewJobResult } from './src/navigation/jobNavigation';
+import { WaitingGameScreen } from './src/screens/WaitingGameScreen';
 
 import { AuthScreen } from './src/screens/AuthScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -99,8 +104,9 @@ function NavigationRoot() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <NavigationIndependentTree>
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer theme={navigationTheme} ref={navigationRef}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack.Navigator
         key={userToken ? 'user-main' : 'guest-auth'}
@@ -158,6 +164,14 @@ function NavigationRoot() {
             <Stack.Screen
               name="GarmentProcessing"
               component={GarmentProcessingScreen as any}
+              options={{
+                presentation: 'fullScreenModal',
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen
+              name="WaitingGame"
+              component={WaitingGameScreen as any}
               options={{
                 presentation: 'fullScreenModal',
                 animation: 'fade',
@@ -224,6 +238,8 @@ function NavigationRoot() {
       </Stack.Navigator>
     </NavigationContainer>
     </NavigationIndependentTree>
+    {userToken ? <JobsOverlay onOpenJob={openJob} onViewResult={viewJobResult} onRetry={retryJob} onPlay={(job) => openGame(job.id)} /> : null}
+    </View>
   );
 }
 
@@ -260,7 +276,9 @@ export default function App() {
         <LanguageProvider>
           <AuthProvider>
             <UserProvider>
-              <NavigationRoot />
+              <JobsProvider>
+                <NavigationRoot />
+              </JobsProvider>
             </UserProvider>
           </AuthProvider>
         </LanguageProvider>

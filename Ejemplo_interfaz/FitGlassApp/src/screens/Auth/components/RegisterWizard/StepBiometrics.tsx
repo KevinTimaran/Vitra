@@ -45,22 +45,22 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
           borderRadius: 12,
           marginBottom: 12,
           borderLeftWidth: 3,
-          borderLeftColor: '#3C6473',
+          borderLeftColor: Colors.primary,
         }}
       >
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E293B', marginBottom: 2 }}>
-          Gemelo Digital (Fotografías Opcionales)
+          {t('auth.bio.noteTitle')}
         </Text>
         <Text style={{ fontSize: 11, color: '#64748B', lineHeight: 16 }}>
-          Puedes subir tus fotos ahora para un gemelo personalizado o continuar directamente para usar la silueta 3D atelier asignada a tu perfil.
+          {t('auth.bio.noteBody')}
         </Text>
       </View>
 
       {/* 1. Fotografía Facial */}
       <View style={styles.biometricSection}>
         <View style={styles.biometricHeaderRow}>
-          <Ionicons name="color-palette-outline" size={18} color="#3C6473" />
-          <Text style={styles.biometricSectionTitle}>{t('auth.facialPhoto')} (Opcional)</Text>
+          <Ionicons name="color-palette-outline" size={18} color={Colors.primary} />
+          <Text style={styles.biometricSectionTitle}>{t('auth.facialPhoto')} {t('auth.bio.optional')}</Text>
         </View>
         <Text style={styles.biometricSectionDesc}>{t('auth.facialDesc')}</Text>
 
@@ -69,7 +69,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
             <View style={styles.circularFacePreview}>
               <Image source={{ uri: faceImageUri }} style={styles.circularFaceImage} />
               <View style={styles.badgeCheckOverlay}>
-                <Ionicons name="checkmark-circle" size={20} color="#8EB6C7" />
+                <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
               </View>
             </View>
           ) : (
@@ -102,7 +102,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
       {/* 2. Fotografía Corporal */}
       <View style={styles.biometricSection}>
         <View style={styles.biometricHeaderRow}>
-          <Ionicons name="body-outline" size={18} color="#3C6473" />
+          <Ionicons name="body-outline" size={18} color={Colors.primary} />
           <Text style={styles.biometricSectionTitle}>{t('auth.bodyPhoto')}</Text>
         </View>
         <Text style={styles.biometricSectionDesc}>{t('auth.bodyDesc')}</Text>
@@ -112,7 +112,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
             <View style={styles.rectangularBodyPreview}>
               <Image source={{ uri: bodyImageUri }} style={styles.rectangularBodyImage} />
               <View style={styles.badgeCheckOverlay}>
-                <Ionicons name="checkmark-circle" size={20} color="#8EB6C7" />
+                <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
               </View>
             </View>
           ) : (
@@ -142,6 +142,30 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
         </View>
       </View>
 
+      {/* Aviso: se puede jugar o seguir usando la app mientras se crea el avatar 3D */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: 10,
+          backgroundColor: Colors.surfaceSubtle,
+          padding: 12,
+          borderRadius: 12,
+          borderLeftWidth: 3,
+          borderLeftColor: Colors.primary,
+        }}
+      >
+        <Ionicons name="game-controller" size={20} color={Colors.primary} style={{ marginTop: 1 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.primaryText, marginBottom: 2 }}>
+            {t('auth.bio.gameTitle')}
+          </Text>
+          <Text style={{ fontSize: 11, color: Colors.secondaryText, lineHeight: 16 }}>
+            {t('auth.bio.gameText')}
+          </Text>
+        </View>
+      </View>
+
       {/* Botón rápido de fotos muestra */}
       <TouchableOpacity
         onPress={onUseSampleBiometrics}
@@ -149,7 +173,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
         activeOpacity={0.7}
       >
         <Ionicons name="sparkles" size={14} color={Colors.buttons.linkText} />
-        <Text style={styles.sampleBiometricsText}>Cargar fotografías de muestra (Demo)</Text>
+        <Text style={styles.sampleBiometricsText}>{t('auth.bio.sample')}</Text>
       </TouchableOpacity>
 
       {/* Botón explícito para Omitir Fotos y usar Avatar 3D por Defecto */}
@@ -161,7 +185,7 @@ export const StepBiometrics: React.FC<StepBiometricsProps> = ({
       >
         <Ionicons name="play-skip-forward-outline" size={15} color={Colors.buttons.neutralMutedText} style={{ marginRight: 6 }} />
         <Text style={styles.skipBiometricsBtnText}>
-          Omitir fotos y usar avatar 3D por defecto
+          {t('auth.bio.skip')}
         </Text>
       </TouchableOpacity>
 

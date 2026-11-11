@@ -107,7 +107,7 @@ export const ColorRecommendationsScreen: React.FC<ColorRecommendationsScreenProp
 
                   <View style={styles.harmonyScorePill}>
                     <Ionicons name="sparkles" size={10} color={colors.primary} />
-                    <Text style={[styles.harmonyScoreText, { color: colors.primary }]}>HARMONY</Text>
+                    <Text style={[styles.harmonyScoreText, { color: colors.primary }]}>{t('colorRecommendations.harmony')}</Text>
                   </View>
                 </View>
 

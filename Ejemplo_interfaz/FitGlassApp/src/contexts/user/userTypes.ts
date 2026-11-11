@@ -78,5 +78,8 @@ export interface UserContextValue {
   updateBodyProfile: (body: BodyProfile) => void;
   completeOnboarding: (data?: CompleteOnboardingData) => void;
   syncProfileWithBackend: () => Promise<void>;
+  lastWardrobeSyncAt: Date | null;
+  wardrobeSyncError: string | null;
+  syncWardrobeNow: () => Promise<void>;
   resetProfile: () => void;
 }

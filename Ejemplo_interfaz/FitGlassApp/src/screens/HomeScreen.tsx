@@ -20,6 +20,8 @@ import { VibrantBackground } from '../components/VibrantBackground';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { useTranslation } from '../contexts/LanguageContext';
+import { lookCategoryLabel } from '../i18n/lookCategories';
 import { SavedLookItem, Garment } from '../types';
 import { SavedLookScreen } from './SavedLookScreen';
 import { GarmentViewScreen } from './GarmentViewScreen';
@@ -64,6 +66,8 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
+  const catLabel = (cat: string) => lookCategoryLabel(cat, t);
 
   const {
     userProfile,
@@ -148,7 +152,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const handleCreateCategory = () => {
     const trimmed = newCategoryName.trim();
     if (!trimmed) {
-      Alert.alert('Categoría vacía', 'Por favor ingresa un nombre para la categoría.');
+      Alert.alert(t('home.cat.emptyTitle'), t('home.cat.emptyMessage'));
       return;
     }
     addLookCategory(trimmed);
@@ -214,7 +218,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <View style={styles.categoriesSection}>
           <View style={styles.categoriesSectionHeader}>
             <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
-              Avatares 3D ({categoryCount})
+              {t('home.avatars3d', { count: categoryCount })}
             </Text>
             
             <TouchableOpacity
@@ -223,7 +227,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               activeOpacity={0.7}
             >
               <Text style={[styles.dropdownTriggerText, { color: colors.primaryText }]}>
-                {selectedCategory}
+                {catLabel(selectedCategory)}
               </Text>
               <Ionicons name="chevron-down" size={14} color={colors.primaryText} />
             </TouchableOpacity>
@@ -235,13 +239,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           
           {/* 1. AVATAR PRINCIPAL */}
           {selectedCategory === 'Todos' && (
-            <View style={[styles.model3DCard, { backgroundColor: '#FFFFFF', borderColor: colors.borderLight }]}>
-              <View style={styles.cardViewerWrapper}>
+            <View style={[styles.model3DCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
+              <View style={[styles.cardViewerWrapper, { backgroundColor: colors.viewer3DBackground }]}>
                 <Model3DViewer
                   key={`home-main-avatar-${avatar_3d_url || gender}`}
                   activeModelUrl={avatar_3d_url}
                   modelUrl={avatar_3d_url}
-                  currentGarmentName="Silueta Principal"
+                  currentGarmentName={t('home.mainSilhouette')}
                   selectedLayer="Avatar 3D"
                   garmentColorHex="#8EB6C7"
                   isAvatarMode={true}
@@ -250,13 +254,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 />
                 <View style={styles.card3DBadge}>
                   <Ionicons name="cube-outline" size={12} color="#FFFFFF" />
-                  <Text style={styles.card3DBadgeText}>AVATAR PRINCIPAL</Text>
+                  <Text style={styles.card3DBadgeText}>{t('home.mainAvatarBadge')}</Text>
                 </View>
               </View>
 
               <View style={styles.cardInfoBody}>
                 <Text style={[styles.cardTitle, { color: colors.primaryText }]} numberOfLines={1}>
-                  {userProfile?.name ? `Avatar de ${userProfile.name}` : 'Silueta Vitra Atelier · 3D'}
+                  {userProfile?.name ? t('home.avatarOf', { name: userProfile.name }) : t('home.defaultAvatarTitle')}
                 </Text>
 
                 <View style={styles.cardActionsRow}>
@@ -267,7 +271,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   >
                     <Ionicons name="shirt-outline" size={16} color={colors.bg} />
                     <Text style={[styles.primaryActionText, { color: colors.bg }]} numberOfLines={1}>
-                      Probar
+                      {t('home.tryOn')}
                     </Text>
                   </TouchableOpacity>
 
@@ -317,8 +321,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             const hasCategory = Boolean(look.category);
 
             return (
-              <View key={look.id} style={[styles.model3DCard, { backgroundColor: '#FFFFFF', borderColor: colors.borderLight }]}>
-                <View style={styles.cardViewerWrapper}>
+              <View key={look.id} style={[styles.model3DCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
+                <View style={[styles.cardViewerWrapper, { backgroundColor: colors.viewer3DBackground }]}>
                   <Model3DViewer
                     key={`look-viewer-${look.id}-${modelUrl}`}
                     activeModelUrl={modelUrl}
@@ -332,14 +336,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   />
                   <View style={styles.card3DBadge}>
                     <Ionicons name="cube-outline" size={12} color="#FFFFFF" />
-                    <Text style={styles.card3DBadgeText}>3D INTERACTIVO</Text>
+                    <Text style={styles.card3DBadgeText}>{t('home.interactive3d')}</Text>
                   </View>
                 </View>
 
                 <View style={styles.cardInfoBody}>
                   <View style={styles.cardCategoryRow}>
                     <Text style={[styles.cardCategoryPillText, { color: colors.secondaryText }]}>
-                      {lookCategory}
+                      {catLabel(lookCategory)}
                     </Text>
                     <Text style={[styles.cardDateText, { color: colors.secondaryText }]}>
                       {look.date}
@@ -358,7 +362,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     >
                       <Ionicons name="eye-outline" size={16} color={colors.bg} />
                       <Text style={[styles.primaryActionText, { color: colors.bg }]} numberOfLines={1}>
-                        Detalles
+                        {t('home.details')}
                       </Text>
                     </TouchableOpacity>
 
@@ -407,10 +411,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <Ionicons name={selectedCategory === 'Favoritos' ? "heart-dislike-outline" : "shirt-outline"} size={30} color={colors.primaryText} />
               </View>
               <Text style={[styles.emptyCategoryTitle, { color: colors.primaryText }]}>
-                No hay avatares en "{selectedCategory}"
+                {t('home.emptyCat.title', { category: catLabel(selectedCategory) })}
               </Text>
               <Text style={[styles.emptyCategorySubtitle, { color: colors.secondaryText }]}>
-                Aún no has creado ni asignado avatares a esta categoría.
+                {t('home.emptyCat.subtitle')}
               </Text>
               <View style={styles.emptyCategoryActions}>
                 <TouchableOpacity
@@ -418,7 +422,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   onPress={() => setSelectedCategory('Todos')}
                 >
                   <Text style={[styles.emptyActionSecondaryBtnText, { color: colors.primaryText }]}>
-                    Ver Todos los Modelos
+                    {t('home.emptyCat.viewAll')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -432,7 +436,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setIsCategoryMenuOpen(false)}>
           <View style={[styles.dropdownMenuCard, { backgroundColor: colors.bg }]}>
             <Text style={[styles.modalHeading, { color: colors.primaryText, marginBottom: Spacing.md }]}>
-              Filtrar por Categoría
+              {t('home.cat.filterTitle')}
             </Text>
             
             <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
@@ -458,7 +462,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                       { color: isSelected ? colors.bg : colors.secondaryText },
                       isSelected && { fontWeight: '700' }
                     ]}>
-                      {cat}
+                      {catLabel(cat)}
                     </Text>
                     {isSelected && <Ionicons name="checkmark-circle" size={18} color={colors.bg} />}
                   </TouchableOpacity>
@@ -475,7 +479,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             >
               <Ionicons name="add-circle-outline" size={16} color={colors.primaryText} />
               <Text style={[styles.createCategoryBtnText, { color: colors.primaryText }]}>
-                Crear nueva categoría
+                {t('home.cat.createNew')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -488,7 +492,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <GlassCard style={styles.modalCard} intensity={70}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalHeading, { color: colors.primaryText }]}>
-                Nueva Categoría
+                {t('home.cat.newTitle')}
               </Text>
               <TouchableOpacity onPress={() => setCategoryModalVisible(false)}>
                 <Ionicons name="close-circle" size={24} color={colors.secondaryText} />
@@ -504,7 +508,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   backgroundColor: colors.surfaceSubtle 
                 }
               ]}
-              placeholder={`Ej: Elegante (Max ${MAX_CATEGORY_LENGTH} car.)`}
+              placeholder={t('home.cat.placeholder', { max: MAX_CATEGORY_LENGTH })}
               placeholderTextColor={colors.secondaryText}
               value={newCategoryName}
               onChangeText={setNewCategoryName}
@@ -517,13 +521,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 style={[styles.modalCancelBtn, { borderColor: colors.borderLight }]}
                 onPress={() => { setNewCategoryName(''); setCategoryModalVisible(false); }}
               >
-                <Text style={[styles.modalCancelBtnText, { color: colors.secondaryText }]}>Cancelar</Text>
+                <Text style={[styles.modalCancelBtnText, { color: colors.secondaryText }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalConfirmBtn, { backgroundColor: colors.primaryText }]}
                 onPress={handleCreateCategory}
               >
-                <Text style={[styles.modalConfirmBtnText, { color: colors.bg }]}>Crear</Text>
+                <Text style={[styles.modalConfirmBtnText, { color: colors.bg }]}>{t('home.cat.create')}</Text>
               </TouchableOpacity>
             </View>
           </GlassCard>
@@ -535,7 +539,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <View style={styles.modalBackdrop}>
           <GlassCard style={styles.modalCard} intensity={70}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalHeading, { color: colors.primaryText }]}>Asignar Categoría</Text>
+              <Text style={[styles.modalHeading, { color: colors.primaryText }]}>{t('home.cat.assignTitle')}</Text>
               <TouchableOpacity onPress={() => setEditingLookCategory(null)}>
                 <Ionicons name="close-circle" size={24} color={colors.secondaryText} />
               </TouchableOpacity>
@@ -560,7 +564,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 }}
               >
                 <Text style={[styles.categorySelectText, { color: colors.buttons.dangerBackground }, editingLookCategory && !editingLookCategory.category && { fontWeight: '700' }]}>
-                  Quitar etiqueta
+                  {t('home.cat.removeTag')}
                 </Text>
                 <Ionicons name="close-circle-outline" size={18} color={colors.buttons.dangerBackground} />
               </TouchableOpacity>
@@ -585,7 +589,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                       }}
                     >
                       <Text style={[styles.categorySelectText, { color: isCurrent ? colors.bg : colors.primaryText }, isCurrent && { fontWeight: '700' }]}>
-                        {cat}
+                        {catLabel(cat)}
                       </Text>
                       {isCurrent && <Ionicons name="checkmark-circle" size={18} color={colors.bg} />}
                     </TouchableOpacity>
@@ -601,7 +605,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <View style={styles.modalBackdrop}>
           <GlassCard style={styles.modalCard} intensity={70}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalHeading, { color: colors.primaryText }]}>Etiquetar Avatar</Text>
+              <Text style={[styles.modalHeading, { color: colors.primaryText }]}>{t('home.cat.tagAvatarTitle')}</Text>
               <TouchableOpacity onPress={() => setIsMainAvatarTagModalOpen(false)}>
                 <Ionicons name="close-circle" size={24} color={colors.secondaryText} />
               </TouchableOpacity>
@@ -624,7 +628,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 }}
               >
                 <Text style={[styles.categorySelectText, { color: colors.buttons.dangerBackground }, !mainAvatarCategory && { fontWeight: '700' }]}>
-                  Quitar etiqueta
+                  {t('home.cat.removeTag')}
                 </Text>
                 <Ionicons name="close-circle-outline" size={18} color={colors.buttons.dangerBackground} />
               </TouchableOpacity>
@@ -647,7 +651,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                       }}
                     >
                       <Text style={[styles.categorySelectText, { color: isCurrent ? colors.bg : colors.primaryText }, isCurrent && { fontWeight: '700' }]}>
-                        {cat}
+                        {catLabel(cat)}
                       </Text>
                       {isCurrent && <Ionicons name="checkmark-circle" size={18} color={colors.bg} />}
                     </TouchableOpacity>
@@ -661,13 +665,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       {/* MODAL: ELIMINAR */}
       <Modal visible={Boolean(lookToDelete) || isDeletingMainAvatar} transparent animationType="fade" onRequestClose={() => { setLookToDelete(null); setIsDeletingMainAvatar(false); }}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { alignItems: 'center', backgroundColor: '#FFFFFF', paddingVertical: 40 }]}>
+          <View style={[styles.modalCard, { alignItems: 'center', backgroundColor: colors.surface, paddingVertical: 40 }]}>
             <View style={styles.deleteIconCircle}>
               <Ionicons name="trash" size={32} color={colors.buttons.dangerBackground} />
             </View>
             
-            <Text style={[styles.deleteSubtitle, { color: '#4B5563', fontSize: 16, marginVertical: 24, paddingHorizontal: 10 }]}>
-              El modelo se eliminará de forma permanente. Esta acción no se puede deshacer.
+            <Text style={[styles.deleteSubtitle, { color: colors.secondaryText, fontSize: 16, marginVertical: 24, paddingHorizontal: 10 }]}>
+              {t('home.delete.message')}
             </Text>
             
             <View style={[styles.modalButtonsRow, { width: '100%', marginTop: 10, gap: 16 }]}>
@@ -675,14 +679,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 style={[styles.modalCancelBtn, { backgroundColor: colors.buttons.subtleBackground, borderWidth: 0 }]}
                 onPress={() => { setLookToDelete(null); setIsDeletingMainAvatar(false); }}
               >
-                <Text style={[styles.modalCancelBtnText, { color: colors.buttons.neutralText }]}>Cancelar</Text>
+                <Text style={[styles.modalCancelBtnText, { color: colors.buttons.neutralText }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[styles.modalConfirmBtn, { backgroundColor: colors.buttons.dangerBackground }]}
                 onPress={confirmDeleteLook}
               >
-                <Text style={[styles.modalConfirmBtnText, { color: colors.buttons.dangerText }]}>Eliminar</Text>
+                <Text style={[styles.modalConfirmBtnText, { color: colors.buttons.dangerText }]}>{t('common.delete')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -729,7 +733,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <View style={[styles.scrollToTopIconBadge, { backgroundColor: colors.primaryText }]}>
             <Ionicons name="arrow-up" size={14} color={colors.bg} />
           </View>
-          <Text style={[styles.scrollToTopText, { color: colors.primaryText }]}>Subir</Text>
+          <Text style={[styles.scrollToTopText, { color: colors.primaryText }]}>{t('home.scrollTop')}</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

@@ -114,7 +114,7 @@ export const LiquidGlassView: React.FC<LiquidGlassViewProps> = ({
   hasShadow = true,
   ...restProps
 }) => {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
 
   const effectiveTint: BlurTint = tint || (isDark ? 'dark' : 'light');
 
@@ -135,9 +135,7 @@ export const LiquidGlassView: React.FC<LiquidGlassViewProps> = ({
     }
   });
 
-  // Translucent inner border mimicking liquid glass refraction
-  // Task spec: borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)'
-  const defaultBorderColor = 'rgba(255, 255, 255, 0.2)';
+  const defaultBorderColor = colors.glassBorder;
   const resolvedBorderColor =
     borderColor || (flattenedStyle.borderColor as string) || defaultBorderColor;
 
@@ -147,9 +145,7 @@ export const LiquidGlassView: React.FC<LiquidGlassViewProps> = ({
       : borderWidth;
 
   // Liquid translucent surface background
-  const defaultBgColor = isDark
-    ? 'rgba(20, 22, 28, 0.50)'
-    : 'rgba(255, 255, 255, 0.60)';
+  const defaultBgColor = colors.glass;
   const resolvedBgColor =
     backgroundColor || (flattenedStyle.backgroundColor as string) || defaultBgColor;
 

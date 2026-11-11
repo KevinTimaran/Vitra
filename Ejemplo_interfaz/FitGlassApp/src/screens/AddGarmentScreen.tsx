@@ -14,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Typography, Spacing, Radius } from '../theme';
 import { GlassCard } from '../components/GlassCard';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface AddGarmentScreenProps {
   onPhotoConfirmed: (base64Data: string, imageUri: string) => void;
@@ -28,6 +29,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
 
+  const { t } = useTranslation();
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -37,8 +39,8 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
         Alert.alert(
-          'Permiso de Cámara',
-          'Se requiere acceso a la cámara para fotografiar tus prendas de ropa.'
+          t('addG.perm.cameraTitle'),
+          t('addG.perm.cameraMessage')
         );
         return;
       }
@@ -60,7 +62,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
       }
     } catch (error: any) {
       console.error('[AddGarmentScreen] Error al abrir cámara:', error);
-      Alert.alert('Error', 'No se pudo inicializar la cámara del dispositivo.');
+      Alert.alert(t('common.error'), t('addG.err.camera'));
     } finally {
       setLoading(false);
     }
@@ -71,8 +73,8 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
         Alert.alert(
-          'Permiso de Galería',
-          'Se requiere acceso a tu fototeca para seleccionar prendas.'
+          t('addG.perm.galleryTitle'),
+          t('addG.perm.galleryMessage')
         );
         return;
       }
@@ -94,7 +96,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
       }
     } catch (error: any) {
       console.error('[AddGarmentScreen] Error al abrir galería:', error);
-      Alert.alert('Error', 'No se pudo acceder a las fotos del dispositivo.');
+      Alert.alert(t('common.error'), t('addG.err.gallery'));
     } finally {
       setLoading(false);
     }
@@ -102,7 +104,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
 
   const handleConfirm = () => {
     if (!imageBase64 || !selectedImageUri) {
-      Alert.alert('Atención', 'Por favor toma una foto o selecciona una imagen de la galería.');
+      Alert.alert(t('addG.attention'), t('addG.needPhoto'));
       return;
     }
 
@@ -135,7 +137,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
         >
           <Ionicons name="close-outline" size={26} color={colors.primaryText} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.primaryText }]}>Añadir Prenda</Text>
+        <Text style={[styles.headerTitle, { color: colors.primaryText }]}>{t('home.addClothing')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -144,7 +146,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.secondaryText }]}>
-              Procesando imagen y extrayendo Base64...
+              {t('addG.processing')}
             </Text>
           </View>
         ) : selectedImageUri ? (
@@ -157,7 +159,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
             <View style={styles.badgeSuccess}>
               <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
               <Text style={[styles.badgeSuccessText, { color: colors.primary }]}>
-                Imagen Base64 lista para análisis
+                {t('addG.ready')}
               </Text>
             </View>
 
@@ -171,7 +173,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
                 activeOpacity={0.7}
               >
                 <Ionicons name="reload-outline" size={18} color={colors.primaryText} />
-                <Text style={[styles.btnSecondaryText, { color: colors.primaryText }]}>Repetir</Text>
+                <Text style={[styles.btnSecondaryText, { color: colors.primaryText }]}>{t('addG.retake')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -179,7 +181,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
                 onPress={handleConfirm}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.btnPrimaryText, { color: colors.ctaText }]}>Procesar Prenda</Text>
+                <Text style={[styles.btnPrimaryText, { color: colors.ctaText }]}>{t('addG.process')}</Text>
                 <Ionicons name="arrow-forward" size={18} color={colors.ctaText} />
               </TouchableOpacity>
             </View>
@@ -192,10 +194,10 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
                 <Ionicons name="camera-outline" size={32} color={colors.primary} />
               </View>
               <Text style={[styles.guidanceTitle, { color: colors.primaryText }]}>
-                Captura tu Prenda
+                {t('addG.captureTitle')}
               </Text>
               <Text style={[styles.guidanceSubtitle, { color: colors.secondaryText }]}>
-                Toma una foto bien iluminada sobre un fondo neutro para obtener los mejores resultados con Gemini y Tripo3D.
+                {t('addG.captureHint')}
               </Text>
             </GlassCard>
 
@@ -207,7 +209,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
               >
                 <Ionicons name="camera" size={22} color={colors.ctaText} />
                 <Text style={[styles.actionOptionText, { color: colors.ctaText }]}>
-                  Usar Cámara
+                  {t('addG.useCamera')}
                 </Text>
               </TouchableOpacity>
 
@@ -218,7 +220,7 @@ export const AddGarmentScreen: React.FC<AddGarmentScreenProps> = ({
               >
                 <Ionicons name="images-outline" size={22} color={colors.primaryText} />
                 <Text style={[styles.actionOptionSecondaryText, { color: colors.primaryText }]}>
-                  Abrir Galería
+                  {t('addG.openGallery')}
                 </Text>
               </TouchableOpacity>
             </View>

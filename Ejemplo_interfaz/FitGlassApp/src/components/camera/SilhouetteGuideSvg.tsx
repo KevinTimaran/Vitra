@@ -21,8 +21,8 @@ interface SilhouetteGuideSvgProps {
 export const SilhouetteGuideSvg: React.FC<SilhouetteGuideSvgProps> = ({
   width = 340,
   height = 560,
-  strokeColor = 'rgba(212, 175, 55, 0.85)', // Vitra gold accent
-  fillColor = 'rgba(212, 175, 55, 0.08)',
+  strokeColor = 'rgba(142, 182, 199, 0.9)', // acento teal de la app
+  fillColor = 'rgba(142, 182, 199, 0.10)',
   gender = 'female',
 }) => {
   // Coordenadas basadas en un viewBox estándar 0 0 360 620
@@ -35,13 +35,13 @@ export const SilhouetteGuideSvg: React.FC<SilhouetteGuideSvgProps> = ({
       <Svg width="100%" height="100%" viewBox="0 0 360 620" preserveAspectRatio="xMidYMid meet">
         <Defs>
           <SvgLinearGradient id="silhouetteGlow" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor="#D4AF37" stopOpacity="0.85" />
-            <Stop offset="50%" stopColor="#E5C778" stopOpacity="0.6" />
-            <Stop offset="100%" stopColor="#D4AF37" stopOpacity="0.85" />
+            <Stop offset="0%" stopColor="#8EB6C7" stopOpacity="0.85" />
+            <Stop offset="50%" stopColor="#CFE3EC" stopOpacity="0.6" />
+            <Stop offset="100%" stopColor="#8EB6C7" stopOpacity="0.85" />
           </SvgLinearGradient>
           <SvgLinearGradient id="fillGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor="#D4AF37" stopOpacity="0.12" />
-            <Stop offset="100%" stopColor="#D4AF37" stopOpacity="0.04" />
+            <Stop offset="0%" stopColor="#8EB6C7" stopOpacity="0.12" />
+            <Stop offset="100%" stopColor="#8EB6C7" stopOpacity="0.04" />
           </SvgLinearGradient>
         </Defs>
 
@@ -148,7 +148,7 @@ export const SilhouetteGuideSvg: React.FC<SilhouetteGuideSvgProps> = ({
           y1="250"
           x2="108"
           y2="280"
-          stroke="#D4AF37"
+          stroke="#8EB6C7"
           strokeWidth="1.5"
           strokeDasharray="2, 2"
         />
@@ -157,7 +157,7 @@ export const SilhouetteGuideSvg: React.FC<SilhouetteGuideSvgProps> = ({
           y1="250"
           x2="252"
           y2="280"
-          stroke="#D4AF37"
+          stroke="#8EB6C7"
           strokeWidth="1.5"
           strokeDasharray="2, 2"
         />
@@ -168,7 +168,7 @@ export const SilhouetteGuideSvg: React.FC<SilhouetteGuideSvgProps> = ({
           y1="125"
           x2="180"
           y2="375"
-          stroke="rgba(212, 175, 55, 0.3)"
+          stroke="rgba(142, 182, 199, 0.35)"
           strokeWidth="1"
           strokeDasharray="6, 6"
         />

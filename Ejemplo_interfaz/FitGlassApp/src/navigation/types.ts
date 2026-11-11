@@ -32,9 +32,15 @@ export type RootStackParamList = {
   ColorStudio: undefined;
   AddGarment: undefined;
   GarmentProcessing: {
-    imageBase64: string;
-    imageUri: string;
+    imageBase64?: string;
+    imageUri?: string;
     userPhotoUrl?: string;
+    /** Reabrir la espera de un trabajo ya en marcha (desde la píldora de progreso). */
+    jobId?: string;
+  };
+  WaitingGame: {
+    /** Sin jobId = juego libre abierto desde Ajustes. */
+    jobId?: string;
   };
   ColorRecommendations: {
     garments?: any[];

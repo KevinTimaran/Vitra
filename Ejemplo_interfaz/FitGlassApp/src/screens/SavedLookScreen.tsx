@@ -19,6 +19,8 @@ import { Model3DViewer } from '../components/Model3DViewer';
 import { SavedLookItem, Garment } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { useTranslation } from '../contexts/LanguageContext';
+import { lookCategoryLabel, translateOr } from '../i18n/lookCategories';
 
 interface SavedLookScreenProps {
   route?: {
@@ -37,7 +39,8 @@ interface SavedLookScreenProps {
 
 export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
   const {
     removeLook,
     toggleFavoriteLook,
@@ -86,12 +89,12 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
   const handleConfirmDelete = () => {
     if (!look) return;
     Alert.alert(
-      '¿Eliminar este look?',
-      'Esta acción eliminará el modelo y su composición de tu colección.',
+      t('savedLook.deleteConfirm.title'),
+      t('savedLook.deleteConfirm.message'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             if (props.onRemoveLook) {
@@ -133,15 +136,15 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
           <TouchableOpacity onPress={handleBack} style={styles.headerIconButton}>
             <Ionicons name="arrow-back" size={24} color={colors.primaryText} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.primaryText }]}>Detalle de Look</Text>
+          <Text style={[styles.headerTitle, { color: colors.primaryText }]}>{t('savedLook.detailTitle')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.secondaryText} />
           <Text style={[styles.errorTitle, { color: colors.primaryText }]}>
-            No se encontró el modelo
+            {t('savedLook.notFound')}
           </Text>
-          <PrimaryButton label="Volver" onPress={handleBack} style={{ marginTop: Spacing.lg }} />
+          <PrimaryButton label={t('common.return')} onPress={handleBack} style={{ marginTop: Spacing.lg }} />
         </View>
       </View>
     );
@@ -159,7 +162,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
           styles.topHeaderBar,
           {
             paddingTop: insets.top + 8,
-            backgroundColor: isDark ? 'rgba(15, 17, 21, 0.85)' : 'rgba(249, 249, 247, 0.92)',
+            backgroundColor: colors.glass,
             borderBottomColor: colors.borderLight,
           },
         ]}
@@ -177,7 +180,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
             {look.title}
           </Text>
           <Text style={[styles.headerSubtitle, { color: colors.secondaryText }]}>
-            {currentCategory} · {look.date}
+            {lookCategoryLabel(currentCategory, t)} · {look.date}
           </Text>
         </View>
 
@@ -205,9 +208,12 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
         showsVerticalScrollIndicator={false}
       >
         {/* Contenedor del Visor 3D / Preview 2D */}
-        <GlassCard style={styles.viewerCanvasCard} intensity={25}>
+        <GlassCard
+          style={[styles.viewerCanvasCard, { backgroundColor: colors.viewer3DBackground }]}
+          intensity={25}
+        >
           {activeViewMode === '3d' ? (
-            <View style={styles.viewer3DWrapper}>
+            <View style={[styles.viewer3DWrapper, { backgroundColor: colors.viewer3DBackground }]}>
               <Model3DViewer
                 activeModelUrl={modelUrl}
                 modelUrl={modelUrl}
@@ -222,7 +228,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
               />
               <View style={styles.hintBadge}>
                 <Ionicons name="finger-print-outline" size={13} color="#FFFFFF" />
-                <Text style={styles.hintBadgeText}>ARRASTRA PARA ROTAR 360°</Text>
+                <Text style={styles.hintBadgeText}>{t('savedLook.dragHint')}</Text>
               </View>
             </View>
           ) : (
@@ -237,7 +243,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
                 <View style={styles.empty2DPlaceholder}>
                   <Ionicons name="shirt-outline" size={48} color={colors.secondaryText} />
                   <Text style={[styles.empty2DText, { color: colors.secondaryText }]}>
-                    Vista 2D no disponible para este look
+                    {t('savedLook.no2d')}
                   </Text>
                 </View>
               )}
@@ -300,13 +306,13 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
           <View style={styles.categoryHeaderRow}>
             <View>
               <Text style={[styles.metaSectionLabel, { color: colors.secondaryText }]}>
-                CATEGORÍA DEL MODELO
+                {t('savedLook.categoryLabel')}
               </Text>
               <View style={styles.categoryBadgeRow}>
                 <View style={[styles.categoryPill, { backgroundColor: colors.surfaceSubtle }]}>
                   <Ionicons name="pricetag-outline" size={13} color={colors.primaryText} />
                   <Text style={[styles.categoryPillText, { color: colors.primaryText }]}>
-                    {currentCategory}
+                    {lookCategoryLabel(currentCategory, t)}
                   </Text>
                 </View>
               </View>
@@ -319,7 +325,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
             >
               <Ionicons name="create-outline" size={14} color={colors.primaryText} />
               <Text style={[styles.changeCategoryBtnText, { color: colors.primaryText }]}>
-                Cambiar Categoría
+                {t('savedLook.changeCategory')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -328,21 +334,21 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
 
           <View style={styles.metaMetricsRow}>
             <View style={styles.metricItem}>
-              <Text style={[styles.metricLabel, { color: colors.secondaryText }]}>Armonía</Text>
+              <Text style={[styles.metricLabel, { color: colors.secondaryText }]}>{t('savedLook.harmony')}</Text>
               <Text style={[styles.metricValue, { color: colors.primaryText }]}>
                 {look.fitScore || '94% Match'}
               </Text>
             </View>
             <View style={styles.metricItem}>
-              <Text style={[styles.metricLabel, { color: colors.secondaryText }]}>Paleta</Text>
+              <Text style={[styles.metricLabel, { color: colors.secondaryText }]}>{t('savedLook.palette')}</Text>
               <Text style={[styles.metricValue, { color: colors.primaryText }]} numberOfLines={1}>
-                {look.paletteTheme || 'Neutral Elegance'}
+                {look.paletteTheme || t('savedLook.defaultPalette')}
               </Text>
             </View>
             <View style={styles.metricItem}>
-              <Text style={[styles.metricLabel, { color: colors.secondaryText }]}>Prendas</Text>
+              <Text style={[styles.metricLabel, { color: colors.secondaryText }]}>{t('savedLook.garments')}</Text>
               <Text style={[styles.metricValue, { color: colors.primaryText }]}>
-                {look.garments?.length || 0} piezas
+                {t('savedLook.pieces', { count: look.garments?.length || 0 })}
               </Text>
             </View>
           </View>
@@ -352,7 +358,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
         <View style={styles.garmentsSectionHeader}>
           <Ionicons name="shirt-outline" size={18} color={colors.primaryText} />
           <Text style={[styles.sectionTitle, { color: colors.primaryText }]}>
-            Prendas que usa el modelo ({look.garments?.length || 0})
+            {t('savedLook.garmentsInModel', { count: look.garments?.length || 0 })}
           </Text>
         </View>
 
@@ -378,7 +384,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
                     {garment.name}
                   </Text>
                   <Text style={[styles.garmentSubInfo, { color: colors.secondaryText }]} numberOfLines={1}>
-                    {garment.category || 'Prenda'} · {garment.brand || 'Vitra Atelier'}
+                    {garment.category || t('savedLook.garment')} · {garment.brand || 'Vitra Atelier'}
                   </Text>
                   <View style={styles.garmentColorRow}>
                     <View
@@ -388,8 +394,8 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
                       ]}
                     />
                     <Text style={[styles.colorSwatchText, { color: colors.secondaryText }]}>
-                      {garment.colorName || garment.colorHex || 'Color Atelier'}
-                      {garment.fit ? ` · Corte ${garment.fit}` : ''}
+                      {garment.colorName || garment.colorHex || t('savedLook.defaultColor')}
+                      {garment.fit ? ` · ${t('savedLook.cut', { fit: translateOr(t, `fit.${garment.fit}`, garment.fit) })}` : ''}
                     </Text>
                   </View>
                 </View>
@@ -399,7 +405,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
         ) : (
           <GlassCard style={styles.emptyGarmentsCard} intensity={15}>
             <Text style={[styles.emptyGarmentsText, { color: colors.secondaryText }]}>
-              Silueta base personalizada de atelier sin prendas individuales asociadas.
+              {t('savedLook.noGarments')}
             </Text>
           </GlassCard>
         )}
@@ -407,13 +413,13 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
         {/* Botones de Acción */}
         <View style={styles.actionButtonsContainer}>
           <PrimaryButton
-            label="Probar en Probador Virtual"
+            label={t('savedLook.tryInRoom')}
             onPress={handleTryAgain}
             icon="sparkles"
           />
 
           <SecondaryButton
-            label={isFavorite ? 'Quitar de Favoritos' : 'Guardar en Favoritos'}
+            label={isFavorite ? t('savedLook.unfavorite') : t('savedLook.favorite')}
             onPress={handleToggleFavorite}
             icon={isFavorite ? 'heart' : 'heart-outline'}
             style={{ marginTop: Spacing.sm }}
@@ -425,7 +431,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
             activeOpacity={0.7}
           >
             <Ionicons name="trash-outline" size={16} color={colors.buttons.dangerBackground} />
-            <Text style={[styles.deleteLookButtonText, { color: colors.buttons.dangerBackground }]}>Eliminar Look</Text>
+            <Text style={[styles.deleteLookButtonText, { color: colors.buttons.dangerBackground }]}>{t('savedLook.deleteLook')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -441,7 +447,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
           <GlassCard style={styles.modalContentCard} intensity={85}>
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: colors.primaryText }]}>
-                Categorizar Modelo
+                {t('savedLook.categorizeTitle')}
               </Text>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
                 <Ionicons name="close-circle" size={24} color={colors.secondaryText} />
@@ -449,7 +455,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
             </View>
 
             <Text style={[styles.modalSubtitle, { color: colors.secondaryText }]}>
-              Selecciona una categoría o crea una nueva para clasificar este modelo 3D.
+              {t('savedLook.categorizeSubtitle')}
             </Text>
 
             {/* Lista de categorías disponibles */}
@@ -478,7 +484,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
                           isSelected && { fontWeight: '700' },
                         ]}
                       >
-                        {cat}
+                        {lookCategoryLabel(cat, t)}
                       </Text>
                       {isSelected ? (
                         <Ionicons name="checkmark-circle" size={18} color={colors.bg} />
@@ -500,7 +506,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
                       backgroundColor: colors.surfaceSubtle,
                     },
                   ]}
-                  placeholder="Nombre de nueva categoría..."
+                  placeholder={t('savedLook.newCategoryPlaceholder')}
                   placeholderTextColor={colors.secondaryText}
                   value={newCategoryName}
                   onChangeText={setNewCategoryName}
@@ -529,7 +535,7 @@ export const SavedLookScreen: React.FC<SavedLookScreenProps> = (props) => {
               >
                 <Ionicons name="add-circle-outline" size={18} color={colors.primaryText} />
                 <Text style={[styles.addNewCategoryPillText, { color: colors.primaryText }]}>
-                  Crear Nueva Categoría
+                  {t('savedLook.createCategory')}
                 </Text>
               </TouchableOpacity>
             )}

@@ -5,6 +5,7 @@ import { Typography, Spacing, Radius } from '../theme';
 import { Header } from '../components/Header';
 import { Garment } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 // Importar Three.js
 import * as THREE from 'three';
@@ -28,6 +29,7 @@ const TAG = '[GLTest-Three]';
 
 export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ garment, onBack }) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [status, setStatus] = useState<GLStatus>('waiting');
   const [detail, setDetail] = useState<string>('Esperando onContextCreate…');
   const [frames, setFrames] = useState(0);
@@ -194,19 +196,25 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
   };
 
   const statusColor =
-    status === 'drawing' ? '#3C6473' : status === 'error' ? '#DC2626' : status === 'context' ? '#8EB6C7' : '#71787C';
+    status === 'drawing'
+      ? colors.primary
+      : status === 'error'
+      ? colors.error
+      : status === 'context'
+      ? colors.accentSubtle
+      : colors.secondaryText;
   const statusLabel =
-    status === 'drawing' ? 'THREE.JS ATELIER ACTIVO'
-    : status === 'context' ? 'CALIBRANDO CONTEXTO'
-    : status === 'error' ? 'ERROR THREE.JS'
-    : 'INICIALIZANDO';
+    status === 'drawing' ? t('preview3d.status.drawing')
+    : status === 'context' ? t('preview3d.status.context')
+    : status === 'error' ? t('preview3d.status.error')
+    : t('preview3d.status.init');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <Header title={'Visor 3D'} subtitle={garment.name} onBack={onBack} />
+      <Header title={t('preview3d.title')} subtitle={garment.name} onBack={onBack} />
 
       <View style={[styles.uiFrame, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}>
-        <Text style={[styles.uiFrameLabel, { color: colors.secondaryText }]}>ESTUDIO TRIPO3D · 60 FPS</Text>
+        <Text style={[styles.uiFrameLabel, { color: colors.secondaryText }]}>{t('preview3d.frame')}</Text>
         <GLView style={styles.glView} onContextCreate={onContextCreate} />
       </View>
 
@@ -218,7 +226,7 @@ export const Garment3DPreviewScreen: React.FC<Garment3DPreviewScreenProps> = ({ 
           {detail}
         </Text>
         <Text style={[Typography.caption, { fontFamily: Typography.outfit.regular, color: colors.secondaryText, textAlign: 'center', marginTop: 4 }]}>
-          Frames presentados: {frames}
+          {t('preview3d.frames', { frames })}
         </Text>
       </View>
     </View>

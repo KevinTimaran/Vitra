@@ -3,7 +3,7 @@ import type { SavedLookItem } from '../../types';
 import { DEFAULT_LOOK_CATEGORIES } from './userDefaults';
 import { COLLECTION_STORAGE, persistCollection } from './userStorage';
 
-export function useSavedLooksState(isReady: boolean) {
+export function useSavedLooksState(isReady: boolean, scope: string) {
   const [savedLooks, setSavedLooks] = useState<SavedLookItem[]>([]);
   const [lookCategories, setLookCategories] = useState<string[]>(DEFAULT_LOOK_CATEGORIES);
 
@@ -12,18 +12,20 @@ export function useSavedLooksState(isReady: boolean) {
     void persistCollection(
       COLLECTION_STORAGE.savedLooks.fileName,
       COLLECTION_STORAGE.savedLooks.webKey,
-      savedLooks
+      savedLooks,
+      scope
     ).catch((error) => console.warn('[UserContext] Error al persistir looks guardados:', error));
-  }, [isReady, savedLooks]);
+  }, [isReady, scope, savedLooks]);
 
   useEffect(() => {
     if (!isReady) return;
     void persistCollection(
       COLLECTION_STORAGE.lookCategories.fileName,
       COLLECTION_STORAGE.lookCategories.webKey,
-      lookCategories
+      lookCategories,
+      scope
     ).catch((error) => console.warn('[UserContext] Error al persistir categorías:', error));
-  }, [isReady, lookCategories]);
+  }, [isReady, scope, lookCategories]);
 
   const addLookCategory = useCallback((categoryName: string) => {
     const normalizedName = categoryName.trim();
@@ -41,10 +43,11 @@ export function useSavedLooksState(isReady: boolean) {
   }, []);
 
   const saveLook = useCallback((look: SavedLookItem) => {
+    const stamped: SavedLookItem = { ...look, updatedAt: Date.now() };
     setSavedLooks((previous) => {
-      const index = previous.findIndex((item) => item.id === look.id);
-      if (index < 0) return [look, ...previous];
-      return previous.map((item, itemIndex) => (itemIndex === index ? look : item));
+      const index = previous.findIndex((item) => item.id === stamped.id);
+      if (index < 0) return [stamped, ...previous];
+      return previous.map((item, itemIndex) => (itemIndex === index ? stamped : item));
     });
   }, []);
 
@@ -56,12 +59,16 @@ export function useSavedLooksState(isReady: boolean) {
   const clearSavedLooks = useCallback(() => setSavedLooks([]), []);
 
   const updateLookCategory = useCallback((lookId: string, category: string) => {
-    setSavedLooks((previous) => previous.map((look) => (look.id === lookId ? { ...look, category } : look)));
+    const now = Date.now();
+    setSavedLooks((previous) =>
+      previous.map((look) => (look.id === lookId ? { ...look, category, updatedAt: now } : look))
+    );
   }, []);
 
   const toggleFavoriteLook = useCallback((id: string) => {
+    const now = Date.now();
     setSavedLooks((previous) =>
-      previous.map((look) => (look.id === id ? { ...look, isFavorite: !look.isFavorite } : look))
+      previous.map((look) => (look.id === id ? { ...look, isFavorite: !look.isFavorite, updatedAt: now } : look))
     );
   }, []);
 

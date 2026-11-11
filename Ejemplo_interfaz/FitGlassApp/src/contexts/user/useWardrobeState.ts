@@ -3,7 +3,11 @@ import type { Garment } from '../../types';
 import { MOCK_GARMENTS } from '../../data/mockData';
 import { COLLECTION_STORAGE, persistCollection } from './userStorage';
 
-export function useWardrobeState(isReady: boolean) {
+/**
+ * Armario del usuario. `scope` identifica al usuario (ver scopeKeyFor): cada cuenta tiene su propio archivo y
+ * `isReady` solo es true cuando el estado en memoria corresponde a ESE usuario (evita escribir datos ajenos).
+ */
+export function useWardrobeState(isReady: boolean, scope: string) {
   const [wardrobeItems, setWardrobeItems] = useState<Garment[]>(MOCK_GARMENTS);
 
   useEffect(() => {
@@ -11,15 +15,17 @@ export function useWardrobeState(isReady: boolean) {
     void persistCollection(
       COLLECTION_STORAGE.wardrobe.fileName,
       COLLECTION_STORAGE.wardrobe.webKey,
-      wardrobeItems
+      wardrobeItems,
+      scope
     ).catch((error) => console.warn('[UserContext] Error al persistir el armario:', error));
-  }, [isReady, wardrobeItems]);
+  }, [isReady, scope, wardrobeItems]);
 
   const addGarmentToWardrobe = useCallback((garment: Garment) => {
+    const stamped: Garment = { ...garment, updatedAt: Date.now() };
     setWardrobeItems((previous) => {
-      const index = previous.findIndex((item) => item.id === garment.id);
-      if (index < 0) return [garment, ...previous];
-      return previous.map((item, itemIndex) => (itemIndex === index ? garment : item));
+      const index = previous.findIndex((item) => item.id === stamped.id);
+      if (index < 0) return [stamped, ...previous];
+      return previous.map((item, itemIndex) => (itemIndex === index ? stamped : item));
     });
   }, []);
 
@@ -28,8 +34,9 @@ export function useWardrobeState(isReady: boolean) {
   }, []);
 
   const toggleFavoriteGarment = useCallback((id: string) => {
+    const now = Date.now();
     setWardrobeItems((previous) =>
-      previous.map((item) => (item.id === id ? { ...item, isFavorite: !item.isFavorite } : item))
+      previous.map((item) => (item.id === id ? { ...item, isFavorite: !item.isFavorite, updatedAt: now } : item))
     );
   }, []);
 

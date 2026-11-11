@@ -1,7 +1,12 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
+import { getAuthToken } from '../auth/secureStorage';
+import { runTask } from '../jobs/taskPoller';
+import { logHandledError } from '../../utils/logging';
+import { translateNow } from '../../contexts/LanguageContext';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { fetchWithLanguage } from '../http/fetchWithLanguage';
 import {
   GarmentAnalysisResponse,
   TryOnResponse,
@@ -136,7 +141,7 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
   } catch {}
 
   // 3. IP LAN local actual (192.168.1.13)
-  candidateUrls.push('http://192.168.1.13:8000');
+  candidateUrls.push('http://192.168.1.12:8000', 'http://192.168.1.13:8000');
 
   // 4. Túnel público HTTPS garantizado
   candidateUrls.push('https://collected-tamer-knee.ngrok-free.dev');
@@ -163,7 +168,7 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const response = await fetch(`${url}/health`, {
+      const response = await fetchWithLanguage(`${url}/health`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -180,7 +185,7 @@ export const checkHealth = async (): Promise<HealthStatusResponse> => {
         return { ...data, detectedUrl: url };
       }
     } catch (error: any) {
-      lastErrorMessage = error?.message || 'Fallo de conexión';
+      lastErrorMessage = error?.message || translateNow('svc.err.connection');
       // Continuar con el siguiente candidato
     }
   }
@@ -199,7 +204,7 @@ export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentA
   const baseUrl = getBaseUrl();
 
   if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
-    throw new Error('La imagen de la prenda está vacía.');
+    throw new Error(translateNow('svc.err.garmentEmpty'));
   }
 
   const formattedImage = await ensureBase64DataUri(imageBase64OrUrl);
@@ -207,7 +212,7 @@ export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentA
   try {
     console.log('[analyzeGarment] Enviando imagen a:', `${baseUrl}/api/garments/analyze`);
 
-    const response = await fetch(`${baseUrl}/api/garments/analyze`, {
+    const response = await fetchWithLanguage(`${baseUrl}/api/garments/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -247,7 +252,7 @@ export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentA
     console.log('[analyzeGarment] Respuesta recibida con éxito:', result);
     return result;
   } catch (error: any) {
-    console.error('[analyzeGarment] Error al procesar prenda:', error);
+    logHandledError('[analyzeGarment] Error al procesar prenda:', error);
     const customErr: any = new Error(
       error?.message || 'Error de red al conectar con FitGlassAI para analizar la prenda.'
     );
@@ -256,12 +261,6 @@ export const analyzeGarment = async (imageBase64OrUrl: string): Promise<GarmentA
   }
 };
 
-/**
- * Ejecuta el pipeline completo de Virtual Try-On (VTON + Conversión 3D):
- * 1. Fusiona humanImage y garmentImage en 2D (Replicate / IDM-VTON).
- * 2. Extruye la imagen 2D resultante a un modelo 3D descargable .glb (Tripo3D).
- * Endpoint: POST /api/tryon/generate
- */
 export interface LatestModelResponse {
   model_3d_url: string;
   filename: string;
@@ -271,17 +270,17 @@ export interface LatestModelResponse {
 
 /**
  * Consulta el modelo 3D (.glb) generado más recientemente en el backend.
- * Permite recuperar de inmediato el modelo real creado si una petición HTTP sufrió
- * timeout de túnel o corte de conexión.
+ * OJO: no pertenece a ningún usuario; no usar como respaldo de una generación concreta.
  */
 export const getLatestModel = async (): Promise<LatestModelResponse | null> => {
   const baseUrl = getBaseUrl();
   try {
-    const res = await fetch(`${baseUrl}/api/tryon/latest`, {
+    const res = await fetchWithLanguage(`${baseUrl}/api/tryon/latest`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
         'Bypass-Tunnel-Reminder': 'true',
+        'ngrok-skip-browser-warning': 'true',
       },
     });
     if (!res.ok) return null;
@@ -291,151 +290,71 @@ export const getLatestModel = async (): Promise<LatestModelResponse | null> => {
   }
 };
 
+export interface BackgroundTaskOptions {
+  signal?: AbortSignal;
+  onProgress?: (info: { step?: string; progress: number; detail?: string }) => void;
+  onTaskId?: (taskId: string) => void;
+  /** Token de sesión explícito (útil justo al registrarse, antes de que se guarde en SecureStore). */
+  token?: string | null;
+}
+
+const BACKEND_HEADERS = {
+  'Bypass-Tunnel-Reminder': 'true',
+  'ngrok-skip-browser-warning': 'true',
+};
+
+const toProgress = (status: Record<string, any>) => ({
+  step: status.step as string | undefined,
+  progress: typeof status.progress === 'number' ? status.progress : 0.1,
+  detail: status.detail as string | undefined,
+});
+
 /**
- * Ejecuta el pipeline completo de Virtual Try-On (VTON + Conversión 3D):
- * Utiliza sondeo asíncrono no bloqueante (/api/tryon/start + /api/tryon/status)
- * para evitar timeouts de 60 segundos impuestos por proxies o túneles de red.
+ * Ejecuta el pipeline de Virtual Try-On de UNA prenda (VTON + conversión 3D) con sondeo asíncrono
+ * (/api/tryon/start + /api/tryon/status). Si el sondeo falla o se agota lanza un error:
+ * ya NO relanza el pipeline por la ruta síncrona (duplicaba el coste) ni recupera "el último modelo del servidor"
+ * (podía ser de otra prenda u otro usuario).
  */
 export const generateTryOn = async (
   humanImageUrl: string,
   garmentImageUrl: string,
   category: string = 'upper_body',
-  garmentDescription: string = 'clothing'
+  garmentDescription: string = 'clothing',
+  options: BackgroundTaskOptions = {}
 ): Promise<TryOnResponse> => {
-  const baseUrl = getBaseUrl();
-
   if (!humanImageUrl || !humanImageUrl.trim()) {
-    throw new Error('La imagen de la persona no puede estar vacía.');
+    throw new Error(translateNow('svc.err.personEmpty'));
   }
   if (!garmentImageUrl || !garmentImageUrl.trim()) {
-    throw new Error('La imagen de la prenda no puede estar vacía.');
+    throw new Error(translateNow('svc.err.garmentEmpty'));
   }
 
-  // 1. INTENTO PRIMARIO: Pipeline asíncrono con sondeo periódico (inmune al timeout de 60s)
-  try {
-    console.log(`[generateTryOn] Iniciando pipeline asíncrono en: ${baseUrl}/api/tryon/start...`);
-    const startRes = await fetch(`${baseUrl}/api/tryon/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-      },
-      body: JSON.stringify({
-        human_image: humanImageUrl.trim(),
-        garment_image: garmentImageUrl.trim(),
-        category,
-        garment_description: garmentDescription,
-        allow_fallback: true,
-      }),
-    });
+  const status = await runTask({
+    baseUrl: getBaseUrl(),
+    fetchImpl: fetchWithLanguage,
+    startPath: '/api/tryon/start',
+    body: {
+      human_image: humanImageUrl.trim(),
+      garment_image: garmentImageUrl.trim(),
+      category,
+      garment_description: garmentDescription,
+      allow_fallback: true,
+    },
+    statusPath: (taskId) => `/api/tryon/status/${taskId}`,
+    headers: BACKEND_HEADERS,
+    intervalMs: 2000,
+    maxAttempts: 190, // ~380 s
+    resultKey: 'model_3d_url',
+    signal: options.signal,
+    onTaskId: options.onTaskId,
+    onStatus: (st) => options.onProgress?.(toProgress(st)),
+  });
 
-    if (startRes.ok) {
-      const startData = await startRes.json();
-      const taskId = startData.task_id;
-      if (taskId) {
-        console.log(`[generateTryOn] Tarea iniciada en background (task_id: ${taskId}). Iniciando sondeo...`);
-        const maxAttempts = 90; // Hasta 180s con sondeo cada 2s
-        for (let i = 0; i < maxAttempts; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          try {
-            const statusRes = await fetch(`${baseUrl}/api/tryon/status/${taskId}`, {
-              method: 'GET',
-              headers: {
-                Accept: 'application/json',
-                'Bypass-Tunnel-Reminder': 'true',
-              },
-            });
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              console.log(
-                `[generateTryOn Polling] Sondeo ${i + 1} (${(i + 1) * 2}s) -> estado: ${statusData.status}, paso: ${statusData.step}`
-              );
-
-              if (statusData.status === 'completed' && statusData.model_3d_url) {
-                console.log('[generateTryOn] ¡Modelo 3D recibido con éxito vía polling!', statusData.model_3d_url);
-                return {
-                  image_2d_url: statusData.image_2d_url || garmentImageUrl,
-                  model_3d_url: statusData.model_3d_url,
-                  status: 'completed',
-                };
-              }
-              if (statusData.status === 'failed') {
-                throw new Error(statusData.error || 'La generación 3D finalizó con error.');
-              }
-            }
-          } catch (pollErr: any) {
-            if (pollErr?.message?.includes('finalizó con error')) {
-              throw pollErr;
-            }
-          }
-        }
-      }
-    }
-  } catch (asyncErr: any) {
-    console.warn('[generateTryOn] Fallo o excepción en flujo asíncrono:', asyncErr?.message);
-  }
-
-  // 2. INTENTO SECUNDARIO: Petición síncrona directa a /api/tryon/generate con 180s de timeout
-  const controller = new AbortController();
-  const TIMEOUT_MS = 180000;
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, TIMEOUT_MS);
-
-  try {
-    console.log(`[generateTryOn] Invocando pipeline directo síncrono: ${baseUrl}/api/tryon/generate...`);
-    const response = await fetch(`${baseUrl}/api/tryon/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-      },
-      body: JSON.stringify({
-        human_image: humanImageUrl.trim(),
-        garment_image: garmentImageUrl.trim(),
-        category,
-        garment_description: garmentDescription,
-        allow_fallback: true,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data: TryOnResponse = await response.json();
-      console.log('[generateTryOn] Modelo 3D recibido directamente:', data);
-      return data;
-    }
-
-    let errorMsg = `HTTP ${response.status}`;
-    try {
-      const errJson = await response.json();
-      errorMsg = errJson.detail || errJson.error || errorMsg;
-    } catch {}
-    throw new Error(errorMsg);
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-
-    // 3. RECUPERACIÓN INTELIGENTE: Si el túnel cortó con 502 pero el servidor generó el archivo .glb
-    console.log('[generateTryOn] Verificando si el modelo 3D ya está disponible en el servidor...');
-    try {
-      const latest = await getLatestModel();
-      if (latest?.model_3d_url) {
-        console.log('[generateTryOn] ¡Modelo 3D recuperado exitosamente del servidor!', latest.model_3d_url);
-        return {
-          model_3d_url: latest.model_3d_url,
-          image_2d_url: garmentImageUrl || humanImageUrl,
-          status: 'completed',
-        };
-      }
-    } catch {}
-
-    console.warn('[generateTryOn] Aviso en tryon:', error?.message || error);
-    throw new Error(error?.message || 'Error durante la generación del probador 3D.');
-  }
+  return {
+    image_2d_url: status.image_2d_url || garmentImageUrl,
+    model_3d_url: status.model_3d_url,
+    status: 'completed',
+  };
 };
 
 /**
@@ -447,7 +366,7 @@ export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<Colo
   const baseUrl = getBaseUrl();
 
   if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
-    throw new Error('La imagen para colorimetría está vacía.');
+    throw new Error(translateNow('svc.err.colorEmpty'));
   }
 
   const formattedImage = await ensureBase64DataUri(imageBase64OrUrl);
@@ -455,7 +374,7 @@ export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<Colo
   try {
     console.log('[analyzeColorimetry] Enviando imagen a:', `${baseUrl}/api/colorimetry/analyze`);
 
-    const response = await fetch(`${baseUrl}/api/colorimetry/analyze`, {
+    const response = await fetchWithLanguage(`${baseUrl}/api/colorimetry/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -467,7 +386,7 @@ export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<Colo
     });
 
     if (!response.ok) {
-      let errorMsg = `Error del servidor de colorimetría (HTTP ${response.status})`;
+      let errorMsg = translateNow('svc.err.colorServer', { status: response.status });
       try {
         const errJson = await response.json();
         if (errJson.detail) {
@@ -495,9 +414,9 @@ export const analyzeColorimetry = async (imageBase64OrUrl: string): Promise<Colo
     console.log('[analyzeColorimetry] Perfil de colorimetría recibido:', result);
     return result;
   } catch (error: any) {
-    console.error('[analyzeColorimetry] Error:', error);
+    logHandledError('[analyzeColorimetry] Error:', error);
     const customErr: any = new Error(
-      error?.message || 'Error de red al conectar con FitGlassAI para analizar colorimetría.'
+      error?.message || translateNow('svc.err.colorNetwork')
     );
     customErr.status = error?.status;
     throw customErr;
@@ -522,14 +441,14 @@ export const updateUserColorimetry = async (
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${baseUrl}/api/users/colorimetry`, {
+  const response = await fetchWithLanguage(`${baseUrl}/api/users/colorimetry`, {
     method: 'PUT',
     headers,
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    let errorMsg = `Error actualizando colorimetría (HTTP ${response.status})`;
+    let errorMsg = translateNow('svc.err.colorUpdate', { status: response.status });
     try {
       const errJson = await response.json();
       if (errJson.detail) {
@@ -551,14 +470,15 @@ export const updateUserColorimetry = async (
  * Permite recuperarlo instantáneamente si la conexión se interrumpió por timeout del túnel.
  */
 export const getLatestAvatarModel = async (): Promise<{ avatar_url: string; filename: string } | null> => {
-  const baseUrl = getBaseUrl();
+  const baseUrl = getActiveWorkingUrl() || getBaseUrl();
   try {
-    const res = await fetch(`${baseUrl}/api/avatar/latest`, {
+    const res = await fetchWithLanguage(`${baseUrl}/api/avatar/latest`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
         'Bypass-Tunnel-Reminder': 'true',
         'bypass-tunnel-reminder': 'true',
+        'ngrok-skip-browser-warning': 'true',
       },
     });
     if (res.ok) {
@@ -571,199 +491,45 @@ export const getLatestAvatarModel = async (): Promise<{ avatar_url: string; file
 };
 
 /**
- * Genera el Avatar 3D Base (.glb) del usuario usando Tripo3D a partir de una foto de cuerpo entero.
- * Utiliza sondeo asíncrono (/api/avatar/start + /api/avatar/status/{task_id}) inmune al timeout de 60s
- * de túneles y proxies, con recuperación inteligente.
+ * Genera el Avatar 3D Base (.glb) del usuario con Tripo3D a partir de una foto de cuerpo entero
+ * (/api/avatar/start + /api/avatar/status/{task_id}). Un error del servidor (p. ej. foto sin persona, 400) se
+ * propaga con `status` 400; no hay respaldos que devuelvan modelos ajenos.
  */
-export const generateAvatar = async (imageBase64OrUrl: string): Promise<AvatarGenerateResponse> => {
+export const generateAvatar = async (
+  imageBase64OrUrl: string,
+  options: BackgroundTaskOptions = {}
+): Promise<AvatarGenerateResponse> => {
   if (!imageBase64OrUrl || !imageBase64OrUrl.trim()) {
-    throw new Error('La fotografía de cuerpo entero está vacía.');
+    throw new Error(translateNow('svc.err.bodyEmpty'));
   }
 
   const formattedImage = await ensureBase64DataUri(imageBase64OrUrl);
-  const baseUrl = getBaseUrl();
-
-  // 1. INTENTO PRIMARIO: Pipeline asíncrono con sondeo periódico (inmune al timeout de 60s)
-  try {
-    console.log(`[generateAvatar] Iniciando pipeline asíncrono en: ${baseUrl}/api/avatar/start...`);
-    const startRes = await fetch(`${baseUrl}/api/avatar/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-        'bypass-tunnel-reminder': 'true',
-      },
-      body: JSON.stringify({
-        image: formattedImage,
-      }),
-    });
-
-    if (startRes.status === 400) {
-      let errorMsg = 'La imagen subida no parece ser de una persona.';
-      try {
-        const errJson = await startRes.json();
-        if (errJson.detail) {
-          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
-        } else if (errJson.error) {
-          errorMsg = errJson.error;
-        }
-      } catch {}
-      const err: any = new Error(errorMsg);
-      err.status = 400;
-      throw err;
-    }
-
-    if (startRes.ok) {
-      const startData = await startRes.json();
-      const taskId = startData.task_id;
-      if (taskId) {
-        console.log(`[generateAvatar] Tarea iniciada en backend (task_id: ${taskId}). Polling cada 2.5s...`);
-        const maxAttempts = 90; // Hasta 225s
-        for (let i = 0; i < maxAttempts; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 2500));
-          try {
-            const statusRes = await fetch(`${baseUrl}/api/avatar/status/${taskId}`, {
-              method: 'GET',
-              headers: {
-                Accept: 'application/json',
-                'Bypass-Tunnel-Reminder': 'true',
-                'bypass-tunnel-reminder': 'true',
-              },
-            });
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              console.log(
-                `[generateAvatar Polling] Sondeo ${i + 1} (${(i + 1) * 2.5}s) -> estado: ${statusData.status}, progreso: ${Math.round((statusData.progress || 0) * 100)}%`
-              );
-
-              if (statusData.status === 'completed' && statusData.avatar_url) {
-                console.log('[generateAvatar] ¡Avatar 3D generado con éxito vía polling!', statusData.avatar_url);
-                return {
-                  avatar_url: statusData.avatar_url,
-                  status: 'completed',
-                };
-              }
-              if (statusData.status === 'failed') {
-                throw new Error(statusData.error || 'La generación 3D del avatar finalizó con error.');
-              }
-            }
-          } catch (pollErr: any) {
-            if (pollErr?.message?.includes('finalizó con error')) {
-              throw pollErr;
-            }
-          }
-        }
-      }
-    }
-  } catch (asyncErr: any) {
-    console.warn('[generateAvatar] Aviso en flujo asíncrono:', asyncErr?.message);
-    if (asyncErr?.message?.includes('finalizó con error')) {
-      throw asyncErr;
-    }
-  }
-
-  // 2. INTENTO SECUNDARIO: Petición síncrona directa a /api/avatar/generate
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutos
+  // Con sesión, el servidor guarda el avatar terminado en el perfil del usuario (si no, solo vive en este dispositivo).
+  const authToken = options.token ?? (await getAuthToken().catch(() => null));
 
   try {
-    console.log('[generateAvatar] Intentando conexión directa en:', `${baseUrl}/api/avatar/generate`);
-    const response = await fetch(`${baseUrl}/api/avatar/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-        'bypass-tunnel-reminder': 'true',
-      },
-      body: JSON.stringify({
-        image: formattedImage,
-      }),
-      signal: controller.signal,
+    const status = await runTask({
+      baseUrl: getBaseUrl(),
+      fetchImpl: fetchWithLanguage,
+      startPath: '/api/avatar/start',
+      body: { image: formattedImage },
+      statusPath: (taskId) => `/api/avatar/status/${taskId}`,
+      headers: { ...BACKEND_HEADERS, ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+      intervalMs: 2500,
+      maxAttempts: 160, // ~400 s
+      resultKey: 'avatar_url',
+      signal: options.signal,
+      onTaskId: options.onTaskId,
+      onStatus: (st) => options.onProgress?.(toProgress(st)),
     });
-
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const result: AvatarGenerateResponse = await response.json();
-      console.log('[generateAvatar] Avatar 3D generado con éxito (síncrono):', result);
-      return result;
+    return { avatar_url: status.avatar_url, status: 'completed' };
+  } catch (error: any) {
+    if (error?.kind === 'start_failed' && error?.status === 400) {
+      const invalid: any = new Error(error.message || 'La imagen subida no parece ser de una persona.');
+      invalid.status = 400;
+      throw invalid;
     }
-
-    if (response.status === 400) {
-      let errorMsg = 'La imagen subida no parece ser de una persona.';
-      try {
-        const errJson = await response.json();
-        if (errJson.detail) {
-          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
-        } else if (errJson.error) {
-          errorMsg = errJson.error;
-        }
-      } catch {}
-      const err: any = new Error(errorMsg);
-      err.status = 400;
-      throw err;
-    }
-
-    let errorMsg = `Error al generar avatar 3D (HTTP ${response.status})`;
-    try {
-      const errJson = await response.json();
-      if (errJson.detail) {
-        errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
-      } else if (errJson.error) {
-        errorMsg = errJson.error;
-      }
-    } catch {
-      // Si la respuesta fue HTML (502 de proxy), intentar texto crudo
-      try {
-        const textResp = await response.text();
-        if (textResp && textResp.length < 200) {
-          errorMsg = textResp;
-        }
-      } catch {}
-    }
-    const syncFailure: any = new Error(errorMsg);
-    syncFailure.status = response.status;
-    throw syncFailure;
-  } catch (syncErr: any) {
-    clearTimeout(timeoutId);
-
-    if (
-      syncErr?.status === 400 ||
-      (syncErr?.message && syncErr.message.toLowerCase().includes('persona'))
-    ) {
-      throw syncErr;
-    }
-
-    // 3. RECUPERACIÓN INTELIGENTE: Si el túnel cortó por 502/504 pero el backend completó el modelo
-    console.log('[generateAvatar] Comprobando si el modelo 3D ya se completó en el servidor...');
-    try {
-      const latest = await getLatestAvatarModel();
-      if (latest?.avatar_url) {
-        console.log('[generateAvatar] ¡Avatar 3D recuperado exitosamente del servidor!', latest.avatar_url);
-        return {
-          avatar_url: latest.avatar_url,
-          status: 'completed',
-        };
-      }
-    } catch {}
-
-    // 4. FALLBACK GARANTIZADO: Si Tripo3D o el túnel fallaron, retornar modelo base de respaldo
-    try {
-      console.log('[generateAvatar] Usando modelo 3D base optimizado de respaldo...');
-      const fallbackLatest = await getLatestAvatarModel();
-      if (fallbackLatest?.avatar_url) {
-        return {
-          avatar_url: fallbackLatest.avatar_url,
-          status: 'completed',
-        };
-      }
-    } catch {}
-
-    const finalErr: any = new Error(syncErr?.message || 'Error al generar el avatar 3D.');
-    finalErr.status = syncErr?.status;
-    throw finalErr;
+    throw error;
   }
 };
 
@@ -779,7 +545,7 @@ export const generateOutfitTryOn = async (
   const baseUrl = getBaseUrl();
 
   if (!humanImageUrl || !humanImageUrl.trim()) {
-    throw new Error('La imagen de la persona o avatar está vacía.');
+    throw new Error(translateNow('svc.err.avatarEmpty'));
   }
 
   if (!garments || garments.length === 0) {
@@ -802,7 +568,7 @@ export const generateOutfitTryOn = async (
 
   // 1. INTENTO PRIMARIO: Pipeline asíncrono con sondeo periódico (inmune a timeouts de red)
   try {
-    const startRes = await fetch(`${baseUrl}/api/tryon/start`, {
+    const startRes = await fetchWithLanguage(`${baseUrl}/api/tryon/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -821,7 +587,7 @@ export const generateOutfitTryOn = async (
         for (let i = 0; i < maxAttempts; i++) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
           try {
-            const statusRes = await fetch(`${baseUrl}/api/tryon/status/${taskId}`, {
+            const statusRes = await fetchWithLanguage(`${baseUrl}/api/tryon/status/${taskId}`, {
               method: 'GET',
               headers: {
                 Accept: 'application/json',
@@ -843,11 +609,11 @@ export const generateOutfitTryOn = async (
                 };
               }
               if (statusData.status === 'failed') {
-                throw new Error(statusData.error || 'La generación 3D del look finalizó con error.');
+                throw new Error(statusData.error || translateNow('svc.err.lookFailed'));
               }
             }
           } catch (pollErr: any) {
-            if (pollErr?.message?.includes('finalizó con error')) {
+            if (pollErr?.message?.includes('finalizó con error') || pollErr?.message === translateNow('svc.err.lookFailed')) {
               throw pollErr;
             }
           }
@@ -863,7 +629,7 @@ export const generateOutfitTryOn = async (
   const timeoutId = setTimeout(() => controller.abort(), 120000);
 
   try {
-    const response = await fetch(`${baseUrl}/api/tryon/generate`, {
+    const response = await fetchWithLanguage(`${baseUrl}/api/tryon/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -906,7 +672,7 @@ export const generateOutfitTryOn = async (
     } catch {}
 
     console.warn('[generateOutfitTryOn] Error en outfit tryon:', error?.message || error);
-    throw new Error(error?.message || 'Error durante la fusión 3D del look.');
+    throw new Error(error?.message || translateNow('svc.err.fusion'));
   }
 };
 
@@ -953,12 +719,21 @@ export const generateWaterfallCascadeTryOn = async (
   const startedAt = Date.now();
 
   if (abortSignal?.aborted) {
-    throw new Error('Operación cancelada por el usuario.');
+    throw new Error(translateNow('svc.err.cancelled'));
   }
 
-  if ((!humanImageUrl || !humanImageUrl.trim()) && !userId) {
-    throw new Error('Se requiere la imagen base de la persona o el ID del usuario.');
+  // El backend identifica al usuario por su token (el user_id del cliente se ignora por seguridad).
+  const authToken = await getAuthToken().catch(() => null);
+  if ((!humanImageUrl || !humanImageUrl.trim()) && !authToken) {
+    throw new Error(translateNow('svc.err.needBase'));
   }
+  const cascadeHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'Bypass-Tunnel-Reminder': 'true',
+    'ngrok-skip-browser-warning': 'true',
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  };
 
   if (!garments || garments.length === 0) {
     throw new Error('Debes seleccionar al menos una prenda para aplicar el look en cascada.');
@@ -1005,13 +780,9 @@ export const generateWaterfallCascadeTryOn = async (
 
   // 1. INTENTO ASÍNCRONO CON SONDEO CANCELABLE (Soporta streaming de pasos para UI y evita timeouts de 60s)
   try {
-    const startRes = await fetch(`${baseUrl}/api/tryon/cascade/start`, {
+    const startRes = await fetchWithLanguage(`${baseUrl}/api/tryon/cascade/start`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-      },
+      headers: cascadeHeaders,
       body: JSON.stringify(payload),
       signal: abortSignal,
     });
@@ -1022,12 +793,12 @@ export const generateWaterfallCascadeTryOn = async (
       if (taskId) {
         console.log(`[Waterfall Cascade] Tarea asíncrona iniciada (task_id: ${taskId}).`);
         console.log('[Waterfall 3D] IDM-VTON aplicará las prendas en secuencia; después Tripo3D generará el avatar vestido.');
-        const maxAttempts = 120; // Hasta 240s para looks de varias prendas
+        const maxAttempts = 190; // ~380s: cubre el límite de 360s del servidor
 
         for (let i = 0; i < maxAttempts; i++) {
           if (abortSignal?.aborted) {
             console.log('[Waterfall Cascade] Polling cancelado por señal de aborto.');
-            throw new Error('Operación cancelada por el usuario.');
+            throw new Error(translateNow('svc.err.cancelled'));
           }
 
           // Espera cancelable de 2000ms que responde inmediatamente al aborto
@@ -1044,28 +815,29 @@ export const generateWaterfallCascadeTryOn = async (
               if (abortSignal) {
                 abortSignal.removeEventListener('abort', onAbort);
               }
-              reject(new Error('Operación cancelada por el usuario.'));
+              reject(new Error(translateNow('svc.err.cancelled')));
             };
 
             if (abortSignal) {
               if (abortSignal.aborted) {
                 clearTimeout(timer);
-                return reject(new Error('Operación cancelada por el usuario.'));
+                return reject(new Error(translateNow('svc.err.cancelled')));
               }
               abortSignal.addEventListener('abort', onAbort);
             }
           });
 
           if (abortSignal?.aborted) {
-            throw new Error('Operación cancelada por el usuario.');
+            throw new Error(translateNow('svc.err.cancelled'));
           }
 
           try {
-            const statusRes = await fetch(`${baseUrl}/api/tryon/cascade/status/${taskId}`, {
+            const statusRes = await fetchWithLanguage(`${baseUrl}/api/tryon/cascade/status/${taskId}`, {
               method: 'GET',
               headers: {
                 Accept: 'application/json',
                 'Bypass-Tunnel-Reminder': 'true',
+                'ngrok-skip-browser-warning': 'true',
               },
               signal: abortSignal,
             });
@@ -1110,7 +882,7 @@ export const generateWaterfallCascadeTryOn = async (
               }
 
               if (statusData.status === 'failed') {
-                console.error('[Waterfall 3D] Tarea ' + taskId + ' fallida en el paso "' + (statusData.step || 'desconocido') + '":', statusData.error || statusData.detail);
+                console.log('[Waterfall 3D] Tarea ' + taskId + ' fallida en el paso "' + (statusData.step || 'desconocido') + '":', statusData.error || statusData.detail);
                 throw new Error(`Tarea de cascada fallida: ${statusData.error || 'Fallo durante el ciclo de cascada 2D a 3D.'}`);
               }
             } else {
@@ -1126,7 +898,8 @@ export const generateWaterfallCascadeTryOn = async (
             console.warn('[Waterfall 3D Polling] No se pudo leer el estado del sondeo ' + (i + 1) + ':', pollErr?.message || pollErr);
           }
         }
-        console.warn('[Waterfall 3D] Se agotaron los sondeos asíncronos; se probará la ruta síncrona.');
+        // La tarea ya fue aceptada y cobrada: NO se relanza por la ruta síncrona (duplicaría el coste).
+        throw new Error(translateNow('svc.err.cascadeTimeout'));
       } else {
         console.warn('[Waterfall 3D] El servidor aceptó el inicio, pero no devolvió task_id.');
       }
@@ -1144,7 +917,7 @@ export const generateWaterfallCascadeTryOn = async (
   }
 
   if (abortSignal?.aborted) {
-    throw new Error('Operación cancelada por el usuario.');
+    throw new Error(translateNow('svc.err.cancelled'));
   }
 
   // 2. INTENTO DIRECTO SÍNCRONO (Fallback si el backend no respondió al worker)
@@ -1161,13 +934,9 @@ export const generateWaterfallCascadeTryOn = async (
 
   try {
     console.log('[Waterfall 3D] Iniciando ruta síncrona de respaldo (hasta 180 segundos).');
-    const response = await fetch(`${baseUrl}/api/tryon/cascade`, {
+    const response = await fetchWithLanguage(`${baseUrl}/api/tryon/cascade`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-      },
+      headers: cascadeHeaders,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
@@ -1188,7 +957,7 @@ export const generateWaterfallCascadeTryOn = async (
       const errJson = await response.json();
       errorMsg = errJson.detail || errJson.error || errorMsg;
     } catch {}
-    console.error('[Waterfall 3D] La ruta síncrona respondió con error:', errorMsg);
+    console.log('[Waterfall 3D] La ruta síncrona respondió con error:', errorMsg);
     throw new Error(errorMsg);
   } catch (syncErr: any) {
     clearTimeout(timeoutId);
@@ -1197,11 +966,11 @@ export const generateWaterfallCascadeTryOn = async (
     }
 
     if (syncErr?.name === 'AbortError' && abortSignal?.aborted) {
-      throw new Error('Operación cancelada por el usuario.');
+      throw new Error(translateNow('svc.err.cancelled'));
     }
 
-    console.error('[Waterfall Cascade] Error general en cascada:', syncErr);
-    throw new Error(syncErr?.message || 'Error durante la ejecución de la Cascada 2D a 3D.');
+    logHandledError('[Waterfall Cascade] Error general en cascada:', syncErr);
+    throw new Error(syncErr?.message || translateNow('svc.err.cascade'));
   }
 };
 
@@ -1214,7 +983,7 @@ export const fetchAvatarPresets = async (): Promise<AvatarPresetItem[]> => {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(`${baseUrl}/api/avatar/presets`, {
+    const response = await fetchWithLanguage(`${baseUrl}/api/avatar/presets`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -1281,7 +1050,7 @@ export const deleteCurrentAvatar = async (token?: string | null): Promise<{
     headers['Authorization'] = `Bearer ${token}`;
   }
   try {
-    const response = await fetch(`${baseUrl}/api/avatar/current`, {
+    const response = await fetchWithLanguage(`${baseUrl}/api/avatar/current`, {
       method: 'DELETE',
       headers,
     });

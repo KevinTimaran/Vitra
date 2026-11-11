@@ -25,6 +25,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { getAuthToken } from '../services/auth/secureStorage';
 import { analyzeColorimetry, updateUserColorimetry } from '../services/ai/garmentAnalyzer';
+import { logHandledError } from '../utils/logging';
+import { colorLabel, colorNameFor } from '../utils/colorNames.ts';
+import { useColorDisplayMode } from '../utils/colorDisplayPref';
 import { filterHarmoniousGarments, getSeasonEducationalInfo } from '../utils/colorHarmony';
 import { Garment } from '../types';
 
@@ -56,13 +59,15 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
   onOpenProfile,
   onRecalibrate,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { colors, isDark } = useTheme();
   const { colorProfile, wardrobe_items, updateColorProfile } = useUser();
 
   const [isRecalibrateModalOpen, setIsRecalibrateModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGuideExpanded, setIsGuideExpanded] = useState(false);
+  // Ver los colores como NOMBRE (por defecto) o como CÓDIGO HEX; se recuerda entre sesiones
+  const [displayMode, setDisplayMode] = useColorDisplayMode();
 
   const recommendedColors = useMemo(() => {
     return Array.isArray(colorProfile?.recommended_colors) && colorProfile.recommended_colors.length > 0
@@ -104,13 +109,13 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
       if (source === 'camera') {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permiso requerido', 'Se requiere acceso a la cámara para capturar tu fotografía frontal.');
+          Alert.alert(t('perm.title'), t('cs.perm.camera'));
           return;
         }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permiso requerido', 'Se requiere acceso a la galería para seleccionar una fotografía.');
+          Alert.alert(t('perm.title'), t('perm.gallery'));
           return;
         }
       }
@@ -151,14 +156,14 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
       const colorRes = await analyzeColorimetry(b64);
       if (!colorRes.success || !colorRes.data) {
-        throw new Error(colorRes.error || 'No fue posible extraer la colorimetría de la imagen.');
+        throw new Error(colorRes.error || t('cs.err.extract'));
       }
 
       const updatedProfile = colorRes.data;
       if (updatedProfile.is_valid_image === false || String(updatedProfile.is_valid_image).toLowerCase() === 'false') {
         const valMsg =
           updatedProfile.validation_error_message ||
-          'Esta imagen no parece ser de una persona. Por favor sube una foto tuya.';
+          t('auth.invalidImage.default');
         const valErr: any = new Error(valMsg);
         valErr.status = 400;
         throw valErr;
@@ -176,20 +181,20 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
       setActiveHex(updatedProfile.recommended_colors?.[0] || null);
 
       Alert.alert(
-        '¡Análisis Completado!',
-        `Se ha detectado tu estación: ${updatedProfile.season}.\nPaleta asignada: ${updatedProfile.palette_name || updatedProfile.season}`
+        t('cs.done.title'),
+        t('cs.done.message', { season: updatedProfile.season, palette: updatedProfile.palette_name || updatedProfile.season })
       );
     } catch (err: any) {
-      console.error('[ColorStudioScreen] Error en recalibración:', err);
+      logHandledError('[ColorStudioScreen] Error en recalibración:', err);
       const isValidationErr =
         err?.status === 400 ||
         (err?.message &&
-          (err.message.toLowerCase().includes('persona') ||
+          (err.message.toLowerCase().includes('person') ||
             err.message.toLowerCase().includes('rostro') ||
-            err.message.toLowerCase().includes('imagen')));
+            err.message.toLowerCase().includes('image')));
       Alert.alert(
-        isValidationErr ? 'Foto no válida' : 'Error',
-        err?.message || 'Ocurrió un error al procesar la imagen.'
+        isValidationErr ? t('cs.err.invalidPhoto') : t('common.error'),
+        err?.message || t('cs.err.process')
       );
     } finally {
       setIsAnalyzing(false);
@@ -223,7 +228,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
             <View style={styles.headerPill}>
                <Ionicons name="sparkles" size={14} color={colors.primaryText} />
                <Text style={[styles.headerPillText, { color: colors.primaryText }]}>
-                 PERFIL CROMÁTICO
+                 {t('cs.profileBadge')}
                </Text>
             </View>
           </View>
@@ -231,6 +236,32 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           <Text style={[styles.paletteName, { color: colors.primaryText }]}>
             {colorProfile.season}
           </Text>
+
+          {/* Selector: ver los colores por nombre o por código */}
+          <View style={[styles.displayToggle, { borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.12)' }]}>
+            {([
+              { key: 'name', label: t('cs.display.name'), icon: 'text-outline' },
+              { key: 'code', label: t('cs.display.code'), icon: 'code-slash-outline' },
+            ] as const).map((option) => {
+              const active = displayMode === option.key;
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`Ver colores por ${option.label.toLowerCase()}`}
+                  onPress={() => setDisplayMode(option.key)}
+                  activeOpacity={0.8}
+                  style={[styles.displayToggleOption, active && { backgroundColor: colors.primary }]}
+                >
+                  <Ionicons name={option.icon} size={14} color={active ? colors.ctaText : colors.secondaryText} />
+                  <Text style={[styles.displayToggleText, { color: active ? colors.ctaText : colors.secondaryText }]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           {/* LA PALETA ES LA PROTAGONISTA (Fila de bloques de color) */}
           <View style={styles.paletteRow}>
@@ -254,13 +285,26 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                       <Ionicons name="checkmark" size={20} color={colors.buttons.overlayText} style={styles.paletteCheckIcon} />
                     )}
                   </View>
-                  <Text style={[styles.paletteHexText, { color: isSelected ? colors.primaryText : colors.tertiaryText }]}>
-                    {hex.replace('#', '').toUpperCase()}
+                  <Text
+                    style={[styles.paletteHexText, { color: isSelected ? colors.primaryText : colors.tertiaryText }]}
+                    numberOfLines={2}
+                  >
+                    {displayMode === 'code' ? hex.replace('#', '').toUpperCase() : colorNameFor(hex, 'general', language)}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
+
+          {activeHex ? (
+            <View style={styles.selectedColorRow}>
+              <View style={[styles.selectedColorDot, { backgroundColor: activeHex, borderColor: colors.borderLight }]} />
+              <Text style={[styles.selectedColorText, { color: colors.primaryText }]} numberOfLines={1}>
+                {colorNameFor(activeHex, 'general', language)}
+                <Text style={{ color: colors.tertiaryText }}>{`  ·  ${activeHex.toUpperCase()}`}</Text>
+              </Text>
+            </View>
+          ) : null}
 
           <Text style={[styles.paletteDesc, { color: colors.secondaryText }]}>
             "{colorProfile.description}"
@@ -271,23 +315,23 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
             <View style={styles.toneCompactItem}>
               <View style={[styles.toneCompactSwatch, { backgroundColor: extractHexSafe(colorProfile?.skin_tone, '#E8BEAC') }]} />
               <View>
-                <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>PIEL</Text>
-                <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{extractHexSafe(colorProfile?.skin_tone, 'N/A')}</Text>
+                <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>{t('cs.skin')}</Text>
+                <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{displayMode === 'code' ? extractHexSafe(colorProfile?.skin_tone, 'N/A') : colorLabel(colorProfile?.skin_tone, 'name', 'skin', language)}</Text>
               </View>
             </View>
             <View style={styles.toneCompactItem}>
               <View style={[styles.toneCompactSwatch, { backgroundColor: extractHexSafe(colorProfile?.hair_color, '#2C1B18') }]} />
               <View>
-                <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>CABELLO</Text>
-                <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{extractHexSafe(colorProfile?.hair_color, 'N/A')}</Text>
+                <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>{t('cs.hair')}</Text>
+                <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{displayMode === 'code' ? extractHexSafe(colorProfile?.hair_color, 'N/A') : colorLabel(colorProfile?.hair_color, 'name', 'hair', language)}</Text>
               </View>
             </View>
             {colorProfile?.eye_color && (
               <View style={styles.toneCompactItem}>
                 <View style={[styles.toneCompactSwatch, { backgroundColor: extractHexSafe(colorProfile?.eye_color, '#3B261C') }]} />
                 <View>
-                  <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>OJOS</Text>
-                  <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{extractHexSafe(colorProfile?.eye_color, 'N/A')}</Text>
+                  <Text style={[styles.toneLabelMini, { color: colors.tertiaryText }]}>{t('cs.eyes')}</Text>
+                  <Text style={[styles.toneValueMini, { color: colors.primaryText }]}>{displayMode === 'code' ? extractHexSafe(colorProfile?.eye_color, 'N/A') : colorLabel(colorProfile?.eye_color, 'name', 'eye', language)}</Text>
                 </View>
               </View>
             )}
@@ -304,7 +348,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
           >
             <Ionicons name="scan-outline" size={18} color={colors.primaryText} />
             <Text style={[styles.prominentRecalibrateText, { color: colors.primaryText }]}>
-              Recalibrar con IA
+              {t('cs.recalibrateAI')}
             </Text>
           </TouchableOpacity>
 
@@ -349,7 +393,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
                 <View style={styles.metalTextCol}>
                   <Text style={[styles.metalLabel, { color: colors.tertiaryText }]}>
-                    METALES RECOMENDADOS
+                    {t('cs.metals')}
                   </Text>
                   <Text style={[styles.metalValue, { color: colors.primaryText }]}>
                     {educationalInfo.recommendedMetals}
@@ -359,7 +403,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
 
               <View style={styles.combosSection}>
                 <Text style={[styles.comboLabel, { color: colors.tertiaryText }]}>
-                  COMBINACIONES CLAVE
+                  {t('cs.combos')}
                 </Text>
                 <View style={styles.comboChipsWrap}>
                   {educationalInfo.bestCombinations.map((combo, idx) => (
@@ -376,7 +420,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               {colorsToAvoid.length > 0 && (
                 <View style={styles.avoidSection}>
                    <Text style={[styles.comboLabel, { color: colors.tertiaryText, marginTop: Spacing.md }]}>
-                    COLORES A EVITAR
+                    {t('cs.avoid')}
                   </Text>
                   <View style={styles.avoidChipsRow}>
                     {colorsToAvoid.map((hex, i) => (
@@ -384,7 +428,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                         <View style={[styles.avoidDot, { backgroundColor: hex }]} />
                         <Ionicons name="close-circle" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
                         <Text style={[styles.avoidHexText, { color: colors.secondaryText }]}>
-                          {hex.toUpperCase()}
+                          {displayMode === 'code' ? hex.toUpperCase() : colorNameFor(hex, 'general', language)}
                         </Text>
                       </View>
                     ))}
@@ -399,10 +443,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
         <View style={styles.sectionWrapper}>
           <View style={styles.rowBetween}>
             <Text style={[styles.sectionHeading, { color: colors.primaryText }]}>
-              Tu Armario Armonizado
+              {t('cs.harmonized.title')}
             </Text>
             <Text style={[styles.badgeCount, { color: colors.tertiaryText }]}>
-              {harmoniousGarments.length} PRENDAS
+              {t('cs.harmonized.count', { count: harmoniousGarments.length })}
             </Text>
           </View>
 
@@ -429,7 +473,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                       )}
                       <View style={styles.harmonyBadgePill}>
                         <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                        <Text style={styles.harmonyBadgeText}>Armonía</Text>
+                        <Text style={styles.harmonyBadgeText}>{t('savedLook.harmony')}</Text>
                       </View>
                     </View>
 
@@ -455,10 +499,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
             <LiquidGlassView style={styles.emptyHarmoniousCard} intensity={75} borderRadius={Radius.lg}>
               <Ionicons name="sparkles-outline" size={28} color={colors.tertiaryText} />
               <Text style={[styles.emptyHarmoniousTitle, { color: colors.primaryText }]}>
-                Aún no hay prendas armonizadas
+                {t('cs.harmonized.emptyTitle')}
               </Text>
               <Text style={[styles.emptyHarmoniousBody, { color: colors.secondaryText }]}>
-                Ninguna de tus prendas actuales coincide de forma óptima con tu estación. Añade prendas con los tonos sugeridos arriba para verlas aquí.
+                {t('cs.harmonized.emptyBody')}
               </Text>
               <TouchableOpacity
                 style={[styles.emptyAddBtn, { backgroundColor: colors.primaryText }]}
@@ -467,7 +511,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               >
                 <Ionicons name="add" size={16} color={colors.bg} />
                 <Text style={[styles.emptyAddBtnText, { color: colors.bg }]}>
-                  Añadir Prenda
+                  {t('home.addClothing')}
                 </Text>
               </TouchableOpacity>
             </LiquidGlassView>
@@ -492,10 +536,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
               <View style={styles.analyzingWrapper}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={[styles.analyzingTitle, { color: colors.primaryText }]}>
-                  Analizando Colorimetría con IA
+                  {t('cs.analyzing.title')}
                 </Text>
                 <Text style={[styles.analyzingSubtitle, { color: colors.secondaryText }]}>
-                  FitGlass AI está examinando tu tono de piel, contraste de cabello y estación cromática óptima...
+                  {t('cs.analyzing.body')}
                 </Text>
               </View>
             ) : (
@@ -503,10 +547,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                 <View style={styles.modalHeaderRow}>
                   <View style={styles.modalTitleBox}>
                     <Text style={[styles.modalTitle, { color: colors.primaryText }]}>
-                      Recalibrar Colorimetría
+                      {t('cs.modal.title')}
                     </Text>
                     <Text style={[styles.modalSubtitle, { color: colors.secondaryText }]}>
-                      Captura o selecciona una foto frontal iluminada con luz natural uniforme.
+                      {t('cs.modal.subtitle')}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={() => setIsRecalibrateModalOpen(false)} style={styles.modalCloseBtn}>
@@ -525,10 +569,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                     </View>
                     <View style={styles.modalOptionTextWrap}>
                       <Text style={[styles.modalOptionTitle, { color: colors.primaryText }]}>
-                        Tomar Foto con Cámara
+                        {t('cs.modal.camera')}
                       </Text>
                       <Text style={[styles.modalOptionDesc, { color: colors.secondaryText }]}>
-                        Foto frontal con rostro despejado
+                        {t('cs.modal.cameraDesc')}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={colors.tertiaryText} />
@@ -544,10 +588,10 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                     </View>
                     <View style={styles.modalOptionTextWrap}>
                       <Text style={[styles.modalOptionTitle, { color: colors.primaryText }]}>
-                        Elegir de la Galería
+                        {t('cs.modal.gallery')}
                       </Text>
                       <Text style={[styles.modalOptionDesc, { color: colors.secondaryText }]}>
-                        Selecciona un retrato nítido existente
+                        {t('cs.modal.galleryDesc')}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={colors.tertiaryText} />
@@ -560,7 +604,7 @@ export const ColorStudioScreen: React.FC<ColorStudioScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.modalCancelBtnText, { color: colors.secondaryText }]}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -659,10 +703,37 @@ const styles = StyleSheet.create({
   },
   paletteHexText: {
     ...Typography.micro,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    minHeight: 26,
   },
+  displayToggle: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 999,
+    padding: 3,
+    marginBottom: Spacing.md,
+  },
+  displayToggleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    minHeight: 34,
+    borderRadius: 999,
+  },
+  displayToggleText: { fontSize: 13, fontWeight: '700' },
+  selectedColorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: Spacing.md,
+  },
+  selectedColorDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1 },
+  selectedColorText: { flex: 1, fontSize: 15, fontWeight: '700' },
 
   paletteDesc: {
     ...Typography.bodySm,

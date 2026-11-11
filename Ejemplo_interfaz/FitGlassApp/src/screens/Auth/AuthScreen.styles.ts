@@ -1,10 +1,8 @@
-import { StyleSheet, Dimensions, Platform } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { Colors, Typography, Spacing, Radius } from '../../theme';
 
-export const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Paleta Atelier: Perla difusa, Tiffany Blue y Teal
-export const BACKGROUND_GRADIENT = ['#F9F9F7', '#EEF4F6', '#E2ECF0'] as const;
+// Atmósfera Ivoire & Pine del registro.
+export const BACKGROUND_GRADIENT = ['#FAF9F7', '#F4F3F1', '#EFECE6'] as const;
 export const BUTTON_GRADIENT = Colors.buttons.authGradient;
 
 export const styles = StyleSheet.create({
@@ -44,7 +42,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.bold,
     fontSize: 11,
     fontWeight: '700',
-    color: '#3C6473',
+    color: Colors.primary,
     letterSpacing: 1.5,
   },
   heroIllustrationContainer: {
@@ -56,10 +54,10 @@ export const styles = StyleSheet.create({
     width: 170,
     height: 170,
     borderRadius: 85,
-    backgroundColor: 'rgba(142, 182, 199, 0.25)',
+    backgroundColor: 'rgba(45, 66, 56, 0.10)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3C6473',
+    shadowColor: Colors.buttons.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
@@ -69,7 +67,7 @@ export const styles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius: 65,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -83,12 +81,12 @@ export const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#3C6473',
+    backgroundColor: Colors.buttons.authBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    shadowColor: '#2E3238',
+    shadowColor: Colors.buttons.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -103,7 +101,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.bodoni.bold,
     fontSize: 32,
     fontWeight: '700',
-    color: '#1A1C1B',
+    color: Colors.primaryText,
     textAlign: 'center',
     letterSpacing: -0.3,
     marginBottom: Spacing.sm,
@@ -112,7 +110,7 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.regular,
     fontSize: 15,
     lineHeight: 22,
-    color: '#41484B',
+    color: Colors.secondaryText,
     textAlign: 'center',
     maxWidth: 320,
   },
@@ -197,8 +195,11 @@ export const styles = StyleSheet.create({
     color: '#1A1C1B',
   },
   whiteBottomSheetCard: {
-    height: SCREEN_HEIGHT * 0.78,
-    backgroundColor: '#FFFFFF',
+    position: 'relative',
+    // Relative height lets KeyboardAvoidingView shrink the sheet instead of
+    // translating the whole form behind the iOS safe area/dynamic island.
+    height: '78%',
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     shadowColor: '#2E3238',
@@ -295,6 +296,114 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
 
+  accountExistsModalBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 40,
+    backgroundColor: Colors.buttons.overlayBackground,
+  },
+  accountExistsModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 28,
+    paddingBottom: Spacing.lg,
+    shadowColor: Colors.buttons.shadow,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.28,
+    shadowRadius: 28,
+    elevation: 24,
+  },
+  accountExistsModalIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.ctaContainer,
+  },
+  accountExistsModalTitle: {
+    fontFamily: Typography.outfit.semiBold,
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 28,
+    textAlign: 'center',
+    color: Colors.primaryText,
+  },
+  accountExistsModalText: {
+    fontFamily: Typography.outfit.regular,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: Colors.secondaryText,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  accountExistsEmailChip: {
+    width: '100%',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.surfaceSubtle,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+  },
+  accountExistsModalEmail: {
+    flexShrink: 1,
+    fontFamily: Typography.outfit.semiBold,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.buttons.authBackground,
+  },
+  accountExistsPrimaryAction: {
+    width: '100%',
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.buttons.authBackground,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.lg,
+  },
+  accountExistsPrimaryActionText: {
+    fontFamily: Typography.outfit.semiBold,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.buttons.authText,
+  },
+  accountExistsSecondaryAction: {
+    width: '100%',
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.buttons.authSecondaryBackground,
+    borderColor: Colors.buttons.authSecondaryBorder,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.lg,
+  },
+  accountExistsSecondaryActionText: {
+    fontFamily: Typography.outfit.semiBold,
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.buttons.authSecondaryText,
+  },
+
   formContainer: {
     gap: Spacing.md,
   },
@@ -310,9 +419,9 @@ export const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9F9F7',
+    backgroundColor: Colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#C1C7CB',
+    borderColor: Colors.border,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
     height: 48,
@@ -325,7 +434,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     fontSize: 14,
-    color: '#1A1C1B',
+    color: Colors.primaryText,
   },
   passwordToggle: {
     padding: 6,
@@ -358,7 +467,7 @@ export const styles = StyleSheet.create({
   checkboxLabel: {
     fontFamily: Typography.outfit.regular,
     fontSize: 13,
-    color: '#41484B',
+    color: Colors.secondaryText,
   },
   forgotPasswordText: {
     fontFamily: Typography.outfit.semiBold,
@@ -370,11 +479,16 @@ export const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     borderRadius: Radius.pill,
     overflow: 'hidden',
-    shadowColor: '#2E3238',
+    shadowColor: Colors.buttons.shadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 4,
+  },
+  submitButtonDisabled: {
+    opacity: Colors.buttons.disabledOpacity,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   submitGradientPill: {
     height: 50,
@@ -423,11 +537,11 @@ export const styles = StyleSheet.create({
 
   // Biometrics Section
   biometricSection: {
-    backgroundColor: '#F9F9F7',
+    backgroundColor: Colors.surfaceSubtle,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(193, 199, 203, 0.5)',
+    borderColor: Colors.borderLight,
     gap: Spacing.xs,
   },
   biometricHeaderRow: {
@@ -439,12 +553,12 @@ export const styles = StyleSheet.create({
     fontFamily: Typography.outfit.semiBold,
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1C1B',
+    color: Colors.primaryText,
   },
   biometricSectionDesc: {
     fontFamily: Typography.outfit.regular,
     fontSize: 12,
-    color: '#41484B',
+    color: Colors.secondaryText,
     marginBottom: Spacing.xs,
   },
   biometricPreviewRow: {
@@ -457,7 +571,7 @@ export const styles = StyleSheet.create({
     height: 68,
     borderRadius: 34,
     borderWidth: 2,
-    borderColor: '#8EB6C7',
+    borderColor: Colors.primary,
     position: 'relative',
     overflow: 'visible',
   },
@@ -479,7 +593,7 @@ export const styles = StyleSheet.create({
     height: 80,
     borderRadius: Radius.md,
     borderWidth: 2,
-    borderColor: '#8EB6C7',
+    borderColor: Colors.primary,
     position: 'relative',
   },
   rectangularBodyImage: {
@@ -499,7 +613,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -4,
     right: -4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderRadius: 10,
   },
   biometricButtonsColumn: {

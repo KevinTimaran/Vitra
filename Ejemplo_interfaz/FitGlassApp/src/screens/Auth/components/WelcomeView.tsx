@@ -51,7 +51,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = React.memo(({
       >
         <View style={styles.outerGlowCircle}>
           <View style={styles.innerGlowCircle}>
-            <Ionicons name="shirt-outline" size={72} color="#3C6473" />
+            <Ionicons name="shirt-outline" size={72} color={Colors.primary} />
             <View style={styles.floatingGemBadge}>
               <Ionicons name="cube-outline" size={20} color="#FFFFFF" />
             </View>

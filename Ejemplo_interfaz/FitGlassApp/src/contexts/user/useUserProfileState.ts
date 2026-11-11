@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { BodyProfile, ColorProfile } from '../../types';
-import { fetchCurrentUser, getDefaultAvatarModel, updateUserAvatar, loginUser } from '../../services/auth/authClient';
+import { fetchCurrentUser, getDefaultAvatarModel, updateUserAvatar } from '../../services/auth/authClient';
 import { deleteCurrentAvatar, generateAvatar, getLatestAvatarModel } from '../../services/ai/garmentAnalyzer';
-import { getAuthToken, getUserEmail, saveAuthToken, clearAuthStorage } from '../../services/auth/secureStorage';
+import { getAuthToken, clearAuthStorage } from '../../services/auth/secureStorage';
 import { DEFAULT_BODY_PROFILE, DEFAULT_COLOR_PROFILE, DEFAULT_GENDER, DEFAULT_SAMPLE_MODEL_URL, DEFAULT_USER_NAME } from './userDefaults';
 import { persistProfile, type PersistedProfile } from './userStorage';
 import type { CompleteOnboardingData } from './userTypes';
+import { translateNow } from '../LanguageContext';
 
 export interface UserProfileState extends PersistedProfile {
   isGeneratingAvatar: boolean;
@@ -65,7 +66,7 @@ const profileReducer = (state: UserProfileState, action: ProfileAction): UserPro
 const errorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
-  return 'Ocurrió un error inesperado';
+  return translateNow('jobs.unexpected');
 };
 
 export function useUserProfileState(isReady: boolean) {
@@ -121,32 +122,10 @@ export function useUserProfileState(isReady: boolean) {
     let syncSucceeded = false;
 
     try {
-      let token = await getAuthToken();
-      let user = token ? await fetchCurrentUser(token) : null;
+      const token = await getAuthToken();
+      const user = token ? await fetchCurrentUser(token) : null;
 
-      // Si el token falló o no existe, intentar recuperación automática usando el correo previamente registrado
-      if (!user) {
-        const storedEmail = (await getUserEmail()) || profileRef.current.userEmail;
-        if (storedEmail) {
-          console.log('[UserContext] Sesión no activa, intentando reconexión automática para:', storedEmail);
-          for (const testPass of ['password123', '123456']) {
-            try {
-              const relogin = await loginUser(storedEmail, testPass);
-              if (relogin?.access_token) {
-                await saveAuthToken(relogin.access_token);
-                token = relogin.access_token;
-                user = await fetchCurrentUser(token);
-                if (user) {
-                  console.log('[UserContext] Reconexión automática con backend completada con éxito.');
-                  break;
-                }
-              }
-            } catch {
-              // Probar siguiente clave de desarrollo
-            }
-          }
-        }
-      }
+      // Si el token falló o expiró, la sesión se descarta más abajo y el usuario debe iniciar sesión de nuevo.
 
       if (user) {
         const nextGender = user.gender || profileRef.current.gender || DEFAULT_GENDER;
@@ -230,7 +209,7 @@ export function useUserProfileState(isReady: boolean) {
         }
       }
 
-      if (!avatarUrl) throw new Error('El servidor no devolvió la URL del avatar.');
+      if (!avatarUrl) throw new Error(translateNow('svc.err.noAvatarUrl'));
       patchProfile({ avatarUrl, avatarType: 'custom_3d', avatarCreatedAt: new Date().toLocaleDateString() });
       return avatarUrl;
     } catch (error) {

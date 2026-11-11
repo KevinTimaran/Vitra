@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { optimizeImageAsync } from '../utils/imageUtils';
 import { BiometricsCaptureHook } from '../types/auth.types';
+import { useTranslation } from '../../../contexts/LanguageContext';
 
 export const SAMPLE_FACE_URL =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80';
@@ -10,6 +11,7 @@ export const SAMPLE_BODY_URL =
   'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80';
 
 export function useBiometricsCapture(): BiometricsCaptureHook {
+  const { t } = useTranslation();
   const [faceImageUri, setFaceImageUri] = useState<string | null>(null);
   const [faceImageBase64, setFaceImageBase64] = useState<string | null>(null);
   const [bodyImageUri, setBodyImageUri] = useState<string | null>(null);
@@ -18,6 +20,8 @@ export function useBiometricsCapture(): BiometricsCaptureHook {
   const [showBodyCamera, setShowBodyCamera] = useState<boolean>(false);
   const [showBodyCropper, setShowBodyCropper] = useState<boolean>(false);
   const [galleryTempUri, setGalleryTempUri] = useState<string | null>(null);
+  const [showFaceCropper, setShowFaceCropper] = useState<boolean>(false);
+  const [faceTempUri, setFaceTempUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const setFaceImages = (uri: string | null, base64: string | null) => {
@@ -43,7 +47,7 @@ export function useBiometricsCapture(): BiometricsCaptureHook {
         if (source === 'gallery') {
           const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (status !== 'granted') {
-            Alert.alert('Permiso Requerido', 'Se requiere acceso a la galería para seleccionar la fotografía.');
+            Alert.alert(t('perm.title'), t('perm.gallery'));
             return;
           }
           const galRes = await ImagePicker.launchImageLibraryAsync({
@@ -63,56 +67,36 @@ export function useBiometricsCapture(): BiometricsCaptureHook {
       if (source === 'camera') {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert(
-            'Permiso Requerido',
-            'Se requiere acceso a la cámara para capturar la fotografía.'
-          );
+          Alert.alert(t('perm.title'), t('perm.camera'));
           return;
         }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert(
-            'Permiso Requerido',
-            'Se requiere acceso a la galería para seleccionar la fotografía.'
-          );
+          Alert.alert(t('perm.title'), t('perm.gallery'));
           return;
         }
       }
 
-      const options: ImagePicker.ImagePickerOptions = {
+      // Rostro: se elige/captura la foto y se encuadra con el MISMO recortador de la app (modo cuadrado/circular),
+      // en lugar del editor nativo del sistema.
+      const faceOptions: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: target === 'face' ? [1, 1] : [3, 4],
-        quality: 0.8,
-        base64: true,
+        allowsEditing: false,
+        quality: 0.9,
       };
-
-      const result =
+      const faceResult =
         source === 'camera'
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync(options);
+          ? await ImagePicker.launchCameraAsync(faceOptions)
+          : await ImagePicker.launchImageLibraryAsync(faceOptions);
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-
-        // Comprimir y redimensionar la fotografía para mantener el payload bajo (<250KB)
-        const { uri: optimizedUri, base64Formatted } = await optimizeImageAsync(asset.uri, {
-          maxWidth: 1024,
-          compress: 0.75,
-        });
-
-        if (target === 'face') {
-          setFaceImageUri(optimizedUri);
-          setFaceImageBase64(base64Formatted);
-        } else {
-          setBodyImageUri(optimizedUri);
-          setBodyImageBase64(base64Formatted);
-        }
+      if (!faceResult.canceled && faceResult.assets && faceResult.assets.length > 0) {
+        setFaceTempUri(faceResult.assets[0].uri);
+        setShowFaceCropper(true);
       }
     } catch (err: any) {
       console.error('[useBiometricsCapture] Error al seleccionar imagen:', err);
-      setErrorMessage(err?.message || 'Error al capturar la imagen.');
+      setErrorMessage(err?.message || t('auth.err.captureFailed'));
     }
   };
 
@@ -131,6 +115,8 @@ export function useBiometricsCapture(): BiometricsCaptureHook {
     setShowBodyCamera(false);
     setShowBodyCropper(false);
     setGalleryTempUri(null);
+    setShowFaceCropper(false);
+    setFaceTempUri(null);
     setErrorMessage(null);
   };
 
@@ -142,7 +128,11 @@ export function useBiometricsCapture(): BiometricsCaptureHook {
     showBodyCamera,
     showBodyCropper,
     galleryTempUri,
+    showFaceCropper,
+    faceTempUri,
     errorMessage,
+    setShowFaceCropper,
+    setFaceTempUri,
     setShowBodyCamera,
     setShowBodyCropper,
     setGalleryTempUri,

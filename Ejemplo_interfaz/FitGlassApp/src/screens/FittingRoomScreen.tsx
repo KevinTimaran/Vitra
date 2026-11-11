@@ -1,4 +1,5 @@
 import React, { Suspense, useState, useEffect, useMemo, useRef } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -22,7 +23,11 @@ import { VibrantBackground } from '../components/VibrantBackground';
 import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { translateOr } from '../i18n/lookCategories';
 import { useUser } from '../contexts/UserContext';
+import { useForegroundJob, useJobs } from '../contexts/JobsContext';
+import { WaitActions } from '../components/WaitActions';
+import { openGame } from '../navigation/jobNavigation';
 import {
   generateTryOn,
   generateOutfitTryOn,
@@ -32,8 +37,12 @@ import {
 import { Garment, SavedLookItem } from '../types';
 import { GarmentViewScreen } from './GarmentViewScreen';
 import { isColorHarmonious as checkColorHarmony } from '../utils/colorHarmony';
+import { errorText } from '../services/jobs/jobErrors.ts';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Trabajos de cascada cuyo resultado ya se mostró (a nivel de módulo: sobrevive a desmontar la pantalla).
+const APPLIED_CASCADE_JOBS = new Set<string>();
 
 interface FittingRoomScreenProps {
   route?: {
@@ -54,7 +63,7 @@ interface FittingRoomScreenProps {
 export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  const { t } = useTranslation();
+  const { t, language, formatDate } = useTranslation();
 
   const {
     userProfile,
@@ -82,7 +91,6 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   const [activeModelUrl, setActiveModelUrl] = useState<string | null>(initial3D);
   const [current2DUrl, setCurrent2DUrl] = useState<string | undefined>(initial2D);
   const [show2DView, setShow2DView] = useState<boolean>(false);
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [activeGarmentDetail, setActiveGarmentDetail] = useState<Garment | null>(null);
 
   const initialGarment = props.selectedGarment || props.route?.params?.selectedGarment;
@@ -100,14 +108,36 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   );
   
   const [tryOnSuccess, setTryOnSuccess] = useState<boolean>(false);
-  const [cascadeProgress, setCascadeProgress] = useState<CascadeStepProgress | null>(null);
+  const [selectionHint, setSelectionHint] = useState<string | null>(null);
+  // La generación vive en el servicio global de trabajos: cerrar o salir de esta pantalla NO la cancela.
+  const { jobs, startJob, cancelJob, markJobSeen } = useJobs();
+  const isFocused = useIsFocused();
+  const cascadeJob = useMemo(() => [...jobs].reverse().find((job) => job.kind === 'cascade'), [jobs]);
+  const isGenerating = cascadeJob?.status === 'running';
+  const [overlayHidden, setOverlayHidden] = useState<boolean>(false);
+  const overlayVisible = isGenerating && !overlayHidden;
+  // Mientras el overlay se ve (y esta pestaña está activa) la capa global no repite la píldora.
+  useForegroundJob(overlayVisible && isFocused ? cascadeJob?.id : null);
+  const cascadeProgress: CascadeStepProgress | null = isGenerating && cascadeJob
+    ? {
+        step: cascadeJob.phase || 'init',
+        progress: cascadeJob.progress,
+        // El detalle llega del servidor en español: en otro idioma se muestra el texto de la fase.
+        detail:
+          language === 'es' && cascadeJob.detail
+            ? cascadeJob.detail
+            : translateOr(t, `room.step.${cascadeJob.phase || 'init'}`, translateOr(t, `phase.${cascadeJob.phase}`, t('room.step.default'))),
+        currentGarmentIndex: cascadeJob.meta?.currentGarmentIndex,
+        totalGarments: cascadeJob.meta?.totalGarments,
+      }
+    : null;
+
+  const overlayVisibleRef = useRef<boolean>(false);
+  overlayVisibleRef.current = overlayVisible;
 
   const [showTouchHint, setShowTouchHint] = useState<boolean>(true);
   const touchHintOpacity = useRef(new Animated.Value(1)).current;
 
-  const isGeneratingRef = useRef<boolean>(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const isMountedRef = useRef<boolean>(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -122,15 +152,30 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
   }, [touchHintOpacity]);
 
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-    };
-  }, []);
+    if (!selectionHint) return undefined;
+    const timer = setTimeout(() => setSelectionHint(null), 6000);
+    return () => clearTimeout(timer);
+  }, [selectionHint]);
+
+  // Aplica el resultado de la cascada (también si terminó mientras estabas en otra pantalla).
+  useEffect(() => {
+    if (!cascadeJob) return;
+    if (cascadeJob.status === 'done' && !APPLIED_CASCADE_JOBS.has(cascadeJob.id)) {
+      APPLIED_CASCADE_JOBS.add(cascadeJob.id);
+      markJobSeen(cascadeJob.id);
+      const result = cascadeJob.result as { model_3d_url: string; final_dressed_image_url?: string };
+      preloadGLTF(result.model_3d_url);
+      setActiveModelUrl(result.model_3d_url);
+      if (result.final_dressed_image_url) setCurrent2DUrl(result.final_dressed_image_url);
+      setTryOnSuccess(true);
+    } else if (cascadeJob.status === 'failed' && !APPLIED_CASCADE_JOBS.has(cascadeJob.id) && isFocused && overlayVisibleRef.current) {
+      APPLIED_CASCADE_JOBS.add(cascadeJob.id);
+      markJobSeen(cascadeJob.id);
+      const { title, message } = errorText(cascadeJob.error, t);
+      Alert.alert(title || t('room.err.failedTitle'), message || t('room.err.tryLater'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cascadeJob?.id, cascadeJob?.status]);
 
   useEffect(() => {
     if (activeModelUrl) {
@@ -159,6 +204,13 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
     }
     if (routeGarment) {
       setSelectedGarments([routeGarment]);
+      // Llegó desde "Probar en mi Avatar 3D": solo falta tocar "Probar".
+      const nonWearable = routeGarment.category === 'Shoes' || routeGarment.category === 'Accessories';
+      setSelectionHint(
+        nonWearable
+          ? t('room.nonWearable')
+          : t('room.garmentSelected', { name: routeGarment.name })
+      );
     }
   }, [
     props.model_3d_url,
@@ -221,128 +273,103 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
     setSelectedGarments([]);
   };
 
-  const handleTryOnLook = async () => {
-    if (selectedGarments.length === 0 || isGenerating || isGeneratingRef.current) {
+  const handleTryOnLook = () => {
+    if (selectedGarments.length === 0 || isGenerating) {
       return;
     }
-    isGeneratingRef.current = true;
-    setIsGenerating(true);
+    setOverlayHidden(false);
     setTryOnSuccess(false);
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const currentAbortController = new AbortController();
-    abortControllerRef.current = currentAbortController;
-
-    setCascadeProgress({
-      step: 'init',
-      progress: 0.08,
-      detail: 'Iniciando pipeline de Cascada 2D a 3D...',
-      totalGarments: selectedGarments.length,
-      currentGarmentIndex: 0,
-    });
 
     const candidateHumanImage = avatar_2d_image || '';
     const isExpiredLocalImage =
       candidateHumanImage.startsWith('file://') ||
       candidateHumanImage.startsWith('ph://') ||
       candidateHumanImage.startsWith('content://');
-    const presetHumanImage =
-      gender === 'male'
-        ? 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=800&q=80'
-        : gender === 'non-binary'
-        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
-        : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80';
-    const humanImage = isExpiredLocalImage ? presetHumanImage : candidateHumanImage || presetHumanImage;
+    // Si no hay foto utilizable se envía undefined: el backend usa la foto guardada del usuario (por su token)
+    // y, solo si no existe, una imagen de muestra según el género.
+    const humanImage = isExpiredLocalImage ? undefined : candidateHumanImage || undefined;
 
-    try {
-      const garmentPayloads = selectedGarments.map((g) => ({
-        image: g.imageUrl || '',
-        category:
-          g.category === 'Pants'
-            ? 'lower_body'
-            : (g.category as string) === 'Dresses' || (g.category as string) === 'Dress'
-            ? 'dresses'
-            : g.category === 'Outerwear'
-            ? 'outerwear'
-            : g.category === 'Shoes'
-            ? 'shoes'
-            : g.category === 'Accessories'
-            ? 'accessories'
-            : 'upper_body',
-        name: g.name,
-      }));
+    const garmentPayloads = selectedGarments.map((g) => ({
+      image: g.imageUrl || '',
+      category:
+        g.category === 'Pants'
+          ? 'lower_body'
+          : (g.category as string) === 'Dresses' || (g.category as string) === 'Dress'
+          ? 'dresses'
+          : g.category === 'Outerwear'
+          ? 'outerwear'
+          : g.category === 'Shoes'
+          ? 'shoes'
+          : g.category === 'Accessories'
+          ? 'accessories'
+          : 'upper_body',
+      name: g.name,
+    }));
+    // Calzado y accesorios no se visten en 2D (IDM-VTON no los soporta): no cuentan como "faltantes".
+    const wearableCount = selectedGarments.filter((g) => g.category !== 'Shoes' && g.category !== 'Accessories').length;
+    const totalGarments = selectedGarments.length;
+    const userId = userProfile?.id || userProfile?.name;
 
-      const result = await generateWaterfallCascadeTryOn(
-        userProfile?.id || userProfile?.name,
-        humanImage,
-        garmentPayloads,
-        (progressInfo) => {
-          if (isMountedRef.current) {
-            setCascadeProgress(progressInfo);
-          }
-        },
-        currentAbortController.signal
-      );
-
-      if (!isMountedRef.current) return;
-
-      if (result.status !== 'completed' || !result.model_3d_url) {
-        throw new Error(result.message || 'El servidor no devolvió un modelo 3D para este look.');
-      }
-      const appliedGarments = result.total_garments_applied ?? result.steps_completed?.length;
-      if (appliedGarments !== undefined && appliedGarments < selectedGarments.length) {
-        throw new Error(
-          `Solo se pudieron aplicar ${appliedGarments} de ${selectedGarments.length} prendas. No se mostró el modelo incompleto.`
+    const started = startJob({
+      kind: 'cascade',
+      title: totalGarments > 1 ? t('room.job.multi') : t('room.job.single'),
+      thumbnailUri: selectedGarments[0]?.imageUrl,
+      run: async ({ signal, report }) => {
+        report({ progress: 0.08, phase: 'init', detail: t('room.step.init'), meta: { currentGarmentIndex: 0, totalGarments } });
+        const result = await generateWaterfallCascadeTryOn(
+          userId,
+          humanImage,
+          garmentPayloads,
+          (info) =>
+            report({
+              progress: info.progress,
+              phase: info.step,
+              detail: info.detail,
+              meta: { currentGarmentIndex: info.currentGarmentIndex, totalGarments: info.totalGarments ?? totalGarments },
+            }),
+          signal
         );
-      }
 
-      if (result.model_3d_url) {
-        preloadGLTF(result.model_3d_url);
-        setActiveModelUrl(result.model_3d_url);
-      }
-      if (result.final_dressed_image_url) {
-        setCurrent2DUrl(result.final_dressed_image_url);
-      }
-      setTryOnSuccess(true);
-    } catch (err: any) {
-      if (err?.name === 'AbortError' || err?.message?.includes('cancelad') || !isMountedRef.current) {
-        return;
-      }
-      if (isMountedRef.current) {
-        Alert.alert('No se pudo generar el look', err?.message || 'Intenta nuevamente en unos momentos.');
-      }
-    } finally {
-      isGeneratingRef.current = false;
-      if (isMountedRef.current) {
-        setIsGenerating(false);
-        setCascadeProgress(null);
-      }
+        if (result.status !== 'completed' || !result.model_3d_url) {
+          throw new Error(result.message || t('room.err.noModel'));
+        }
+        const appliedGarments = result.total_garments_applied ?? result.steps_completed?.length;
+        if (appliedGarments !== undefined && appliedGarments < wearableCount) {
+          throw new Error(t('room.err.partial', { applied: appliedGarments, total: wearableCount }));
+        }
+        return { model_3d_url: result.model_3d_url, final_dressed_image_url: result.final_dressed_image_url };
+      },
+    });
+
+    if (!started.ok) {
+      Alert.alert(t('room.busy.title'), t('room.busy.message'));
     }
   };
 
   const handleSaveCurrentLook = () => {
     if (selectedGarments.length === 0) {
-      Alert.alert('Selecciona prendas', 'Selecciona al menos una prenda para guardar el look.');
+      Alert.alert(t('room.save.empty.title'), t('room.save.empty.message'));
       return;
     }
 
     const newLook: SavedLookItem = {
       id: `look-${Date.now()}`,
-      title: `Look Atelier ${selectedGarments[0]?.name ? selectedGarments[0].name.split(' ')[0] : 'Look'} (${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })})`,
-      date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+      title: t('room.look.title', {
+        name: selectedGarments[0]?.name ? selectedGarments[0].name.split(' ')[0] : 'Look',
+        date: formatDate(new Date(), { day: '2-digit', month: 'short' }),
+      }),
+      date: formatDate(new Date()),
       garments: [...selectedGarments],
-      fitScore: 'Alta Armonía · Calce Atelier',
-      paletteTheme: `${selectedGarments.length} piezas en armonía`,
+      fitScore: t('room.save.fitScore'),
+      paletteTheme: t('room.save.theme', { count: selectedGarments.length }),
       model3dUrl: activeModelUrl || undefined,
       image2dUrl: current2DUrl || selectedGarments[0]?.imageUrl,
     };
 
     saveLook(newLook);
     Alert.alert(
-      '¡Look Guardado!',
-      'Tu conjunto ha sido guardado exitosamente y aparecerá en tus tarjetas de Inicio.'
+      t('room.save.done.title'),
+      t('room.save.done.message')
     );
   };
 
@@ -379,19 +406,19 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                 resizeMode="contain"
               />
               <LiquidGlassView style={styles.badge2D} intensity={80} borderRadius={Radius.pill}>
-                <Ionicons name="sparkles" size={13} color="#8EB6C7" />
-                <Text style={styles.badge2DText}>Resultado Fusión 2D (IDM-VTON)</Text>
+                <Ionicons name="sparkles" size={13} color={colors.primary} />
+                <Text style={styles.badge2DText}>{t('room.badge2d')}</Text>
               </LiquidGlassView>
             </View>
           ) : (
-            <View style={styles.canvasContainer}>
+            <View style={[styles.canvasContainer, { backgroundColor: colors.viewer3DBackground }]}>
               <Model3DViewer
                 activeModelUrl={activeModelUrl}
                 modelUrl={activeModelUrl}
                 currentGarmentName={
                   selectedGarments.length > 0
                     ? selectedGarments.map((g) => g.name).join(' + ')
-                    : 'Avatar Base'
+                    : t('room.baseAvatar')
                 }
                 selectedLayer={
                   selectedGarments.length > 0
@@ -443,7 +470,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
               <View style={styles.lookTrayContainer}>
                 <View style={styles.lookTrayHeader}>
                   <Text style={[styles.lookTrayTitle, { color: colors.primaryText }]}>
-                    Selección Actual
+                    {t('room.selection')}
                   </Text>
 
                   <TouchableOpacity
@@ -455,7 +482,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                     activeOpacity={0.7}
                   >
                     <Ionicons name="trash-outline" size={16} color={colors.buttons.dangerBackground} />
-                    <Text style={[styles.clearActionText, { color: colors.buttons.dangerBackground }]}>Limpiar</Text>
+                    <Text style={[styles.clearActionText, { color: colors.buttons.dangerBackground }]}>{t('room.clear')}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -512,7 +539,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                     >
                       <Ionicons name="bookmark-outline" size={18} color={colors.primaryText} />
                       <Text style={[styles.saveLookBtnText, { color: colors.primaryText }]}>
-                        Guardar
+                        {t('common.save')}
                       </Text>
                     </TouchableOpacity>
 
@@ -537,8 +564,8 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                           <Ionicons name="sparkles" size={18} color={colors.bg} />
                           <Text style={[styles.tryOnLookBtnText, { color: colors.bg }]}>
                             {selectedGarments.length > 1
-                              ? `Probar Look (${selectedGarments.length})`
-                              : `Probar Prenda`}
+                              ? t('room.tryLook', { count: selectedGarments.length })
+                              : t('fittingRoom.tryGarment')}
                           </Text>
                         </>
                       )}
@@ -552,7 +579,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             <View style={{ paddingBottom: Spacing.sm }}>
               {topGarments.length > 0 && (
                 <View style={styles.rowSection}>
-                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>Parte Superior</Text>
+                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>{t('room.row.top')}</Text>
                   <FlatList
                     data={topGarments}
                     horizontal
@@ -568,7 +595,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
 
               {bottomGarments.length > 0 && (
                 <View style={styles.rowSection}>
-                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>Parte Inferior</Text>
+                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>{t('room.row.bottom')}</Text>
                   <FlatList
                     data={bottomGarments}
                     horizontal
@@ -584,7 +611,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
 
               {shoeGarments.length > 0 && (
                 <View style={styles.rowSection}>
-                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>Calzado</Text>
+                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>{t('room.row.shoes')}</Text>
                   <FlatList
                     data={shoeGarments}
                     horizontal
@@ -600,7 +627,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
 
               {accessoryGarments.length > 0 && (
                 <View style={styles.rowSection}>
-                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>Accesorios</Text>
+                  <Text style={[styles.rowTitle, { color: colors.primaryText }]}>{t('room.row.accessories')}</Text>
                   <FlatList
                     data={accessoryGarments}
                     horizontal
@@ -618,13 +645,13 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                 <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 30 }}>
                   <Ionicons name="shirt-outline" size={32} color={colors.tertiaryText} />
                   <Text style={{ fontFamily: Typography.outfit.medium, fontSize: 14, color: colors.secondaryText, marginTop: 8 }}>
-                    No hay prendas en tu armario.
+                    {t('room.emptyWardrobe')}
                   </Text>
                   <TouchableOpacity
                     style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: Radius.pill, borderWidth: 1, borderColor: colors.borderLight, marginTop: 12 }}
                     onPress={handleLaunchAddGarment}
                   >
-                    <Text style={{ fontFamily: Typography.outfit.bold, fontSize: 13, color: colors.primaryText }}>+ Escanear Prenda</Text>
+                    <Text style={{ fontFamily: Typography.outfit.bold, fontSize: 13, color: colors.primaryText }}>{t('room.scanGarment')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -633,16 +660,31 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
         </View>
       </ScrollView>
 
+      {selectionHint ? (
+        <View pointerEvents="box-none" style={[styles.selectionHintWrap, { top: insets.top + 8 }]}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setSelectionHint(null)}
+            style={[styles.selectionHint, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+            <Text style={[styles.selectionHintText, { color: colors.primaryText }]} numberOfLines={3}>
+              {selectionHint}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* OVERLAY DE CARGA */}
-      {isGenerating && (
+      {overlayVisible && (
         <View style={styles.generatingOverlay}>
           <LiquidGlassView style={styles.generatingModal} intensity={90} borderRadius={Radius.xl}>
-            <ActivityIndicator size="large" color="#8B5CF6" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.generatingTitle, { color: colors.primaryText }]}>
-              {selectedGarments.length > 1 ? 'Aplicando Cascada 2D ➔ 3D' : 'Fusionando Prenda...'}
+              {selectedGarments.length > 1 ? t('room.overlay.multi') : t('room.overlay.single')}
             </Text>
             <Text style={[styles.generatingSubtitle, { color: colors.secondaryText }]}>
-              {cascadeProgress?.detail || 'Componiendo prendas secuencialmente con IDM-VTON...'}
+              {cascadeProgress?.detail || t('room.step.default')}
             </Text>
 
             <View style={styles.progressBarBg}>
@@ -651,6 +693,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                   styles.progressBarFill,
                   {
                     width: `${Math.min(100, Math.max(10, Math.round((cascadeProgress?.progress || 0.15) * 100)))}%`,
+                    backgroundColor: colors.primary,
                   },
                 ]}
               />
@@ -659,8 +702,8 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
             {selectedGarments.length > 0 && (
               <View style={styles.cascadeFlowContainer}>
                 <View style={styles.cascadeStepItem}>
-                  <Ionicons name="person" size={12} color="#8EB6C7" />
-                  <Text style={[styles.cascadeStepLabel, { color: colors.secondaryText }]}>Base</Text>
+                  <Ionicons name="person" size={12} color={colors.primary} />
+                  <Text style={[styles.cascadeStepLabel, { color: colors.secondaryText }]}>{t('room.base')}</Text>
                 </View>
 
                 {selectedGarments.map((g, idx) => {
@@ -671,9 +714,18 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                       <Ionicons
                         name="arrow-forward"
                         size={10}
-                        color={isDone ? '#10B981' : isCurrent ? '#8B5CF6' : colors.secondaryText}
+                        color={isDone ? colors.success : isCurrent ? colors.primary : colors.secondaryText}
                       />
-                      <View style={[styles.cascadeStepItem, isCurrent && styles.cascadeStepActive]}>
+                      <View
+                        style={[
+                          styles.cascadeStepItem,
+                          isCurrent && styles.cascadeStepActive,
+                          isCurrent && {
+                            backgroundColor: colors.successSubtle,
+                            borderColor: colors.primary,
+                          },
+                        ]}
+                      >
                         {g.imageUrl ? (
                           <Image source={{ uri: g.imageUrl }} style={styles.cascadeStepThumb} />
                         ) : (
@@ -682,7 +734,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                         <Text
                           style={[
                             styles.cascadeStepLabel,
-                            { color: isCurrent ? '#8B5CF6' : colors.secondaryText, fontWeight: isCurrent ? '700' : '400' },
+                            { color: isCurrent ? colors.primary : colors.secondaryText, fontWeight: isCurrent ? '700' : '400' },
                           ]}
                           numberOfLines={1}
                         >
@@ -708,6 +760,14 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
                 </View>
               </View>
             )}
+
+            <View style={styles.generatingActions}>
+              <WaitActions
+                onPlay={() => cascadeJob && openGame(cascadeJob.id)}
+                onBackground={() => setOverlayHidden(true)}
+                onCancel={() => cascadeJob && cancelJob(cascadeJob.id)}
+              />
+            </View>
           </LiquidGlassView>
         </View>
       )}
@@ -786,7 +846,7 @@ export const FittingRoomScreen: React.FC<FittingRoomScreenProps> = (props) => {
               {item.name}
             </Text>
             {hasColorHarmony && (
-              <Ionicons name="sparkles" size={11} color="#8EB6C7" style={{ marginLeft: 3 }} />
+              <Ionicons name="sparkles" size={11} color={colors.primary} style={{ marginLeft: 3 }} />
             )}
           </View>
         </View>
@@ -1082,21 +1142,71 @@ const styles = StyleSheet.create({
     ...Typography.labelSm,
     fontSize: 11.5,
   },
+  selectionHintWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 50,
+    alignItems: 'center',
+  },
+  selectionHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 16,
+    borderWidth: 1,
+    maxWidth: 420,
+  },
+  selectionHintText: { flexShrink: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
   generatingOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
-    padding: Spacing.xl,
+    paddingHorizontal: 16,
+    paddingVertical: Spacing.md,
   },
   generatingModal: {
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 380,
     borderRadius: Radius.xl,
-    padding: Spacing.xl,
+    paddingHorizontal: 22,
+    paddingVertical: 26,
     alignItems: 'center',
     borderWidth: 1,
+  },
+  generatingActions: {
+    width: '100%',
+    marginTop: 24,
+  },
+  generatingBtnPrimary: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: Radius.pill,
+  },
+  generatingBtnGhost: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  generatingBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  generatingCancel: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    paddingVertical: 4,
   },
   generatingTitle: {
     ...Typography.title2,

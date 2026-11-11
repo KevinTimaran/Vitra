@@ -108,7 +108,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   variant = 'default',
   ...restProps
 }) => {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
 
   // Tinte adaptativo según el tema activo
   const effectiveTint: BlurTint = tint || (isDark ? 'dark' : 'light');
@@ -132,25 +132,21 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   });
 
   // 1. Superficie de color base según especificación canónica
-  let backgroundColor = isDark
-    ? 'rgba(26, 28, 30, 0.88)'
-    : 'rgba(255, 255, 255, 0.92)';
+  let backgroundColor = colors.glass;
 
   if (variant === 'subtle') {
     backgroundColor = isDark
-      ? 'rgba(26, 28, 30, 0.65)'
-      : 'rgba(255, 255, 255, 0.78)';
+      ? 'rgba(15, 21, 18, 0.68)'
+      : 'rgba(250, 249, 247, 0.72)';
   }
 
   // 2. Borde perimetral de refracción
-  let borderColor = isDark
-    ? 'rgba(113, 120, 124, 0.28)'
-    : 'rgba(226, 232, 237, 0.70)';
+  let borderColor = colors.glassBorder;
 
   if (variant === 'tiffany') {
-    borderColor = isDark ? 'rgba(142, 182, 199, 0.45)' : 'rgba(142, 182, 199, 0.55)';
+    borderColor = isDark ? 'rgba(78, 120, 100, 0.55)' : 'rgba(45, 66, 56, 0.28)';
   } else if (variant === 'accent') {
-    borderColor = isDark ? 'rgba(158, 188, 179, 0.40)' : 'rgba(158, 188, 179, 0.50)';
+    borderColor = isDark ? 'rgba(78, 120, 100, 0.48)' : 'rgba(45, 66, 56, 0.24)';
   }
 
   // 3. Elevación y sombra ambiental canónica

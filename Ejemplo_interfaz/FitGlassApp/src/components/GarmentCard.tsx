@@ -7,6 +7,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 import { GlassCard } from './GlassCard';
+import { translateOr } from '../i18n/lookCategories';
 
 interface GarmentCardProps {
   garment: Garment;
@@ -21,10 +22,10 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
   onFavoriteToggle,
   isFavorite = false,
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { t } = useTranslation();
 
-  const translatedCategory = t(`common.${garment.category.toLowerCase()}`) || garment.category;
+  const translatedCategory = translateOr(t, `common.${garment.category.toLowerCase()}`, garment.category);
   const translatedColor = t(`color.${garment.colorName}`) || garment.colorName;
   const translatedFit = t(`fit.${garment.fit}`) || garment.fit;
 
@@ -54,7 +55,7 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
               style={[
                 styles.productShapeWrapper,
                 {
-                  backgroundColor: isDark ? 'rgba(39, 39, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+                  backgroundColor: colors.glass,
                   borderColor: colors.border,
                 },
               ]}
@@ -83,7 +84,7 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
           <TouchableOpacity
             style={[
               styles.favoriteButton,
-              { backgroundColor: isDark ? 'rgba(24, 24, 27, 0.85)' : 'rgba(255, 255, 255, 0.85)' },
+              { backgroundColor: colors.glass },
             ]}
             onPress={onFavoriteToggle}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -101,7 +102,7 @@ export const GarmentCard: React.FC<GarmentCardProps> = ({
           style={[
             styles.sizeBadge,
             {
-              backgroundColor: isDark ? 'rgba(39, 39, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+              backgroundColor: colors.glass,
               borderColor: colors.borderLight,
             },
           ]}

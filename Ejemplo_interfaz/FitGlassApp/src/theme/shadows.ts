@@ -2,7 +2,7 @@
 /**
  * Canonical Luxury Fashion Editorial Ambient Shadows & Elevations — FitGlass Atelier
  *
- * Soft, diffuse ambient lighting tinted with Basalt Charcoal (#1A1C1D) for light mode
+ * Soft, diffuse ambient lighting tinted with Pine Charcoal (#1A221F) for light mode
  * and deep Obsidian (#000000) for dark mode, mimicking museum/gallery directional
  * studio lighting rather than muddy drop-shadows.
  */
@@ -17,28 +17,28 @@ export interface ShadowToken {
 
 export const Shadows = {
   ambient: {
-    shadowColor: '#1A1C1D',
+    shadowColor: '#1A221F',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.04,
     shadowRadius: 18,
     elevation: 2,
   },
   subtle: {
-    shadowColor: '#1A1C1D',
+    shadowColor: '#1A221F',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
     shadowRadius: 12,
     elevation: 2,
   },
   floating: {
-    shadowColor: '#1A1C1D',
+    shadowColor: '#1A221F',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.06,
     shadowRadius: 24,
     elevation: 4,
   },
   sheet: {
-    shadowColor: '#1A1C1D',
+    shadowColor: '#1A221F',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
