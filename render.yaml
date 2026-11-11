@@ -5,7 +5,7 @@ services:
     name: vitra-fitglassai
     runtime: python
     plan: free
-    rootDir: Ejemplo_interfaz/FitGlassAI
+    rootDir: FitGlassAI
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
     healthCheckPath: /health

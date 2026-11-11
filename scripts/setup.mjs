@@ -6,8 +6,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const backendDir = join(repoRoot, 'Ejemplo_interfaz', 'FitGlassAI');
-const frontendDir = join(repoRoot, 'Ejemplo_interfaz', 'FitGlassApp');
+const backendDir = join(repoRoot, 'FitGlassAI');
+const frontendDir = join(repoRoot, 'FitGlassApp');
 const backendEnv = join(backendDir, '.env');
 const backendEnvExample = join(backendDir, '.env.example');
 const venvDir = join(backendDir, '.venv');
@@ -69,8 +69,8 @@ try {
   }
 
   console.log('\nPreparación terminada.');
-  console.log('Backend: cd Ejemplo_interfaz/FitGlassAI && .venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000');
-  console.log('Frontend: cd Ejemplo_interfaz/FitGlassApp && npm start');
+  console.log('Backend: cd FitGlassAI && .venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000');
+  console.log('Frontend: cd FitGlassApp && npm start');
   if (windows) console.log('En Windows, el Python del entorno está en FitGlassAI\\.venv\\Scripts\\python.exe.');
   console.log('Para usar el móvil, configura EXPO_PUBLIC_API_BASE_URL con la IP o URL alcanzable del backend.');
 } catch (error) {

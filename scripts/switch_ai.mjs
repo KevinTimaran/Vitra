@@ -8,11 +8,9 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 
 function findEnvPath() {
   const candidates = [
-    resolve(currentDir, '..', 'Ejemplo_interfaz', 'FitGlassAI', '.env'),
     resolve(currentDir, '..', 'FitGlassAI', '.env'),
     resolve(currentDir, 'FitGlassAI', '.env'),
     resolve(process.cwd(), 'FitGlassAI', '.env'),
-    resolve(process.cwd(), 'Ejemplo_interfaz', 'FitGlassAI', '.env'),
     resolve(process.cwd(), '.env'),
   ];
   for (const c of candidates) {

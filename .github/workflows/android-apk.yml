@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
-        working-directory: Ejemplo_interfaz/FitGlassApp
+        working-directory: FitGlassApp
     env:
       EXPO_PUBLIC_API_BASE_URL: ${{ vars.API_BASE_URL || 'https://vitra-fitglassai.onrender.com' }}
     steps:
@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: Ejemplo_interfaz/FitGlassApp/package-lock.json
+          cache-dependency-path: FitGlassApp/package-lock.json
 
       - uses: actions/setup-java@v4
         with:
@@ -54,7 +54,7 @@ jobs:
         run: npx expo prebuild --platform android --no-install --clean
 
       - name: Compilar APK (release firmado con clave de depuración, solo para pruebas)
-        working-directory: Ejemplo_interfaz/FitGlassApp/android
+        working-directory: FitGlassApp/android
         run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
       - name: Renombrar APK
@@ -63,17 +63,18 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: vitra-prueba-apk
-          path: Ejemplo_interfaz/FitGlassApp/vitra-prueba.apk
+          path: FitGlassApp/vitra-prueba.apk
 
       - name: Publicar en Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('apk-{0}', github.run_number) }}
           name: Vitra APK de prueba ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('#{0}', github.run_number) }}
-          prerelease: true
+          prerelease: false
+          make_latest: true
           body: |
             APK de **prueba** de Vitra para Android (arm64).
             Backend: ${{ env.EXPO_PUBLIC_API_BASE_URL }}
             Instalación: descarga `vitra-prueba.apk`, ábrelo en el teléfono y permite "instalar apps de origen desconocido".
             La primera petición puede tardar ~1 minuto si el servidor gratuito estaba dormido.
-          files: Ejemplo_interfaz/FitGlassApp/vitra-prueba.apk
+          files: FitGlassApp/vitra-prueba.apk

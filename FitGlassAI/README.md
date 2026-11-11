@@ -11,7 +11,7 @@ Backend para FitGlass enfocado en el análisis de prendas de ropa utilizando la 
 Abre una terminal Fish y ejecuta:
 
 ```fish
-cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassAI
+cd FitGlassAI
 
 # linux
 source .venv/bin/activate.fish
@@ -39,7 +39,7 @@ Verifica que el backend esté funcionando abriendo en el navegador:
 Abre otra terminal Fish:
 
 ```fish
-cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassApp
+cd FitGlassApp
 
 npx expo start -c
 ```
@@ -69,7 +69,7 @@ EXPO_PUBLIC_API_BASE_URL=http://192.168.1.11:8000
 ### Terminal 1 — Backend (FastAPI)
 
 ```fish
-cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassAI
+cd FitGlassAI
 
 source .venv/bin/activate.fish
 
@@ -81,7 +81,7 @@ Si el proyecto está en otra ruta del portátil, utiliza la ruta real donde teng
 ### Terminal 2 — Frontend (Expo con Túnel)
 
 ```fish
-cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassApp
+cd FitGlassApp
 
 npx expo start -c --tunnel
 ```
@@ -91,7 +91,7 @@ npx expo start -c --tunnel
 Cuando ejecutas Expo con `--tunnel`, el iPhone se conecta por internet fuera de la red local. Por lo tanto, el backend FastAPI también necesita su propio túnel público:
 
 ```fish
-cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassApp
+cd FitGlassApp
 
 npm run tunnel:backend
 ```
@@ -162,7 +162,7 @@ Si no abre, comprueba que FastAPI esté ejecutándose con `--host 0.0.0.0`, que 
 Si al activar `.venv` aparece un error porque no encuentra el archivo, crea el entorno e instala las dependencias desde `pyproject.toml`:
 
 ```fish
-cd ~/Universidad/Diseno_de_interfaces/Proyectos/AppArmario/Vitra/Ejemplo_interfaz/FitGlassAI
+cd FitGlassAI
 
 python -m venv .venv
 
